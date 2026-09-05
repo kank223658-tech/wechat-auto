@@ -1,0 +1,167 @@
+{
+  "name": "参考图复刻：聊天列表/发现/朋友圈",
+  "steps": [
+    {
+      "action": "编辑主页",
+      "params": {
+        "数据": [
+          {
+            "name": "微信支付",
+            "text": "已支付¥11.65",
+            "avatar": "/images/ref/pay.png",
+            "read": false,
+            "newMsgCount": 9,
+            "timestamp": 1787653320000
+          },
+          {
+            "name": "梓康群",
+            "text": "下午看得怎么样",
+            "avatar": "/images/ref/qun.png",
+            "quiet": true,
+            "read": false,
+            "timestamp": 1787652960000
+          },
+          {
+            "name": "陆香儿",
+            "text": "我也吃饭去了",
+            "avatar": "/images/ref/luxianger.png",
+            "read": false,
+            "newMsgCount": 1,
+            "timestamp": 1787652960000
+          },
+          {
+            "name": "服务号",
+            "text": "广东联网售票：已上线！全省客运线路实现“一…”",
+            "avatar": "/images/ref/fuwu.png",
+            "read": true,
+            "timestamp": 1787650140000
+          },
+          {
+            "name": "公众号",
+            "text": "快讯：自动驾驶首次被写入法律",
+            "avatar": "/images/ref/gongzhong.png",
+            "read": true,
+            "timestamp": 1787626620000
+          },
+          {
+            "name": "微信团队",
+            "text": "登录操作通知",
+            "avatar": "/images/ref/weixin_team.png",
+            "read": true,
+            "timestamp": 1787590140000
+          },
+          {
+            "name": "沉默光环",
+            "text": "拍得",
+            "avatar": "/images/ref/chenmo.png",
+            "read": true,
+            "timestamp": 1787673120000
+          },
+          {
+            "name": "D",
+            "text": "给 Cursor 的精准开发提示词（复制即用）#任…",
+            "avatar": "/images/ref/D.png",
+            "read": true,
+            "timestamp": 1787668080000
+          },
+          {
+            "name": "妍",
+            "text": "在吗",
+            "avatar": "/images/ref/yan.png",
+            "read": true,
+            "timestamp": 1787659800000
+          }
+        ]
+      }
+    },
+    {
+      "action": "修改昵称",
+      "params": {
+        "昵称": "d"
+      }
+    },
+    {
+      "action": "设置头像",
+      "params": {
+        "图片": "/images/ref/stitch.png"
+      }
+    },
+    {
+      "action": "设置背景",
+      "params": {
+        "图片": "/images/ref/grey_cover.png"
+      }
+    },
+    {
+      "action": "编辑朋友圈",
+      "params": {
+        "数据": [
+          {
+            "author": "陆香儿",
+            "avatar": "/images/ref/luxianger.png",
+            "text": "就这么丝滑的下班。",
+            "images": [
+              "/images/ref/lux_video.png"
+            ],
+            "time": "35分钟前",
+            "likes": [],
+            "comments": [
+              {
+                "name": "陆香儿",
+                "text": "没有保持苹果肌扁平的义务。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "action": "返回主页",
+      "params": {}
+    },
+    {
+      "action": "等待",
+      "params": {
+        "秒数": 2.5
+      }
+    },
+    {
+      "action": "切换Tab",
+      "params": {
+        "Tab": "通讯录"
+      }
+    },
+    {
+      "action": "等待",
+      "params": {
+        "秒数": 1.5
+      }
+    },
+    {
+      "action": "切换Tab",
+      "params": {
+        "Tab": "发现"
+      }
+    },
+    {
+      "action": "等待",
+      "params": {
+        "秒数": 1.8
+      }
+    },
+    {
+      "action": "进入朋友圈",
+      "params": {}
+    },
+    {
+      "action": "等待",
+      "params": {
+        "秒数": 2.6
+      }
+    },
+    {
+      "action": "返回主页",
+      "params": {}
+    }
+  ]
+}

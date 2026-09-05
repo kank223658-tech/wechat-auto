@@ -1,0 +1,1034 @@
+/* ============================================================
+   现代微信 iOS 皮肤（main.py 注入，覆盖旧版 vue-WeChat 外观）
+   ------------------------------------------------------------
+   把旧版"深色头部 / 老式设计"覆盖为现代微信 8.x iOS 风格：
+   白色导航、新版底部 Tab、iOS 圆角聊天气泡、PingFang 字体、
+   浅色朋友圈。注入顺序在所有 App 样式之后，用 !important
+   保证覆盖生效。
+   ============================================================ */
+
+/* ---- 全局字体 / 底色 ---- */
+/* 优先苹方（真机微信字体），Windows 无苹方时回退到随项目自带的 HarmonyOS Sans SC
+   （最接近苹方的黑体，已通过 harmony_font.css 注入分片），保证录屏贴近真机。 */
+html, body {
+    font-family: "PingFang SC", "HarmonyOS Sans SC", -apple-system, BlinkMacSystemFont,
+        "Helvetica Neue", "Hiragino Sans GB",
+        "Microsoft YaHei", sans-serif;
+}
+/* 背景改为白色：防止内容未撑满时出现黑色空洞 */
+body { background: #fff; }
+
+/* ============================================================
+   iOS 页面推入/推出：与底页视差(.34s/同缓动)严格同步。
+   旧 animate.css 的 .animated 是 0.3s + 默认 ease，与底页不同步；
+   这里统一为 .34s + iOS 内滑动缓动，子页滑入/滑出与底页移动完全一致。
+   ============================================================ */
+.sub-page.animated {
+    -webkit-animation-duration: .34s !important;
+    animation-duration: .34s !important;
+    -webkit-animation-timing-function: cubic-bezier(.32, .72, 0, 1) !important;
+    animation-timing-function: cubic-bezier(.32, .72, 0, 1) !important;
+}
+
+/* 内容区默认占满状态栏与底部 Tab 之间的空间，避免底部黑屏 */
+.app-content {
+    background: #fff;
+    min-height: 713px;
+}
+#wechat {
+    min-height: 100%;
+    background: #fff;
+}
+#wechat .wechat-list {
+    min-height: 100%;
+    background: #fff;
+}
+
+/* ============================================================
+   一、导航栏（首页大标题页 / 子页面头部统一浅色化）
+   ============================================================ */
+.app-header,
+#wx-header {
+    background: #f7f7f8 !important;
+    color: #111 !important;
+    border-bottom: .5px solid rgba(0, 0, 0, .08);
+}
+.app-header { height: 50px; line-height: 50px; }
+#wx-header { height: 50px; line-height: 50px; }
+#wx-header .center { font-size: 17px; font-weight: 500; color: #111; }
+#wx-header .center span { color: #111; }
+
+/* 返回按钮：只保留蓝色箭头，去掉旁边的「微信」文字 */
+#wx-header .icon-return-arrow {
+    left: 10px;
+    color: #576b95 !important;
+    font-size: 20px;
+}
+#wx-header .icon-return-arrow span { display: none; }
+/* 对话页右上角菜单图标：真机微信为「···」，覆盖人头/群组图标 */
+#wx-header .other { color: #576b95; }
+#wx-header .other .iconfont {
+    color: #576b95;
+    font-family: inherit !important;
+    font-size: 20px !important;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+#wx-header .other .icon-chat-friends::before,
+#wx-header .other .icon-chat-group::before {
+    content: "···";
+    font-family: inherit;
+}
+
+/* 首页「微信」大标题加号按钮（CSS 伪元素，不改动源码结构） */
+.app-header .center {
+    font-size: 20px;
+    font-weight: 600;
+}
+.app-header { position: relative; }
+.app-header::after {
+    content: "+";
+    position: absolute;
+    right: 18px;
+    top: 0;
+    height: 50px;
+    line-height: 46px;
+    font-size: 30px;
+    font-weight: 300;
+    color: #111;
+}
+
+/* ---- 搜索栏：iOS 圆角灰底 ---- */
+#search {
+    position: relative;
+    z-index: 2;
+    /* 强制独立合成层，避免录屏时出现残影/重影 */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+.weui-search-bar {
+    background: transparent !important;
+    padding: 0 16px 8px !important;
+    border-bottom: none !important;
+    position: relative;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+.weui-search-bar__form {
+    position: relative;
+    z-index: 1;
+    /* 关键：去掉 weui 默认的浅灰 #efeff4 底，避免搜索框四周出现白/浅色外框 */
+    background: transparent !important;
+}
+/* 去掉搜索栏上下的 1px 浅色细线（weui 用 :before/:after 绘制） */
+.weui-search-bar:before,
+.weui-search-bar:after {
+    display: none !important;
+}
+.weui-search-bar__box {
+    background: #ededed !important;
+    border-radius: 8px !important;
+    height: 36px;
+    position: relative;
+    overflow: hidden;
+    opacity: 1 !important;        /* 始终显示输入框那条胶囊 */
+}
+.weui-search-bar__box .weui-search-bar__input { background: transparent; }
+/* 去掉叠加的占位标签胶囊，避免出现两根搜索条（真机只有一条） */
+.weui-search-bar__label { display: none !important; background: transparent !important; }
+.weui-search-bar__box .weui-icon-search { color: #b2b2b2; }
+
+/* ============================================================
+   二、聊天列表（首页微信 Tab）
+   ============================================================ */
+#wechat .wechat-list .list-row {
+    height: 68px !important;
+    background: #fff !important;
+}
+#wechat .wechat-list .list-info {
+    position: relative !important;
+    z-index: 10 !important;
+    transform: translateZ(0);
+    background: #fff !important;
+    height: 68px !important;
+    padding: 10px 16px !important;
+}
+#wechat .wechat-list .operate-box {
+    z-index: 0 !important;
+    height: 68px !important;
+}
+#wechat .wechat-list .header-box { width: 48px; height: 48px; margin-right: 12px; }
+#wechat .wechat-list .header-box .header {
+    border-radius: 9px;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* 关键：去掉 weui 默认浅灰 #dddbdb 底，避免头像未充满时露出的浅色边框 */
+    background: transparent !important;
+}
+#wechat .wechat-list .header-box .header:not(.multi-header) img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    flex-grow: 0 !important;
+    border-radius: 9px;
+}
+#wechat .wechat-list .header-box .header.multi-header img {
+    width: 10% !important;
+    height: auto !important;
+    flex-grow: 2 !important;
+    border-radius: 0;
+}
+#wechat .wechat-list .desc-author {
+    font-size: 17px;
+    color: #111;
+    font-weight: 500;
+    height: 26px;
+    line-height: 26px;
+}
+#wechat .wechat-list .desc-msg { font-size: 14px; color: #999; }
+#wechat .wechat-list .desc-time { color: #b2b2b2; font-size: 12px; }
+/* 未读徽标：现代红色圆角 */
+.new-msg-count {
+    background: #fa5151;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    border-radius: 8px;
+    font-size: 11px;
+    padding: 0 5px;
+    box-sizing: border-box;
+}
+.line-bottom:not(:first-child)::before { background-color: #e5e5e5; }
+
+/* ============================================================
+   三、底部 Tab（新版微信：选中微信=绿，其余=蓝）
+   ============================================================ */
+#wx-nav nav {
+    background: #f7f7f8;
+    padding-top: 8px;
+}
+#wx-nav nav dl { color: #929292; }
+#wx-nav nav dt { color: #929292; }
+#wx-nav nav dd { color: #929292; }
+#wx-nav nav dl.router-link-active dt,
+#wx-nav nav dl.router-link-active dd { color: #576b95; }
+#wx-nav nav dl:has(dd:text-is("微信")).router-link-active dt,
+#wx-nav nav dl:has(dd:text-is("微信")).router-link-active dd { color: #07c160; }
+
+/* ============================================================
+   四、聊天对话页（iOS 圆角气泡）
+   ============================================================ */
+.dialogue-section {
+    background: #ededed !important;
+}
+.dialogue-section .row { margin-top: 26px; }
+.dialogue-section .row .header {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+}
+.dialogue-section .row .text {
+    border-radius: 8px;
+    padding: 10px 12px;
+    max-width: 72%;
+    font-size: 17px;
+    line-height: 1.45;
+    color: #111;
+    background: #fff;
+    margin-left: 12px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+}
+.dialogue-section .row .text:before {
+    left: -12px;
+    border-right-color: #fff;
+}
+/* 自己发送的气泡（ENHANCE_JS 注入 .row.self） */
+.dialogue-section .row.self .header { width: 40px; height: 40px; border-radius: 4px; }
+.dialogue-section .row.self .text {
+    background: #95ec69 !important;
+    margin-left: 0;
+    margin-right: 12px;
+}
+.dialogue-section .row.self .text:before {
+    left: auto;
+    right: -12px;
+    border-right-color: transparent;
+    border-left-color: #95ec69;
+}
+/* 对方正在输入提示 */
+.peer-typing { font-size: 12px; color: #999; }
+
+/* ---- 聊天输入栏 ---- */
+.dialogue-footer { background: #f7f7f8; }
+.component-dialogue-bar-person { background: #f7f7f8; }
+.component-dialogue-bar-person::before { background-color: #d8d8d8; }
+.component-dialogue-bar-person .iconfont { color: #111; }
+.chat-way .chat-txt {
+    border-radius: 6px;
+    border-color: #d8d8d8;
+    background: #fff;
+}
+
+/* ---- 长按消息菜单（msg-more）现代深色圆角 ---- */
+.dialogue-section .msg-more {
+    border-radius: 8px;
+    background: rgba(46, 46, 46, .94);
+}
+
+/* ============================================================
+   五、朋友圈
+   ============================================================ */
+#moments .home-pic { height: 280px; position: relative; }
+/* 封面顶部/底部叠一层柔和渐变，保证白色昵称在任意封面图上清晰可读 */
+#moments .home-pic::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(0,0,0,.30) 0%, rgba(0,0,0,.05) 40%, rgba(0,0,0,.38) 100%);
+}
+/* 朋友圈封面头像：真机为「圆角矩形」小头像，压在封面右下角，昵称在左侧
+   需去掉 vue 原生的 transform:scale(0.5)，否则实际显示尺寸只有一半 */
+#moments .home-pic-base .top-pic {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    width: 76px !important;
+    height: 76px !important;
+    transform: none !important;
+    transform-origin: center !important;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.08) !important;
+}
+#moments .home-pic-base .top-pic .top-pic-inner,
+#moments .home-pic-base .top-pic .top-pic-inner img {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 8px !important;
+    object-fit: cover !important;
+    transform: none !important;
+}
+/* 昵称跟随头像位置，紧贴头像左侧（头像右下角、昵称在其左） */
+#moments .home-pic-base .top-name { right: 78px !important; }
+#moments .home-pic-base .top-name { font-size: 17px; font-weight: 500; }
+#moments .moments__post { background: #fff; }
+/* 动态行改为 flex：左侧头像固定列，右侧内容列自适应，头像与昵称顶部对齐 */
+#moments .moments__post {
+    display: flex !important;
+    align-items: flex-start !important;
+}
+#moments .moments__post .weui-cell__hd {
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    margin-right: 10px !important;
+    margin-top: 2px !important;
+}
+#moments .moments__post .weui-cell__hd img {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 6px !important;
+    display: block !important;
+    object-fit: cover !important;
+}
+#moments .moments__post .weui-cell__bd {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    display: block !important;
+    font-size: 16px;
+}
+#moments .moments__post .title { color: #576b95; font-size: 16px; }
+#moments .moments__post .paragraph { color: #111; line-height: 1.5; }
+#moments .moments__post .timestamp { color: #b2b2b2; font-size: 12px; }
+#moments .moments__post .liketext {
+    background: #f7f7f7;
+    border-radius: 2px;
+}
+#moments .moments__post .liketext .nickname { color: #576b95; }
+/* 点赞/评论操作菜单：贴合时间栏右上 ··· 弹出的深灰圆角条 */
+#moments .moments__post .action-menu,
+#moments .moments__post .actionMenu {
+    display: none !important;
+    position: absolute !important;
+    top: -40px !important;
+    right: 0 !important;
+    height: 40px !important;
+    background: #4e5156 !important;
+    border-radius: 6px !important;
+    z-index: 6 !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    padding: 0 10px !important;
+    white-space: nowrap;
+}
+/* 点击 ··· 后展开：从按钮右上角缩放弹出（真机菜单弹出观感） */
+#moments .moments__post .actionMenu.open {
+    display: flex !important;
+    animation: actionMenuPop .18s cubic-bezier(.25, .9, .35, 1.1) both;
+    transform-origin: 100% 0;
+}
+@keyframes actionMenuPop {
+    from { transform: scale(.55); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+#moments .moments__post .actionMenu .actionBtn {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    margin: 0 8px !important;
+    color: #fff !important;
+    font-size: 14px !important;
+    cursor: pointer;
+}
+#moments .moments__post .actionMenu .actionBtn .icon {
+    font-size: 18px !important;
+    color: #fff !important;
+}
+/* 点赞/评论图标（iconfont 缺省 icon-96/icon-3，用内联 SVG 补齐） */
+#moments .moments__post .btn-like .icon.icon-96::before,
+#moments .moments__post #btnLike .icon.icon-96::before,
+#moments .moments__post .liketext .icon.icon-96::before {
+    content: "";
+    font-family: "iconfont";
+    color: inherit;
+    background: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236aa1ff'%3E%3Cpath d='M12 21s-8-4.5-10-9c-1.2-2.6.3-6 3.2-6C7 6 9 7.2 10 9c1-1.8 3-3 4.8-3 2.9 0 4.4 3.4 3.2 6-2 4.5-10 9-10 9z'/%3E%3C/svg%3E") center / contain no-repeat;
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    vertical-align: -2px;
+    margin-right: 3px;
+}
+#moments .moments__post .btn-comment .icon.icon-3::before,
+#moments .moments__post #btnComment .icon.icon-3::before {
+    content: "\e600";
+    font-family: "iconfont";
+    color: transparent;
+    background: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M21 11.5c0 4.1-4.1 7.5-9 7.5-1 0-2-.1-2.9-.4L4 21l1.6-3.8C4 15.9 3 13.8 3 11.5 3 7.4 7.1 4 12 4s9 3.4 9 7.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+    width: 16px; height: 16px; display: inline-block;
+}
+/* 点赞后按钮高亮（真机微信点赞后图标变蓝） */
+#moments .moments__post .btn-like.liked .icon,
+#moments .moments__post #btnLike.liked .icon {
+    color: #576b95;
+}
+/* 评论条目 */
+.comment-entry { color: #111; }
+.comment-entry b { color: #576b95; }
+
+/* ============================================================
+   六、通讯录 / 发现 / 我 页面（浅色统一）
+   ============================================================ */
+.weui-cells {
+    margin-top: 8px;
+    background: #fff;
+}
+.weui-cell { font-size: 17px; color: #111; }
+.weui-cell__bd { color: #111; }
+.weui-cell__bd p { color: #111; }
+.weui-cell__hd img { border-radius: 4px; }
+.self-nickname { font-size: 20px; font-weight: 500; }
+.self-wxid { font-size: 13px; color: #999; }
+.home__icon { }
+
+/* ============================================================
+   七、发朋友圈编辑页（momentCompose）浅色统一
+   ============================================================ */
+#momentCompose { background: #f7f7f8; }
+#momentCompose .mc-top { background: #f7f7f8; border-bottom: .5px solid #e0e0e5; }
+#momentCompose .mc-cancel { color: #576b95; }
+#momentCompose .mc-top b { color: #111; }
+#momentCompose .mc-send { background: #07c160; }
+#momentCompose .mc-send.mc-disabled { background: #b9b9c0; }
+
+/* ============================================================
+   八、深色模式（仿微信 iOS 深色皮肤 / iPhone 深色模式打字界面）
+   ------------------------------------------------------------
+   覆盖前面所有浅色设定，让录屏整体呈现"iPhone 深色模式 + 微信
+   深色皮肤"。配合 iphone_frame.css 的深色状态栏与键盘深色覆盖层，
+   使"打字界面"与真机深色模式一致。
+   所有规则都用 !important，置于文件最末，确保覆盖生效。
+   ============================================================ */
+
+/* ---- 全局底色 ---- */
+body, #app { background: #111 !important; }
+.app-content, #wechat, #wechat .wechat-list { background: #111 !important; }
+.sub-page { background: #111 !important; }
+
+/* ---- 导航栏 / 头部（深色） ---- */
+.app-header, #wx-header {
+    background: #111 !important;
+    color: #fff !important;
+    border-bottom: .5px solid #2e2e30 !important;
+}
+.app-header { color: #fff !important; }
+.app-header .center, .app-header .center span { color: #fff !important; }
+.app-header::after { color: #fff !important; }
+#wx-header .center, #wx-header .center span { color: #fff !important; }
+#wx-header .center .parentheses { color: #fff !important; }
+#wx-header .icon-return-arrow { color: #576b95 !important; }
+#wx-header .other, #wx-header .other .iconfont { color: #fff !important; }
+#wx-header .other .iconfont { color: #fff !important; }
+
+/* ---- 搜索栏（深色圆角） ---- */
+.weui-search-bar { background: #1c1c1e !important; }
+.weui-search-bar__box { background: #2e2e30 !important; }
+/* 关键：去掉 WeUI 在搜索胶囊里层绘制的白色内衬与 1px 浅色描边（form::after）。
+   它叠在深色胶囊外面，四周（尤其左右）会露出一圈浅色"边界"，
+   与真机深色模式搜索框（无边框、直接融入背景）不符。 */
+.weui-search-bar__form:after { background: transparent !important; border: none !important; }
+.weui-search-bar__label,
+.weui-search-bar__box .weui-search-bar__input { color: #9a9aa2 !important; }
+.weui-search-bar__box .weui-search-bar__input { color: #fff !important; }
+.weui-search-bar__box .weui-search-bar__input::placeholder { color: #9a9aa2 !important; }
+.weui-search-bar__box .weui-icon-search { color: #9a9aa2 !important; }
+/* 清空 ✕：真机只在输入内容后才出现，空搜索框时隐藏 */
+.weui-search-bar__box .weui-icon-clear { display: none !important; }
+.weui-search-bar__box:has(input:not(:placeholder-shown)) .weui-icon-clear { display: block !important; }
+
+/* ---- 聊天列表（深色） ---- */
+#wechat .wechat-list .list-row { background: #191919 !important; }
+#wechat .wechat-list .list-info { background: #191919 !important; }
+#wechat .wechat-list .desc-author { color: #fff !important; }
+#wechat .wechat-list .desc-msg { color: #8e8e93 !important; }
+#wechat .wechat-list .desc-time { color: #5a5a5e !important; }
+.line-bottom:not(:first-child)::before { background-color: #2e2e30 !important; }
+
+/* ---- 聊天对话页（深色气泡） ---- */
+.dialogue-section { background: #111 !important; }
+.dialogue-section .row .header { background: #2c2c2e; }
+/* 对方气泡：深灰底 + 白字 */
+.dialogue-section .row .text {
+    background: #2c2c2c !important;
+    color: #fff !important;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .5);
+}
+.dialogue-section .row .text:before { border-right-color: #2c2c2c !important; }
+/* 我方气泡：微信深色模式标准绿 #27b561 + 黑字（对齐参考截图，非浅色亮绿） */
+.dialogue-section .row.self .text {
+    background: #27b561 !important;
+    color: #111 !important;
+}
+.dialogue-section .row.self .text:before {
+    border-right-color: transparent;
+    border-left-color: #27b561 !important;
+}
+/* 对方正在输入 + 系统提示 */
+.peer-typing { color: #8e8e93 !important; }
+.msg-system { color: #5a5a5e !important; }
+.voice-dur { color: #c8c8ce; }
+.row.self .text.msg-voice { background: #27b561 !important; color: #111 !important; }
+.row .text.msg-voice .voice-wave i { background: #c8c8ce; }
+.row.self .text.msg-voice .voice-wave i { background: #eaf7dc; }
+
+/* ---- 聊天输入栏（深色） ---- */
+.dialogue-footer,
+.component-dialogue-bar-person { background: #1c1c1e !important; }
+.component-dialogue-bar-person::before { background-color: #2e2e30 !important; }
+.component-dialogue-bar-person .iconfont { color: #fff !important; }
+.chat-way .chat-txt {
+    border-color: #2e2e30 !important;
+    background: #2e2e30 !important;
+    color: #fff !important;
+}
+.chat-say { background: #2e2e30 !important; color: #c8c8ce !important; }
+/* 长按消息菜单：深色 */
+.dialogue-section .msg-more { background: rgba(34, 34, 36, .96) !important; color: #fff !important; }
+
+/* ---- 通用 weui 容器（通讯录/发现/我/设置等子页面）深色 ---- */
+.weui-cells { background: #1c1c1e !important; }
+.weui-cell { color: #fff !important; background: #1c1c1e !important; }
+.weui-cell__bd, .weui-cell__bd p { color: #fff !important; }
+.weui-cell__ft, .weui-cell__ft .weui-label { color: #8e8e93 !important; }
+.weui-cell:not(:first-child):before { background-color: #2e2e30 !important; }
+.weui-cell_access .weui-cell__ft:after { border-color: #6e6e73 !important; }
+
+/* ---- 发现页：现代微信条目（图标尺寸 / 行高 / 箭头 / 角标） ---- */
+#explore .weui-cells { margin-top: 12px; }
+#explore .weui-cell { height: 56px; line-height: 22px; }
+#explore .weui-cell__hd { width: 32px; margin-right: 14px; }
+#explore .weui-cell__hd img {
+    width: 28px; height: 28px; margin-right: 0; display: block;
+}
+#explore .weui-cell__hd .wx-ic { width: 28px; height: 28px; display: block; }
+#explore .weui-cell__bd { font-size: 17px; color: #fff !important; }
+#explore .weui-cell_access .weui-cell__ft:after {
+    border-color: #8a8a8e !important; border-width: 2px 2px 0 0;
+    width: 8px; height: 8px; margin-top: -4px;
+}
+.weui-cell_switch .weui-switch { }
+.weui-switch:checked { border-color: #07c160 !important; background-color: #07c160 !important; }
+.self-nickname, .self-wxid { color: #fff !important; }
+.self-wxid { color: #8e8e93 !important; }
+
+/* ---- 朋友圈（深色） ---- */
+#moments { background: #111 !important; }
+#moments .home-pic { background: #1c1c1e; }
+#moments .moments__post { background: #111 !important; }
+#moments .moments__post .weui-cell__bd { color: #fff !important; }
+#moments .moments__post .title { color: #6aa1ff !important; }
+#moments .moments__post .paragraph,
+#moments .moments__post .paragraph span { color: #fff !important; }
+#moments .moments__post .timestamp { color: #5a5a5e !important; }
+#moments .moments__post .liketext { background: #1c1c1e !important; }
+#moments .moments__post .liketext .nickname { color: #6aa1ff !important; }
+/* 评论输入条 */
+#commentBar { background: #1c1c1e !important; border-top-color: #2e2e30 !important; }
+#commentBar input { background: #2e2e30 !important; color: #fff !important; border-color: #2e2e30 !important; }
+.comment-entry { color: #fff !important; }
+.comment-entry b { color: #6aa1ff !important; }
+
+/* ---- 底部 Tab（深色） ---- */
+#wx-nav nav {
+    background: #1c1c1e !important;
+    border-top: .5px solid #2e2e30;
+}
+#wx-nav nav dl { color: #8e8e93 !important; }
+#wx-nav nav dt { color: #8c8c92 !important; width: 25px; height: 25px; font-size: 25px; }
+#wx-nav nav dd { color: #8e8e93 !important; font-size: 11px; margin-top: 1px; }
+/* 现代微信：选中 Tab 高亮为品牌绿（图标 + 文字同色） */
+#wx-nav nav dl.router-link-active dt,
+#wx-nav nav dl.router-link-active dd {
+    color: #07c160 !important;
+}
+
+/* ============================================================
+   九、旧样式残留清理（全局配套页统一现代深色）
+   ------------------------------------------------------------
+   覆盖各子页面残留的"白底 / 老绿色 / 浅灰线"等旧观感，使其与
+   现代深色微信一致。置于文件最末，确保 !important 全部生效。
+   ============================================================ */
+
+/* ---- 添加朋友：白色搜索条 -> 深色圆角 ---- */
+.add-friend .search-line {
+    background: #1c1c1e !important;
+    border-top: none !important;
+    border-bottom: .5px solid #2e2e30 !important;
+}
+.add-friend .search-line input {
+    background: transparent !important;
+    color: #fff !important;
+}
+.add-friend .search-line input::placeholder { color: #9a9aa2 !important; }
+.add-friend .search-line .icon-search { color: #9a9aa2 !important; }
+
+/* ---- 群聊信息 / 聊天详情：白色功能宫格 -> 深色 ---- */
+.chat-dialogue-entry-collect {
+    background: #1c1c1e !important;
+    color: #fff !important;
+}
+.chat-dialogue-entry-collect li, .chat-dialogue-entry-collect p { color: #fff !important; }
+.chat-dialogue-entry-collect:before { background-color: #2e2e30 !important; }
+
+/* ---- 任意残留白色输入框透明化（深色下不再刺眼），光标统一微信绿 ---- */
+input, textarea {
+    caret-color: #07c160;
+}
+input::placeholder, textarea::placeholder { color: #9a9aa2 !important; }
+
+/* ============================================================
+   十、现代微信 8.x iOS 输入栏（聊天底部 / 评论 / 发朋友圈统一）
+   ------------------------------------------------------------
+   覆盖并消除 dialogue.less 里老式「width:200%; transform:scale(.5)」的
+   双倍缩放写法，改成新版微信 iOS 的圆形胶囊输入栏：
+   - 输入框：圆角胶囊(radius≈8px)、高约 38px、深色底、白字、占位灰；
+   - 左侧语音/表情图标 + 右侧「+」工具，行高约 52px；
+   - 聊天底部、朋友圈评论 #commentInput、发朋友圈 #mcText 三处风格一致。
+   ============================================================ */
+
+/* ---- 聊天底部输入栏整体 ---- */
+.dialogue-footer {
+    height: 49px !important;
+    background: #1c1c1e !important;
+}
+.component-dialogue-bar-person {
+    height: 49px !important;
+    padding: 5px 10px 7px !important;
+    align-items: center !important;
+    background: #1c1c1e !important;
+}
+.component-dialogue-bar-person::before { background-color: #2e2e30 !important; }
+/* 图标（语音/键盘/表情/加号）：收敛为现代尺寸 */
+.component-dialogue-bar-person .iconfont {
+    flex-basis: 30px !important;
+    width: 30px !important;
+    font-size: 24px !important;
+    line-height: 38px !important;
+    padding: 0 !important;
+    color: #fff !important;
+}
+
+/* ---- 输入胶囊：去掉 scale(.5) 双倍缩放，改为正常圆角填充 ----
+   注意：.chat-way 的 display 不加 !important，否则会覆盖 Vue v-show 写入的
+   内联 display:none，导致「按住说话」语音态与输入框同时显示。 */
+.chat-way {
+    padding: 0 !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    flex-grow: 1 !important;
+    flex-basis: 0 !important;
+    display: flex;
+    align-items: center;
+}
+.chat-way .chat-txt {
+    width: 100% !important;
+    height: 38px !important;
+    transform: none !important;
+    transform-origin: center !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 16px !important;
+    line-height: 38px !important;
+    padding: 0 12px !important;
+    box-sizing: border-box !important;
+    flex: 1 1 auto !important;
+    outline: none !important;
+    background: #2e2e30 !important;
+    color: #fff !important;
+}
+.chat-way .chat-txt::placeholder { color: #8e8e93 !important; }
+
+/* ---- 语音「按住说话」同样解除缩放 ---- */
+.chat-way .chat-say {
+    transform: none !important;
+    width: 100% !important;
+    height: 38px !important;
+    border-radius: 8px !important;
+    font-size: 15px !important;
+    background: #2e2e30 !important;
+    color: #c8c8ce !important;
+}
+
+/* ---- 朋友圈评论输入条：#commentInput 同款胶囊 ---- */
+#commentBar input {
+    height: 34px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0 12px !important;
+    font-size: 15px !important;
+    outline: none !important;
+}
+
+/* ---- 发朋友圈正文：#mcText 对齐 ---- */
+#momentCompose #mcText {
+    border-radius: 8px !important;
+    color: #fff !important;
+}
+
+/* ============================================================
+   十一、朋友圈格式细节（对照真机参考图优化）
+   ------------------------------------------------------------
+   1. 单张图片放大为大方块；2~4 张中图；5~9 张三列小图；
+   2. 右下角「···」操作钮由蓝色方块改为灰色省略号；
+   3. 评论区（点赞/评论）与正文间距、头像圆角。
+   ============================================================ */
+
+/* ---- 配图尺寸按数量分级（真机：单图大、双图/四图中、其余三列小图） ---- */
+#moments .moments__post .thumbnails.thumb-1 .thumbnail { width: 168px; height: 168px; }
+#moments .moments__post .thumbnails.thumb-1 .thumbnail img { width: 100% !important; height: 100% !important; }
+#moments .moments__post .thumbnails.thumb-2 .thumbnail,
+#moments .moments__post .thumbnails.thumb-4 .thumbnail { width: 122px; height: 122px; }
+#moments .moments__post .thumbnails.thumb-3 .thumbnail,
+#moments .moments__post .thumbnails.thumb-5 .thumbnail { width: 94px; height: 94px; }
+#moments .moments__post .thumbnails.thumb-6 .thumbnail,
+#moments .moments__post .thumbnails.thumb-7 .thumbnail,
+#moments .moments__post .thumbnails.thumb-8 .thumbnail,
+#moments .moments__post .thumbnails.thumb-9 .thumbnail { width: 94px; height: 94px; }
+#moments .moments__post .thumbnails .thumbnail {
+    margin: 0 6px 6px 0 !important;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #2c2c2e;
+}
+#moments .moments__post .thumbnails .thumbnail img { object-fit: cover; }
+
+/* ---- 左下时间 + 右下「···」操作钮 ---- */
+#moments .moments__post .toolbar { position: relative !important; margin-top: 4px; }
+#moments .moments__post .actionToggle {
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%);
+    background: transparent !important;
+    border-radius: 0 !important;
+    color: #b2b2b2 !important;
+    width: 24px !important;
+    height: 18px !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+    letter-spacing: 1.5px;
+    text-align: center !important;
+}
+
+/* ---- 头像圆角与正文/评论间距 ---- */
+#moments .moments__post .weui-cell__hd img { border-radius: 6px; }
+#moments .moments__post .weui-cell__bd { padding-top: 2px; }
+#moments .moments__post .paragraph { margin: 8px 0; }
+#moments .moments__post .liketext {
+    padding: 6px 8px !important;
+    border-radius: 0 0 0 0;
+    font-size: 14px !important;
+}
+/* 评论条目与点赞区共用浅灰底，包裹样式 */
+#moments .moments__post .comment-entry { padding: 1px 0; }
+
+/* ============================================================
+   十二、朋友圈参考图对齐（对照 IMG_0458 参考图微调）
+   ------------------------------------------------------------
+   修复与真机朋友圈的差异：
+   1. 朋友圈页右上角补上白色「相机」图标；
+   2. 封面居中添加「轻触设置相册封面」灰色提示文字；
+   3. 配图下方的来源标注（视频号 · xxx）渲染为灰色小字；
+   4. 评论区改为灰底圆角卡片。置于文件最末，确保覆盖生效。
+   ============================================================ */
+
+/* ---- 朋友圈页导航：右上角相机图标 ---- */
+#moments #wx-header { position: relative !important; }
+#moments #wx-header::after {
+    content: "";
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 20px;
+    background: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/%3E%3Ccircle cx='12' cy='13' r='4'/%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+}
+
+/* ---- 封面居中「轻触设置相册封面」提示（仅在未设置封面时显示）---- */
+#moments .home-pic { position: relative !important; }
+#moments .home-pic[data-cover="unset"]::after {
+    content: "轻触设置相册封面";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 42%;
+    transform: translateY(-50%);
+    text-align: center;
+    color: rgba(255, 255, 255, .40) !important;
+    font-size: 15px;
+    letter-spacing: 1px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* ---- 配图来源标注（视频号 · xxx）---- */
+#moments .moments__post .post-source {
+    color: #7f7f7f !important;
+    font-size: 13px;
+    margin: 8px 0 2px;
+    line-height: 1.4;
+}
+
+/* ---- 评论区灰底圆角卡片（深色模式统一）---- */
+#moments .moments__post .comment-entry {
+    display: inline-block;
+    background: #1c1c1e !important;
+    border-radius: 4px;
+    padding: 3px 6px;
+    margin: 2px 0;
+    color: #fff !important;
+}
+#moments .moments__post .comment-entry b { color: #6aa1ff !important; }
+#moments .moments__post .comment-send {
+    flex: none;
+    margin-left: 6px;
+    padding: 0 8px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    color: #07c160;
+    font-size: 14px;
+    cursor: pointer;
+}
+/* 多条评论连续时整体灰底 */
+#moments .moments__post .comment-entry + .comment-entry { margin-left: 0; }
+/* 点赞/评论共用一块灰底，包裹评论 */
+#moments .moments__post .liketext,
+#moments .moments__post .liketext + .comment-entry,
+#moments .moments__post .comment-entry {
+    background: #1c1c1e !important;
+}
+
+/* ============================================================
+   十三、全局字体统一（优先苹果苹方，回退 HarmonyOS Sans SC）
+   ------------------------------------------------------------
+   把 body 及主要容器、按钮、输入的字体统一为 苹方优先（真机微信字体），
+   Windows 无苹方时回退到随项目自带的 HarmonyOS Sans SC（最接近苹方的黑体），
+   覆盖旧版各组件单独声明的 font-family，避免回退到微软雅黑。
+   ============================================================ */
+body,
+.app-content,
+.wechat-list,
+.dialogue-section,
+#wx-header,
+.app-header,
+#wx-nav,
+.weui-cells,
+.weui-cell,
+button,
+input,
+textarea,
+select {
+    font-family: "PingFang SC", "HarmonyOS Sans SC", -apple-system, BlinkMacSystemFont,
+        "Helvetica Neue", "Hiragino Sans GB",
+        "Microsoft YaHei", sans-serif !important;
+}
+/* 中文数字/英文字距更贴近苹果苹方 */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 覆盖 vue 原生 moments.less 的 .weui-cell__hd img{width:45px!important}，
+   统一动态头像为 42px 圆角矩形，避免旧 45px 样式残留 */
+#moments .weui-cell.moments__post .weui-cell__hd,
+#moments .weui-cell.moments__post .weui-cell__hd > img {
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 42px !important;
+    border-radius: 6px !important;
+    object-fit: cover !important;
+}
+
+/* ============================================================
+   十四、残留浅色横线清理（聊天底部 / 朋友圈下方 / 发现页朋友圈入口下方）
+   ------------------------------------------------------------
+   新版微信深色下不应有任何 1px 白色/浅色分隔线或浅色底边。
+   统一把可能残留的 ::before/::after 分隔线及各容器底边压成深色 / 透明，
+   消除用户反馈的「白色横线」。置于文件最末确保覆盖生效。
+   ============================================================ */
+/* 聊天输入栏顶部分隔线 & 其内部 item 分隔线 */
+.component-dialogue-bar-person::before,
+.component-dialogue-bar .dialogue-item::before,
+.component-dialogue-bar .dialogue-item::after,
+.component-dialogue-bar .component-dialogue-bar-person::before {
+    background-color: #2e2e30 !important;
+}
+/* WeUI 单元格分隔线（通讯录 / 发现 / 设置 / 朋友圈入口等）：统一深色 */
+.weui-cell:before,
+.weui-cell:not(:first-child):before,
+.weui-cells::before,
+.weui-cells::after,
+#explore .weui-cell:not(:first-child):before {
+    background-color: #2e2e30 !important;
+}
+/* 聊天列表行分隔线 */
+.line-bottom:not(:first-child)::before,
+.wechat-list .list-row::before {
+    background-color: #2e2e30 !important;
+}
+/* 各容器与页面边缘：确保任何底边都不露白，紧贴 Home 条与 Tab 栏 */
+.outter,
+.sub-page,
+.sub-page.animated,
+.app-content,
+#app,
+#wechat,
+.wechat-list,
+#wechat .app-content {
+    background: #111 !important;
+}
+/* Tab 栏：顶部分隔线压深，底边不留白 */
+#wx-nav nav {
+    border-top: .5px solid #2e2e30 !important;
+    border-bottom: none !important;
+}
+/* 键盘与底部输入区任何伪元素底边压深 */
+#wxkb::before,
+#wxkb::after,
+.dialogue-footer::after,
+.component-dialogue-bar-person::after {
+    background-color: #1c1c1e !important;
+}
+
+/* ============================================================
+   十五、彻底清除残留白色横线（主页列表 / 对话页 / 朋友圈底部）
+   ------------------------------------------------------------
+   真机深色微信下所有行间分隔线、底边都应是暗灰或透明，绝不能是白色。
+   这里强制主页聊天列表行分隔线、及对话页/朋友圈底部任何可能露白的
+   伪元素为暗色，消除用户截图里「陆香儿行下方 / 视频最下方」的白色横线。
+   ============================================================ */
+#wechat .wechat-list .list-row::before,
+#wechat .wechat-list .list-row::after,
+#wechat .wechat-list .list-info::before,
+#wechat .wechat-list .line-bottom:not(:first-child)::before,
+.wechat-list .line-bottom:not(:first-child)::before,
+.wechat-list li.line-bottom::before {
+    background-color: #2e2e30 !important;
+    border-color: #2e2e30 !important;
+}
+/* 对话页底部内容区：任何底边/伪元素不露白 */
+.dialogue-section::before,
+.dialogue-section::after,
+.dialogue .dialogue-section::after {
+    background-color: #111 !important;
+}
+#moments .moments__post::after,
+#moments .moments__post .weui-cell__bd::after {
+    background-color: #111 !important;
+}
+/* 兜底：所有 position 定位于底部的分隔类伪元素统一暗色 */
+.outter::after,
+.sub-page::after {
+    background-color: #111 !important;
+}
+
+/* ============================================================
+   十六、聊天列表未读角标吸附头像左上角（对照 IMG_0456）
+   ------------------------------------------------------------
+   新版微信把未读数字/红点放在头像的左上角，而不是行右侧。
+   用 header-box 作定位基准，把 .new-msg-count 角标绝对定位到头像
+   左上角，并叠一圈背景描边避免被头像边缘吞掉。置底确保覆盖生效。
+   ============================================================ */
+#wechat .wechat-list .list-info { position: relative !important; }
+#wechat .wechat-list .header-box { position: relative !important; }
+#wechat .wechat-list .new-msg-count {
+    position: absolute !important;
+    left: 8px !important;
+    top: 6px !important;
+    right: auto !important;
+    margin: 0 !important;
+    z-index: 9;
+    box-shadow: 0 0 0 2px #111 !important;
+}
+/* 免打扰未读的小红点：同样吸附到头像左上角，与数字角标位置一致（真机统一左上角） */
+#wechat .wechat-list .new-msg-dot {
+    position: absolute !important;
+    left: 8px !important;
+    top: 6px !important;
+    right: auto !important;
+    margin: 0 !important;
+    z-index: 9;
+    box-shadow: 0 0 0 2px #111 !important;
+}
+
+/* ============================================================
+   十七、联系人详细资料页（朋友的主页 / contact/details.vue）深色统一
+   ------------------------------------------------------------
+   覆盖组件内联的 #999 灰字与默认微信绿/浅色按钮，使「详细资料」页
+   与真机深色微信一致：深底 + 白字昵称 + 灰副文字 + 绿色「发消息」按钮。
+   ============================================================ */
+.profile { background: #111 !important; min-height: 100%; }
+.profile #wx-header { background: #111 !important; }
+.profile #wx-header .center span { color: #fff !important; }
+.profile .weui-cell { background: #191919 !important; }
+.profile .weui-cell::before { background-color: #2e2e30 !important; }
+.profile .weui-cell__bd p { color: #fff !important; }
+.profile .weui-cell__ft span { color: #8e8e93 !important; }
+/* 头像圆形化（真机详细资料页头像为圆角方形/圆形） */
+.profile .self-header { border-radius: 8px !important; background: #2c2c2e; }
+.profile .self-nickname { color: #fff !important; }
+.profile .self-nickname .gender { color: #fff; }
+.profile .self-nickname .gender-male { color: #4d8fe0 !important; }
+.profile .self-nickname .gender-female { color: #e86a8a !important; }
+/* 覆盖组件内联的 color:#999（微信号/昵称） */
+.profile .self-wxid, .profile .nickname { color: #8e8e93 !important; }
+/* 底部按钮：发消息=微信绿，视频=深灰 */
+.profile .weui-btn_primary { background: #07c160 !important; color: #fff !important; border: none !important; }
+.profile .weui-btn_default {
+    background: #1c1c1e !important; color: #fff !important;
+    border: .5px solid #2e2e30 !important;
+}
+.profile .weui-btn { border-radius: 8px; }

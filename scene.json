@@ -1,0 +1,256 @@
+{
+  "title": "微信 (10)",
+  "me": {
+    "name": "d",
+    "avatar": "/images/avatar/IMG_0491_20260903_144508_035.png",
+    "signature": "填坑小能手",
+    "bg": "/images/avatar/IMG_0491_20260903_144508_035.png"
+  },
+  "home": [
+    {
+      "id": "c1",
+      "type": "friend",
+      "name": "luna-富婆",
+      "remark": "微信支付",
+      "avatar": "/images/avatar/30_女人_1_金善慧Keina_来自小红书网页版_20260831_184614_096.jpg",
+      "lastText": "你今晚有没有空",
+      "time": "18:22",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "已支付¥11.65",
+          "time": "18:22"
+        }
+      ]
+    },
+    {
+      "id": "g1",
+      "type": "friend",
+      "group": "学员-小康",
+      "name": "学员-小康",
+      "members": [
+        "梓康"
+      ],
+      "avatar": "/images/ref/D.png",
+      "lastText": "哥，这个怎么办",
+      "time": "18:16",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "sender": "梓康",
+          "kind": "text",
+          "text": "下午看得怎么样",
+          "time": "18:16"
+        }
+      ]
+    },
+    {
+      "id": "c2",
+      "type": "friend",
+      "name": "香儿",
+      "remark": "陆香儿",
+      "avatar": "/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg",
+      "lastText": "我也吃饭去了",
+      "time": "18:16",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "我今晚好想哭，我要哭一晚。"
+        },
+        {
+          "dir": "me",
+          "kind": "text",
+          "text": "哭什么"
+        },
+        {
+          "dir": "me",
+          "kind": "text",
+          "text": "下次过去我早点"
+        },
+        {
+          "dir": "me",
+          "kind": "text",
+          "text": "这次是我的问题"
+        },
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "没啥。"
+        },
+        {
+          "dir": "me",
+          "kind": "text",
+          "text": "晚点陪你聊天",
+          "time": "20:42"
+        },
+        {
+          "dir": "me",
+          "kind": "text",
+          "text": "别哭了"
+        },
+        {
+          "dir": "me",
+          "kind": "text",
+          "text": "我10.20就到家"
+        },
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "我要去扫地了",
+          "time": "20:53"
+        }
+      ]
+    },
+    {
+      "id": "c3",
+      "type": "friend",
+      "name": "安雅",
+      "remark": "服务号",
+      "avatar": "/images/avatar/照片输出_1_楠柒_来自小红书网页版_20260902_180914_204.jpg",
+      "lastText": "你太小了",
+      "time": "17:29",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "广东联网售票：已上线！全省客运线路实现“一…”",
+          "time": "17:29"
+        }
+      ]
+    },
+    {
+      "id": "c4",
+      "type": "friend",
+      "name": "妍妍",
+      "remark": "公众号",
+      "avatar": "/images/avatar/御一下_1_涔涔_来自小红书网页版_20260831_184719_470.jpg",
+      "lastText": "来姨妈了",
+      "time": "10:57",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "快讯：自动驾驶首次被写入法律",
+          "time": "10:57"
+        }
+      ]
+    },
+    {
+      "id": "c5",
+      "type": "friend",
+      "name": "熙熙（酒吧）",
+      "remark": "微信团队",
+      "avatar": "/images/avatar/110_158_夏天就要大胆穿__5_不吃饭了__来自小红书网页版_20260831_185134_593.jpg",
+      "lastText": "来喝吗",
+      "time": "00:49",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "登录操作通知",
+          "time": "00:49"
+        }
+      ]
+    },
+    {
+      "id": "c6",
+      "type": "friend",
+      "name": "苏苏",
+      "remark": "沉默光环",
+      "avatar": "/images/avatar/Jennie头像_1_PP酱v_来自小红书网页版_20260831_185616_327.jpg",
+      "lastText": "拍得好看吗",
+      "time": "昨天 23:52",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "拍得",
+          "time": "昨天 23:52"
+        }
+      ]
+    },
+    {
+      "id": "c7",
+      "type": "friend",
+      "name": "乌云乌云",
+      "remark": "D",
+      "avatar": "/images/avatar/女生头像ins高级质感_1_小玖不动心_来自小红书网页版_20260831_185734_459.jpg",
+      "lastText": "那你今晚不过来？",
+      "time": "昨天 22:28",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "给 Cursor 的精准开发提示词（复制即用）#任…",
+          "time": "昨天 22:28"
+        }
+      ]
+    },
+    {
+      "id": "c8",
+      "type": "friend",
+      "name": "萝卜快跑",
+      "remark": "妍",
+      "avatar": "/images/avatar/Dark_高质量女头__1_Dark__来自小红书网页版_20260831_185822_457.jpg",
+      "lastText": "您好呀，闺蜜介绍的",
+      "time": "星期日",
+      "unread": 1,
+      "quiet": false,
+      "messages": [
+        {
+          "dir": "peer",
+          "kind": "text",
+          "text": "在吗",
+          "time": "星期日"
+        }
+      ]
+    },
+    {
+      "id": "c1788173947406",
+      "type": "friend",
+      "name": "新朋友",
+      "lastText": "1",
+      "unread": 99,
+      "quiet": false,
+      "messages": [],
+      "time": "12",
+      "avatar": "/images/album/baiqian/baiqian01.jpeg"
+    }
+  ],
+  "moments": [
+    {
+      "author": "陆香儿",
+      "avatar": "/images/ref/luxianger.png",
+      "text": "就这么丝滑的下班。",
+      "images": [
+        "/images/ref/lux_video.png"
+      ],
+      "time": "35分钟前",
+      "likes": [],
+      "comments": [
+        {
+          "name": "陆香儿",
+          "text": "没有保持苹果肌扁平的义务。"
+        }
+      ]
+    }
+  ]
+}

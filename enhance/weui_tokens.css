@@ -1,0 +1,61 @@
+/* ============================================================
+   WeUI 官方设计令牌（暗色）—— 来源：微信 8.0.76 正版 ipa
+   ------------------------------------------------------------
+   数据来自 Payload/WeChat.app/weui_color_new.xml
+   （DesignToken 自动生成字段，格式 = 亮色,暗色）。
+   这里只取「暗色」值作为 CSS 变量，供后续皮肤复用；
+   所有变量名以 --wx- 前缀，便于全局统一取色。
+   注入位置：在 wechat_modern.css 之后（见 main.py 注入列表）。
+   ============================================================ */
+
+:root, #app {
+    /* ---- 品牌绿（微信绿）---- */
+    --wx-green:            #07C160;   /* Brand_100 暗 */
+    --wx-green-90:         #20C770;   /* Brand_90  暗 */
+    --wx-green-80:         #059A4C;   /* Brand_80  暗 */
+    --wx-green-120:        #38CD7F;   /* Brand_120 暗 */
+    --wx-green-bg:         #2AAE67;   /* Brand_BG_100 暗 */
+
+    /* ---- 背景层级 ---- */
+    --wx-bg0:              #111111;   /* BG_0 页底/导航 */
+    --wx-bg1:              #1E1E1E;   /* BG_1 */
+    --wx-bg2:              #191919;   /* BG_2 列表行 */
+    --wx-bg3:              #202020;   /* BG_3 */
+    --wx-bg4:              #404040;   /* BG_4 */
+    --wx-bg5:              #2C2C2C;   /* BG_5 气泡/图标块 */
+
+    /* ---- 前景文字层级 ---- */
+    --wx-fg0:              #FFFFFFCC; /* FG_0 主文字 */
+    --wx-fg0-5:            #FFFFFF99; /* FG_0_5 */
+    --wx-fg1:              #FFFFFF80; /* FG_1 次级 */
+    --wx-fg2:              #FFFFFF4D; /* FG_2 三级 */
+    --wx-fg3:              #FFFFFF1A; /* FG_3 */
+    --wx-fg4:              #FFFFFF26; /* FG_4 */
+
+    /* ---- 语义色 ---- */
+    --wx-blue:             #10AEFF;   /* Blue_100  暗 */
+    --wx-link:             #7D90A9;   /* Link_100  暗 */
+    --wx-red:              #FA5151;   /* Red_100  未读/角标 */
+    --wx-red-90:           #FA6262;
+    --wx-orange:           #C87D2F;   /* Orange_100 暗（转账） */
+    --wx-orange-90:        #CD8943;   /* Orange_90  暗 */
+    --wx-orange-bg:        #BB6000;   /* Orange_BG_100 暗 */
+    --wx-yellow:           #CC9C00;   /* Yellow_100 暗 */
+    --wx-lightgreen:       #3EB575;   /* LightGreen_100 暗（发送气泡深色） */
+    --wx-lightgreen-120:   #31905D;
+
+    /* ---- 材质 / 遮罩 / 阴影 / 分隔 / 灰盒 ---- */
+    --wx-shadow:           #0000001A; /* DropShadow */
+    --wx-overlay:          #000000CC; /* Overlay 暗 */
+    --wx-sep:              #FFFFFF26; /* Separator_1 暗 */
+    --wx-sep-0:            #FFFFFF0D; /* Separator_0 暗 */
+    --wx-greybox:          #FFFFFF0D; /* GreyBoxBG 暗 */
+
+    /* ---- 派生的常用实色（供现有 CSS 平滑迁移，不再硬编码）---- */
+    --wx-surface:          #1C1C1E;   /* 导航/输入栏/单元格底色（现有取值） */
+    --wx-icon-block:       #2C2C2E;   /* 图标块/灰btn */
+    --wx-line:             #2E2E30;   /* 分隔线（现有取值） */
+    --wx-muted:            #8E8E93;   /* 次级灰字 */
+    --wx-muted-2:          #5A5A5E;   /* 更弱灰字 */
+    --wx-link-blue:        #6AA1FF;   /* 朋友圈昵称蓝（深色） */
+}

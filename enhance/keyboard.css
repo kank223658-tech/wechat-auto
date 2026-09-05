@@ -1,0 +1,454 @@
+/* ============================================================
+   注入式手机键盘覆盖层样式（main.py 注入，仅在录屏浏览器内生效）
+   ------------------------------------------------------------
+   视觉参考：iPhone 15（iOS 17）深色「中文拼音」QWERTY 键盘 + 微信候选词条。
+   与真机一致的关键点：
+   - 键帽为 iOS 深色圆角：字母键 #636366、功能键 #3A3A3C、键盘底 #1D1D1D；
+   - 候选条只在拼音输入时占用高度（--kb-cand-h），无候选时键盘整体变矮，
+     与真机「候选条随拼音出现」一致；
+   - 字体逻辑与 iOS 一致：拉丁字母用 SF Pro 观感的 Inter（随项目自带，
+     服务端 /fonts/ 提供），中文回退 PingFang SC → Microsoft YaHei；
+   - 底部功能行 [123] [空格] [发送] 按真机比例：空格最宽、发送紧凑；
+   - 键盘总高 = 244px 按键区 + 34px Home 条安全区 = 278px；候选条弹出后 +46px。
+   ============================================================ */
+
+/* ---- 随项目自带的 SF Pro 观感字体（Inter，仅拉丁区，避免 Windows 字母观感发假） ---- */
+@font-face {
+    font-family: 'KBInter';
+    src: url('/fonts/inter-latin.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+/* ---- 键盘主体：固定底部，默认藏在屏幕下方 ---- */
+#wxkb {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(278px + var(--kb-cand-h, 0px));
+    padding-bottom: 34px;              /* Home 条安全区 */
+    box-sizing: border-box;
+    z-index: 99999;
+    background: #1c1c1e;               /* iOS 17 深色键盘底（真机同色） */
+    transform: translateY(100%);
+    /* 不再用 will-change: transform —— 键盘上滑/下滑已改由 keyboard.js 的 _animKb 用 JS 逐帧驱动，
+       变换时浏览器会自动提升合成层；常驻 will-change 会长期占一块大合成层，
+       叠加图片查看器等层压力，正是「键盘直接闪出来/掉帧」的来源之一。 */
+    /* iOS 键盘滑动：与输入框/消息区同用同一时长与缓动，保证「整个输入皮肤」一起弹出。
+       实测参考真机键盘：~0.2s 强 ease-out、锐利收尾；对照参考逐帧进度选用 easeOutQuad
+       (cubic-bezier(.25,.46,.45,.94))，避免旧 cubic-bezier(.32,.72,0,1) 末端拖尾过长
+       导致的「先冲上、再慢沉」拼接感。 */
+    transition: transform .22s cubic-bezier(.25, .46, .45, .94), height .18s ease, visibility .22s;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+                 "KBInter", "Helvetica Neue", Arial,
+                 "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+    visibility: hidden;
+}
+#wxkb.kb-open {
+    transform: translateY(0);
+    pointer-events: auto;
+    visibility: visible;
+}
+
+/* ---- 候选词条（拼音输入时显示；高度由 --kb-cand-h 控制，真机随拼音出现） ---- */
+#wxkb .kb-cand {
+    height: var(--kb-cand-h, 0px);
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: #1c1c1e;
+    transition: height .18s ease;
+}
+#wxkb .kb-cand-list {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 46px;
+    padding: 0 8px;
+    scrollbar-width: none;
+    /* 候选文字在右端渐隐：刚好在箭头左侧「恰好消失」而非生硬截断 */
+    -webkit-mask-image: linear-gradient(to right, #000 86%, transparent 94%);
+}
+#wxkb .kb-cand-list::-webkit-scrollbar { display: none; }
+/* ---- 候选栏右侧「向下展开箭头」（真机：有候选时固定于右端） ---- */
+#wxkb .kb-cand { position: relative; }
+#wxkb .kb-cand-more {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0 20px 0 8px;
+    pointer-events: none;
+    background: inherit;
+}
+#wxkb .kb-cand.has-cand .kb-cand-more { display: flex; }
+#wxkb .kb-cand-more-arrow {
+    width: 16px;
+    height: 16px;
+    border-right: 3px solid #d0d0d3;
+    border-bottom: 3px solid #d0d0d3;
+    transform: rotate(45deg);
+    margin-top: -9px;
+}
+/* 候选字：纯文字（无底纹），与 iOS 微信联想条一致 */
+#wxkb .kb-cand-item {
+    flex: 0 0 auto;
+    min-width: 34px;
+    height: 46px;
+    margin: 0 18px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+#wxkb .kb-cand-item:last-child { margin-right: 0; }
+#wxkb .kb-cand-item b {
+    font-size: 18px;
+    font-weight: 400;
+    color: #fff;
+    line-height: 1.15;
+}
+/* 候选条第一个槽：正在组合的拼音，iOS 蓝色 */
+#wxkb .kb-cand-item i {
+    font-style: normal;
+    font-size: 10px;
+    color: #8e8e93;
+    line-height: 1;
+    height: 12px;
+    display: block;
+    margin-top: 2px;
+}
+/* 表情候选：苹果彩色 emoji 图片，纯图无文字 */
+#wxkb .kb-cand-item.kb-cand-emoji { min-width: 34px; width: 36px; }
+#wxkb .kb-cand-item.kb-cand-emoji img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    display: block;
+}
+#wxkb .kb-cand-item.kb-cand-emoji .kb-emoji-text {
+    font-size: 24px;
+    line-height: 1;
+}
+/* 微信小表情图候选：真实 PNG，略大于苹果 emoji，突出"小表情图片"的丰富感。
+   不强制槽位宽度（聊天页由 chat_exact.css 按内容自适应，避免冲突），仅放大图片。 */
+#wxkb .kb-cand-item.kb-cand-wximg img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    display: block;
+}
+/* 颜文字/符号候选：窄槽、字号略小，作为文字上屏但视觉上区别于大字候选 */
+#wxkb .kb-cand-item.kb-cand-symbol { min-width: 26px; padding: 0 6px; }
+#wxkb .kb-cand-item.kb-cand-symbol b {
+    font-size: 13px;
+    color: #d5d5d5;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: 0.5px;
+}
+#wxkb .kb-cand-item.kb-press { background: rgba(255, 255, 255, .08); }
+#wxkb .kb-cand-item { position: relative; }
+
+/* ---- 按键区：4 行，行高接近真机（字母 46px / 底部 52px，顶部留出键盘深色带） ---- */
+#wxkb .kb-rows {
+    position: relative;
+    height: 244px;
+    padding: 24px 3px 8px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+#wxkb .kb-grid { height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+#wxkb .kb-row {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+#wxkb .kb-key {
+    flex: 1;
+    height: 46px;
+    border-radius: 6px;
+    background: #636366;               /* iOS 深色字母键 */
+    border: none;
+    box-shadow: 0 .5px 0 rgba(255, 255, 255, .06) inset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 400;
+    color: #fff;
+    font-style: normal;
+    cursor: pointer;
+    transition: background .05s ease, transform .05s ease;
+}
+/* 底部功能行键帽略高（真机 [123][空格][发送] 行更高） */
+#wxkb .kb-row:last-child .kb-key { height: 52px; }
+/* 功能键（shift / 123 / abc / #+= / 退格） */
+#wxkb .kb-key.kb-fn {
+    background: #3a3a3c;
+    font-size: 17px;
+    color: #fff;
+}
+/* 空格键 */
+#wxkb .kb-key.kb-space {
+    flex: 7;
+    font-size: 14px;
+    color: #d1d1d6;
+    background: #636366;
+}
+/* 发送/换行键：始终蓝色（参考图风格），有文字时保持蓝色 */
+#wxkb .kb-key.kb-send {
+    flex: 1.6;
+    background: #007AFF;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+#wxkb .kb-key.kb-send.kb-send-on {
+    background: #007AFF;
+    color: #fff;
+}
+
+/* ---- Shift 三态（与 iOS 一致）：
+       off: 深灰 ⇧ + 键面小写字母
+       on : 亮灰 ⇧ + 键面大写字母（下一字符大写后自动回弹）
+       caps: 亮灰 ⇧ 带下划线 + 持续大写 ---- */
+#wxkb .kb-key.kb-shift-on {
+    background: #d1d1d6 !important;
+    color: #4a4a4e !important;
+}
+#wxkb .kb-key.kb-shift-caps { box-shadow: 0 2px 0 #4a4a4e inset, 0 0 0 1px rgba(0,0,0,.15) inset; }
+
+/* ---- 按下状态：键帽变亮 + 轻微下压（配合上方字符浮层） ---- */
+#wxkb .kb-key.kb-press { background: #c9c9ce !important; color: #17171a !important; }
+#wxkb .kb-key.kb-fn.kb-press { background: #b8b8bd !important; color: #17171a !important; }
+#wxkb .kb-key.kb-send.kb-send-on.kb-press { background: #005ecb !important; color: #fff !important; }
+#wxkb .kb-key.kb-press {
+    /* 关键：按下时背景/位移**瞬间**到位（iOS 真机按下即变亮，不做 50ms 渐入）。
+       若沿用上面的 transition: background .05s，在高速打字(30x~40x)下按下时长只有 24~40ms，
+       浅色在渐变里永远来不及完全显现，合成器抓不到 → 录屏里"按键高亮消失"。
+       这里把按下态的 transition 清零：加 .kb-press 的瞬间背景即达目标色（可被完整采帧），
+       松开移除 .kb-press 后回落到基础规则的 .05s 渐出，观感自然。
+       颜色改为近白 + 字母反黑 + 更明显的下压：深色键盘上按下即高亮抢眼，40 倍速下也看得清。 */
+    transition: background 0s !important, transform 0s !important;
+    transform: translateY(2px) scale(.96);
+    box-shadow: 0 2px 0 rgba(0,0,0,.5) inset, 0 0 0 1px rgba(0,0,0,.15) inset;
+}
+
+/* ---- 退格键按压态：以真实回退按压图标覆盖默认深色 ⌫，作为按压动画 ----
+   pressFx 会给退格键加 .kb-press 约 150ms；图片来自微信图标「回退按压时图标.PNG」，
+   等比居中铺满（contain，与其它 kb-icon 一致），并隐藏 ⌫ 字形。
+   选择器带 [data-key="backspace"]，覆盖字母/数字/符号三套布局里的退格键。 */
+#wxkb .kb-key.kb-fn[data-key="backspace"].kb-press {
+    background-image: url('/images/chatbar/kb_backspace_pressed.png') !important;
+    background-color: transparent !important;   /* 图四自含完整键帽，不叠加任何底色 */
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: contain !important;
+    color: transparent !important;
+    /* 关键：回退键按下时「固定」原地换成图四按压图标，不做放大/上浮/抬升投影。
+       —— 真机回退键只有按压变色，没有字母键那种上浮气泡。以下三行分别抵消
+       chat_exact.css 的 scale(1.04)+阴影、以及 keyboard.css 的 translateY+scale(.98)。 */
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* ---- 键盘弹出时，把聊天输入栏/评论条顶到键盘上方（真机效果）----
+   用 transform 而非 bottom（避免回流导致的滞后，与 #wxkb 合成器动画帧序一致） */
+body.wxkb-open .dialogue-footer { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
+body.wxkb-open #commentBar { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
+
+/* ---- 底部听写行：地球(语言切换)靠左、麦克风(听写)靠右，裸图标浮在键盘底、Home 条之上 ---- */
+#wxkb { position: fixed; }   /* 已是 fixed，作为 .kb-dict 绝对定位的包含块 */
+#wxkb .kb-dict {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 4px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 3;
+}
+#wxkb .kb-dict .kb-dict-key {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    cursor: pointer;
+}
+/* 图标键通用：透明线稿铺满、去文字 */
+#wxkb .kb-key.kb-icon {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    font-size: 0 !important;
+    color: transparent !important;
+}
+/* 底部听写键为裸图标（无键帽底色），直接铺在键盘深色底上 */
+#wxkb .kb-dict .kb-dict-key,
+#wxkb .kb-dict .kb-dict-key.kb-fn {
+    background-color: transparent;
+    box-shadow: none;
+}
+#wxkb .kb-dict .kb-dict-key.kb-icon { background-size: 46px 46px; }
+#wxkb .kb-dict .kb-dict-key[data-key="globe"].kb-icon { background-size: 46px 46px; }
+#wxkb .kb-dict .kb-dict-key[data-key="mic"].kb-icon { background-size: 32px 48px; }
+
+/* ---- iOS 键盘按下浮层：键上方放大的字符气泡 + 指向键帽的小尾巴 ---- */
+.kb-pop {
+    position: fixed;
+    min-width: 58px;
+    height: 88px;
+    border-radius: 10px;
+    background: #636366;
+    color: #fff;
+    font-size: 42px;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-50%) scale(.4) translateY(10px);
+    /* 浮层回弹：比 .08s 稍长并带过冲，模拟 iOS 字符预览的弹性弹出 */
+    transition: opacity .1s ease, transform .16s cubic-bezier(.2, .9, .35, 1.3);
+    z-index: 999999;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, .45);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+                 "KBInter", "Helvetica Neue", Arial,
+                 "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.kb-pop::after {
+    content: "";
+    position: absolute;
+    left: var(--kb-pop-tail, 50%);
+    bottom: -9px;
+    transform: translateX(-50%);
+    border: 9px solid transparent;
+    border-top-color: #636366;
+    border-bottom: 0;
+}
+.kb-pop.kb-pop-show {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+}
+
+/* ============================================================
+   发朋友圈「发表文字」编辑页（injected DOM） —— 深色
+   ============================================================ */
+#momentCompose {
+    position: fixed;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background: #111;
+    z-index: 99998;
+    display: flex;
+    flex-direction: column;
+}
+#momentCompose .mc-top {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    background: #1c1c1e;
+    border-bottom: 1px solid #2e2e30;
+    flex: none;
+}
+#momentCompose .mc-cancel { font-size: 15px; color: #576b95; }
+#momentCompose .mc-top b { font-size: 16px; color: #fff; font-weight: 500; }
+#momentCompose .mc-send { font-size: 15px; color: #fff; background: #30d158; border-radius: 5px; padding: 4px 14px; }
+#momentCompose .mc-send.mc-disabled { background: #3a3a3e; }
+#momentCompose .mc-body { flex: 1; padding: 12px; overflow: hidden; }
+#momentCompose #mcText {
+    width: 100%;
+    height: 110px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 16px;
+    line-height: 1.5;
+    resize: none;
+    font-family: inherit;
+    color: #fff;
+}
+#momentCompose .mc-img {
+    margin-top: 10px;
+    width: 84px; height: 84px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+#momentCompose .mc-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ============================================================
+   组合区覆盖层（拼音组合期间的输入框真机样式）
+   ------------------------------------------------------------
+   keyboard.js 在 .chat-txt 上方铺一块同盒覆盖层，绘制「已上屏文本 +
+   绿色下划线拼音 + 音节分格 + 绿色光标」。不透明底色与 .chat-way 一致，
+   遮蔽 textarea 里原本裸显示的小写拼音字母，避免重影。仅聊天页生效。 */
+.wxkb-compose {
+    position: absolute;
+    z-index: 5 !important;
+    box-sizing: border-box !important;
+    background: #2c2c2c !important;   /* 与 .chat-way 同色，不透明遮底 */
+    border-radius: 6px !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    text-align: left !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    display: none;
+}
+.wxkb-compose .wxkb-compose-committed {
+    color: #d5d5d5 !important;        /* 已上屏文本沿用输入框字色 */
+}
+.wxkb-compose .wxkb-compose-syl {
+    color: #ffffff !important;
+    border-bottom: 2px solid #1cff7a !important;   /* iOS 组合绿色下划线 */
+    padding-bottom: 1px !important;
+}
+/* 光标全程闪烁：无论是否打字，常驻呼吸闪烁（覆盖 textarea 原生白/蓝光标） */
+@keyframes wxkb-cursor-blink {
+    0%, 100% { opacity: .95; }
+    50% { opacity: 0; }
+}
+.wxkb-compose .wxkb-compose-cursor {
+    display: inline-block !important;
+    width: 3px !important;
+    height: 24px !important;
+    border-radius: 2px !important;
+    background: #3ecf6e !important;   /* 柔和绿色光标 */
+    vertical-align: text-bottom !important;
+    margin-left: 1px !important;
+    /* 与文本垂直对齐：光标中心比文本中心偏低 4px，上移补偿 */
+    position: relative !important;
+    top: -4px !important;
+    animation: wxkb-cursor-blink 1.1s ease-in-out infinite !important;
+}

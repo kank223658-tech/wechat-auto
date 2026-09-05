@@ -1,0 +1,566 @@
+/* ============================================================
+   首页（微信 Tab）像素级规格覆盖（600 × 1300 固定画布）
+   ------------------------------------------------------------
+   严格按「600×1300 固定画布 / 左上角为原点 / 全部元素绝对像素定位」
+   实现。覆盖 iphone_frame 与 wechat_modern 的响应式/默认布局，只用于
+   首页微信 Tab；被 main.py 注入，需置于其它样式之后（!important 覆盖）。
+   配合 enhance/homepage.js 注入的 #wx-home-plus / #wx-home-pill /
+   #ios-statusbar .sb-mute 一起使用。
+
+   区段划分（画布顶部为 0）：
+     状态栏    0    ~ 83   （83px）
+     标题栏    83   ~ 149  （66px）
+     搜索框区  149  ~ 232  （83px）
+     会话列表  232  ~ 1162 （930px）
+     底部 Tab  1162 ~ 1300 （138px）
+
+   坐标系说明：
+     - 状态栏 #ios-statusbar 为 fixed 于画布顶部(0)，其子元素用画布绝对坐标。
+     - .outter 自画布顶部 83px 开始，内部标题/搜索/内容区按 flex 纵排，
+       各区块在画布内的坐标由「区块自身 top」决定（见注释）。
+     - 头像角标 / 红点 / 静音图标均以各自的父亲容器为定位基准，
+       下面会按「父亲容器画布坐标」换算成容器内坐标。
+   ============================================================ */
+
+/* ---- 覆盖 iPhone 录屏外壳：去掉圆角遮罩 / 灵动岛，改为规则画布 ---- */
+#ios-screen-mask { display: none !important; }
+#ios-statusbar .sb-island { display: none !important; }
+
+/* ============================================================
+   一、全局画布
+   ============================================================ */
+html, body { background: #181818 !important; }
+body, #app { background: #181818 !important; }
+.sub-page, .sub-page.animated, .app-content,
+#app, #wechat, #wechat .wechat-list {
+    background: #181818 !important;
+}
+.outter {
+    top: 83px !important;
+    left: 0 !important;
+    width: 600px !important;
+    height: calc(100% - 83px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+.sub-page { top: 83px !important; }
+#momentCompose { top: 83px !important; }
+/* 标题栏 / 搜索框 / 内容区 / 底部 Tab 各占固定高度 */
+.app-header { height: 66px !important; flex: none !important; }
+#search { position: relative !important; height: 83px !important; flex: none !important; }
+.app-content { flex: 1 !important; min-height: 0 !important; position: relative !important; }
+.app-footer { height: 138px !important; flex: none !important; }
+
+/* 统一字体 */
+#wechat, #wx-header, .app-header, #wx-nav, #search, #ios-statusbar {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", Arial, sans-serif !important;
+}
+
+/* ============================================================
+   二、状态栏（0~83）
+   ============================================================ */
+#ios-statusbar {
+    left: 0; right: 0; top: 0;
+    height: 83px !important;
+    background: #111111 !important;
+    color: #f5f5f5 !important;
+    padding: 0 !important;
+    display: block !important;
+    font-size: 25px !important;
+}
+#ios-statusbar .sb-time {
+    position: absolute !important;
+    left: 60px !important;
+    top: 31px !important;
+    font-size: 25px !important;
+    line-height: 30px !important;
+    font-weight: 600 !important;
+    letter-spacing: .2px;
+    color: #f5f5f5 !important;
+}
+/* 状态栏静音图标（由 enhance/homepage.js 注入 .sb-mute） */
+#ios-statusbar .sb-mute {
+    position: absolute !important;
+    left: 136px !important;
+    top: 34px !important;
+    width: 21px !important;
+    height: 22px !important;
+    color: #fff !important;
+    display: block !important;
+}
+#ios-statusbar .sb-mute svg { display: block; width: 21px !important; height: 22px !important; }
+/* 右侧信号 / WiFi / 电池（竖向中心 ~45px） */
+#ios-statusbar .sb-right {
+    position: static !important;
+    margin: 0 !important;
+    display: block !important;
+}
+#ios-statusbar .sb-signal { position: absolute !important; left: 430px !important; top: 36px !important; width: 30px !important; height: 20px !important; color: #f1f1f1 !important; }
+#ios-statusbar .sb-signal i { background: currentColor !important; width: 3.6px !important; border-radius: 2px !important; }
+#ios-statusbar .sb-wifi { position: absolute !important; left: 471px !important; top: 35px !important; width: 27px !important; height: 21px !important; color: #f1f1f1 !important; }
+#ios-statusbar .sb-batt-cell { position: absolute !important; left: 508px !important; top: 35px !important; }
+#ios-statusbar .sb-battery { width: 41px !important; height: 20px !important; border: 1px solid rgba(241,241,241,.55) !important; border-radius: 6px !important; padding: 2px !important; }
+#ios-statusbar .sb-battery .sb-fill { background: #f1f1f1 !important; border-radius: 3.5px !important; }
+#ios-statusbar .sb-battery::after { background: rgba(241,241,241,.55) !important; }
+
+/* ============================================================
+   三、标题栏（83~149）
+   ============================================================ */
+.app-header,
+#wx-header {
+    background: #111111 !important;
+    border-bottom: none !important;
+}
+.app-header { position: relative !important; }
+#wx-header {
+    position: relative !important;
+    height: 66px !important;
+    line-height: normal !important;
+    color: #d8d8d8 !important;
+}
+/* 标题：微信 (10) 居中，top 101（栏内 18） */
+#wx-header .center {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 18px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    text-align: center !important;
+    font-size: 25px !important;
+    font-weight: 500 !important;
+    color: #d8d8d8 !important;
+}
+#wx-header .center > span { color: #d8d8d8 !important; font-size: 25px !important; font-weight: 500 !important; }
+#wx-header .center .parentheses { color: #d8d8d8 !important; }
+#wx-header .wx-header-count { color: #d8d8d8 !important; font-size: 25px !important; font-weight: 500 !important; }
+/* 隐藏原「⋯／＋」图标实体（改为 JS 注入 #wx-home-plus 承载加号十字线） */
+#wx-header .other { position: relative !important; }
+#wx-header .other .icon-tips-jia,
+#wx-header .other .iconfont { display: none !important; }
+/* 加号按钮：外圆 31×31，边框 2px #B8B8B8，内部 2px 十字线。append 到 body，
+   position:fixed 使其相对画布(视口)定位：圆心 (557,115)。 */
+#wx-home-plus {
+    position: fixed !important;
+    left: 541px !important;
+    top: 99px !important;
+    width: 31px !important;
+    height: 31px !important;
+    border: 2px solid #b8b8b8 !important;
+    border-radius: 50% !important;
+    z-index: 6;
+}
+#wx-home-plus::before,
+#wx-home-plus::after {
+    content: "" !important;
+    position: absolute !important;
+    background: #b8b8b8 !important;
+}
+#wx-home-plus::before { left: 50% !important; top: 6px !important; bottom: 6px !important; width: 2px !important; transform: translateX(-50%); }
+#wx-home-plus::after { top: 50% !important; left: 6px !important; right: 6px !important; height: 2px !important; transform: translateY(-50%); }
+
+/* ============================================================
+   四、搜索框区（149~232）
+   ============================================================ */
+/* #search 改用文档流（无需绝对 top），紧跟在 66px 标题栏之后，落在画布 149，
+   高度 83 保证 149~232。 */
+#search {
+    position: relative !important;
+    width: 600px !important;
+    background: #111111 !important;
+    transform: none !important;
+    z-index: 4;
+}
+/* 让胶囊及其子元素以 #search 为定位基准，避免被 weui 默认 relative 二次偏移 */
+#search .weui-search-bar {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    height: 83px !important;
+    transform: none !important;
+}
+#search .weui-search-bar__form { position: static !important; background: transparent !important; transform: none !important; height: 83px !important; }
+/* 搜索胶囊：画布 (12,155) → #search 内 top=155-149=6，left=12 */
+#search .weui-search-bar__box {
+    position: absolute !important;
+    left: 12px !important;
+    top: 6px !important;
+    width: 576px !important;
+    height: 55px !important;
+    background: #191919 !important;
+    border-radius: 8px !important;
+    opacity: 1 !important;
+}
+#search .weui-search-bar__label { display: none !important; }
+/* 放大镜图标：中心 X≈271 → 胶囊内 left=271-12.5-12=246，top=15 */
+#search .weui-search-bar__box .weui-icon-search {
+    position: absolute !important;
+    left: 246px !important;
+    top: 15px !important;
+    width: 25px !important;
+    height: 25px !important;
+    color: #5a5a5a !important;
+    font-size: 25px !important;
+    line-height: 25px !important;
+}
+/* 文案：画布左 296 → 胶囊内 left=296-12=284 */
+#search .weui-search-bar__box .weui-search-bar__input {
+    position: absolute !important;
+    left: 284px !important;
+    top: 0 !important;
+    width: 250px !important;
+    height: 55px !important;
+    background: transparent !important;
+    color: #5a5a5a !important;
+    font-size: 24px !important;
+    line-height: 30px !important;
+    padding: 0 !important;
+}
+#search .weui-search-bar__box .weui-search-bar__input::placeholder { color: #5a5a5a !important; }
+#search .weui-search-bar__box .weui-icon-clear { display: none !important; }
+/* 搜索框下方到列表之间的 22px #111 区域（210~232）由 #search 高 83 保证 */
+
+/* ============================================================
+   五、会话列表（232~1162），每行 110px
+   ============================================================ */
+#wechat { min-height: 0 !important; background: #181818 !important; }
+#wechat .wechat-list { position: relative !important; height: 930px !important; min-height: 0 !important; background: #181818 !important; overflow: hidden !important; }
+#wechat .wechat-list .list-row {
+    position: absolute !important;
+    left: 0 !important;
+    width: 600px !important;
+    height: 110px !important;
+    background: #181818 !important;
+    overflow: visible !important;
+}
+/* 用 ::before 画行分隔线（x=115 ~ 600，1px #292929） */
+#wechat .wechat-list .list-row::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 115px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    height: 1px !important;
+    background: #292929 !important;
+    border: none !important;
+    transform: none !important;
+    z-index: 10;
+}
+#wechat .wechat-list .list-row::after { display: none !important; }
+#wechat .wechat-list .list-info {
+    position: absolute !important;
+    inset: 0 !important;
+    height: 110px !important;
+    padding: 0 !important;
+    background: #181818 !important;
+    transform: none !important;
+    z-index: 2;
+}
+/* 头像：左 24 顶 18 73×73 圆角 7 */
+#wechat .wechat-list .header-box {
+    position: absolute !important;
+    left: 24px !important;
+    top: 18px !important;
+    width: 73px !important;
+    height: 73px !important;
+    margin: 0 !important;
+    float: none !important;
+}
+#wechat .wechat-list .header-box .header {
+    width: 73px !important;
+    height: 73px !important;
+    border-radius: 7px !important;
+    background: #2c2c2e !important;
+}
+#wechat .wechat-list .header-box .header:not(.multi-header) img {
+    border-radius: 7px !important;
+}
+/* 标题：画布 X=115，顶 23（距行首），25px/31px 400 #D6D6D6 */
+#wechat .wechat-list .desc-author {
+    position: absolute !important;
+    left: 115px !important;
+    top: 23px !important;
+    width: 440px !important;
+    height: 31px !important;
+    line-height: 31px !important;
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    color: #d6d6d6 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+/* 摘要：标题下约 7px，22px/28px #686868，单行省略 */
+#wechat .wechat-list .desc-msg {
+    position: absolute !important;
+    left: 115px !important;
+    top: 61px !important;
+    right: 25px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    font-size: 22px !important;
+    color: #686868 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+#wechat .wechat-list .desc-msg span { color: #686868 !important; font-size: 22px !important; }
+/* 时间：右对齐到 575px，顶 24，18px/24px 400 #343434 */
+#wechat .wechat-list .desc-time {
+    position: absolute !important;
+    right: 25px !important;
+    top: 24px !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    font-size: 18px !important;
+    font-weight: 400 !important;
+    float: none !important;
+    color: #343434 !important;
+}
+/* 免打扰静音图标：画布 (557,407)（行内 x=557，行2顶=342 → 行内 y=65）。
+   .desc-msg 自身位于 (115,61)，故容器内 left=557-115=442，top=65-61=4 */
+#wechat .wechat-list .desc-mute {
+    position: absolute !important;
+    left: 442px !important;
+    top: 4px !important;
+    right: auto !important;
+    float: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    color: #303030 !important;
+    font-size: 18px !important;
+    line-height: 18px !important;
+}
+/* 未读数字角标：画布圆心 (94,254) 直径 28。header-box 在 (24,18)，
+   故容器内 left=94-14-24=56，top=254-14-18=222→(行顶232) = -10 */
+#wechat .wechat-list .new-msg-count {
+    position: absolute !important;
+    left: 56px !important;
+    top: -10px !important;
+    right: auto !important;
+    margin: 0 !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    border-radius: 14px !important;
+    background: #fa5151 !important;
+    color: #fff !important;
+    font-size: 17px !important;
+    font-weight: 400 !important;
+    padding: 0 !important;
+    text-align: center !important;
+    z-index: 9;
+    box-shadow: none !important;
+}
+/* 免打扰未读小红点：直径 15，画布圆心 (94,584)。header-box 在 (24,18)，
+   行4顶=330、行5顶=440 → 行内 y=584-330-18=... → 容器内 top=-3，left=94-7.5-24=62。 */
+#wechat .wechat-list .new-msg-dot {
+    position: absolute !important;
+    left: 62px !important;
+    top: -3px !important;
+    right: auto !important;
+    margin: 0 !important;
+    width: 15px !important;
+    height: 15px !important;
+    border-radius: 50% !important;
+    background: #fa5151 !important;
+    z-index: 9;
+    box-shadow: none !important;
+}
+/* 默认参考数据里「陆香儿」未读数参与标题总数，但参考图不显示角标。
+   旧实现按 .list-row:nth-child(3) 硬编码行号隐藏，会误伤用户历史会话里
+   排在第 3 位的联系人（如「香儿」），导致其未读角标不显示。
+   这里不再按行号隐藏，改为在 config.js 里按「陆香儿」精确处理。 */
+#wechat .wechat-list .list-row:nth-child(4) .desc-mute,
+#wechat .wechat-list .list-row:nth-child(5) .desc-mute { display: none !important; }
+
+/* 删除滑动操作区（行内不干扰） */
+#wechat .wechat-list .operate-box { display: none !important; }
+
+/* ---- 行纵向定位：9 行，每行 110px，从列表顶 232 开始 ---- */
+#wechat .wechat-list .list-row:nth-child(1) { top: 0px !important; }
+#wechat .wechat-list .list-row:nth-child(2) { top: 110px !important; }
+#wechat .wechat-list .list-row:nth-child(3) { top: 220px !important; }
+#wechat .wechat-list .list-row:nth-child(4) { top: 330px !important; }
+#wechat .wechat-list .list-row:nth-child(5) { top: 440px !important; }
+#wechat .wechat-list .list-row:nth-child(6) { top: 550px !important; }
+#wechat .wechat-list .list-row:nth-child(7) { top: 660px !important; }
+#wechat .wechat-list .list-row:nth-child(8) { top: 770px !important; }
+#wechat .wechat-list .list-row:nth-child(9) { top: 880px !important; }
+
+/* ============================================================
+   六、右侧悬浮胶囊（被屏幕右边缘裁切）
+   ============================================================ */
+#wx-home-pill {
+    position: fixed !important;
+    /* 左缘 600-38=562：右缘恰好落在画布右缘 600，避免 fixed 覆盖层把合成器表面撑到 613，
+       导致 screencast 裁剪/缩放时内容被推向左上（『放大到左上角』闪帧）。
+       视觉上仍贴屏幕右缘、被裁切 0px，仅为消除越界。 */
+    left: 562px !important;
+    top: 419px !important;
+    width: 38px !important;
+    height: 111px !important;
+    right: auto !important;
+    bottom: auto !important;
+    background: #3a3a3a !important;
+    border-radius: 12px 0 0 12px !important;
+    z-index: 30;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    pointer-events: none;
+}
+#wx-home-pill i { width: 4px !important; height: 4px !important; border-radius: 50% !important; background: #747474 !important; }
+
+/* ============================================================
+   七、底部 Tab Bar（1162~1300）
+   ============================================================ */
+.app-footer { height: 138px !important; }
+#wx-nav nav {
+    position: relative !important;
+    height: 138px !important;
+    background: rgba(24, 24, 24, 0.96) !important;
+    border-top: 1px solid #292929 !important;
+    border-bottom: none !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+#wx-nav nav > a, #wx-nav nav dl {
+    position: absolute !important;
+    top: 0 !important;
+    width: 150px !important;
+    height: 138px !important;
+    float: none !important;
+    margin: 0 !important;
+    text-align: center !important;
+}
+#wx-nav nav > a:nth-child(1), #wx-nav nav dl:nth-child(1) { left: 0 !important; }
+#wx-nav nav > a:nth-child(2), #wx-nav nav dl:nth-child(2) { left: 150px !important; }
+#wx-nav nav > a:nth-child(3), #wx-nav nav dl:nth-child(3) { left: 300px !important; }
+#wx-nav nav > a:nth-child(4), #wx-nav nav dl:nth-child(4) { left: 450px !important; }
+/* 图标：顶部 1178（栏内 16），约 40px */
+#wx-nav nav dt {
+    position: absolute !important;
+    left: 50% !important;
+    top: 16px !important;
+    transform: translateX(-50%) !important;
+    width: 40px !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    font-size: 40px !important;
+    color: #d2d2d2 !important;
+    margin: 0 !important;
+}
+/* 标签：顶部 1224（栏内 62），16px/22px */
+#wx-nav nav dd {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 68px !important;
+    height: 22px !important;
+    line-height: 22px !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    color: #c8c8c8 !important;
+    margin: 0 !important;
+}
+#wx-nav nav dl.router-link-active dt,
+#wx-nav nav dl.router-link-active dd { color: #07c160 !important; }
+/* 微信 Tab 未读徽标：画布 (80,1163)，39×28。badge 在 dt(图标,绝对定位) 内，
+   dt 布局位于 (55,1178)，故容器内 left=80-55=25，top=1163-1178=-15 */
+#wx-nav nav .new-msg-count {
+    position: absolute !important;
+    left: 25px !important;
+    top: -15px !important;
+    right: auto !important;
+    margin: 0 !important;
+    min-width: 39px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    border-radius: 14px !important;
+    background: #fa5151 !important;
+    color: #fff !important;
+    font-size: 17px !important;
+    font-weight: 400 !important;
+    padding: 0 !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    z-index: 9;
+}
+/* 发现 Tab 红点：画布圆心 (389,1181) 直径 13。dot 在 dt(绝对定位) 内，
+   dt 布局位于 (355,1178)，故容器内 left=382.5-355=27，top=1174.5-1178=-3 */
+#wx-nav nav .new-msg-dot {
+    position: absolute !important;
+    left: 27px !important;
+    top: -3px !important;
+    right: auto !important;
+    margin: 0 !important;
+    width: 13px !important;
+    height: 13px !important;
+    border-radius: 50% !important;
+    background: #fa5151 !important;
+    z-index: 9;
+}
+
+
+/* ============================================================
+   主页底部导航：4个tab图标用贴图(主页下面四图标.png切出的单图标)
+   选中tab图标变绿；微信未读数字改三点(99+)
+   ============================================================ */
+/* 隐藏原SVG mask图标 */
+#wx-nav nav dt::before { display: none !important; }
+#wx-nav nav dt { width: 64px !important; height: 54px !important; top: 12px !important; }
+#wx-nav nav dl:nth-child(1) dt {
+    background: url("/images/chatbar/tab_wechat.png") center / auto 54px no-repeat !important;
+}
+#wx-nav nav dl:nth-child(2) dt {
+    background: url("/images/chatbar/tab_contact.png") center / auto 42px no-repeat !important;
+}
+#wx-nav nav dl:nth-child(3) dt {
+    background: url("/images/chatbar/tab_find.png") center / auto 42px no-repeat !important;
+}
+#wx-nav nav dl:nth-child(4) dt {
+    background: url("/images/chatbar/tab_me.png") center / auto 42px no-repeat !important;
+}
+
+/* 微信选中：绿气泡+红三点 */
+#wx-nav nav dl:nth-child(1).router-link-active dt { background-image: url("/images/chatbar/tab_wechat_green.png") !important; }
+/* 微信 Tab 图标素材已自带红点，隐藏重复的 DOM 徽标，避免叠加错乱 */
+#wx-nav nav dl:nth-child(1) .new-msg-count { display: none !important; }
+
+/* 选中变绿：切换为绿色版图标贴图(不用filter,避免把红点/子元素也染绿) */
+#wx-nav nav dl:nth-child(2).router-link-active dt,
+#wx-nav nav dl:nth-child(3).router-link-active dt,
+#wx-nav nav dl:nth-child(4).router-link-active dt { color: #07c160 !important; }
+#wx-nav nav dl:nth-child(2).router-link-active dt { background-image: url("/images/chatbar/tab_contact_green.png") !important; }
+#wx-nav nav dl:nth-child(3).router-link-active dt { background-image: url("/images/chatbar/tab_find_green.png") !important; }
+#wx-nav nav dl:nth-child(4).router-link-active dt { background-image: url("/images/chatbar/tab_me_green.png") !important; }
+
+/* 微信tab未读：数字红徽标改三点(99+) */
+#wx-nav nav .new-msg-count {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    border-radius: 12px !important;
+    font-size: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+#wx-nav nav .new-msg-count::before {
+    content: "···" !important;
+    font-size: 18px !important;
+    color: #fff !important;
+    letter-spacing: 1px !important;
+    font-weight: 700 !important;
+}
+
+/* 隐藏发现tab右上角红点(去掉重叠红点,多重保险) */
+#wx-nav nav .new-msg-dot { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; opacity: 0 !important; }
+
+#wx-nav nav .new-msg-dot { display: none !important; }

@@ -1,0 +1,110 @@
+/* ============================================================
+   图片发送预览页样式（main.py 注入）
+   ------------------------------------------------------------
+   复刻微信「发送图片前一步」预览页（参考图：393×852）：
+   顶部导航条（返回箭头 + 勾选）、中间待发图片、底部工具条
+   （编辑 / 原图 / 绿色发送按钮）。
+
+   实现思路（按用户要求，最简可靠）：
+   - 一张纯黑图(.sip-bg)铺满整屏作底板。
+   - 顶部横条(.sip-top) + 底部横条(.sip-bottom)两个贴图叠上去。
+   - 待发图(.sip-image) 宽度对齐画面、高度按图片比例自动缩放（不撑满、
+     不 cover），居中放置；竖长图自然铺满、超出部分被上下横条盖住，
+     横图则居中留黑。
+   上下横条固定高度、等比背景，不被压缩。
+   ============================================================ */
+
+/* ---- 预览页覆盖层（fixed + inset:0 全屏） ---- */
+#sendImagePreview {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;          /* 提到状态栏(2147483646)之下最高位 */
+    display: none;
+    background: #000;             /* 兜底黑 */
+    color: #fff;
+}
+#sendImagePreview.sip-open { display: block; }
+
+/* ---- 全屏纯黑底板：铺满整屏，作为画面的底层 ---- */
+#sendImagePreview .sip-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;            /* 黑图铺满，无视觉影响 */
+    display: block;
+    z-index: 0;
+}
+
+/* ---- 闪黑幕 ---- */
+#sendImagePreview .sip-flash {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    z-index: 6;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .08s ease, visibility .08s ease;
+}
+#sendImagePreview.sip-open .sip-flash {
+    opacity: 1;
+    visibility: visible;
+    animation: sipFlashOut .10s ease .05s forwards;
+}
+@keyframes sipFlashOut {
+    from { opacity: 1; }
+    to   { opacity: 0; visibility: hidden; }
+}
+
+/* ---- 顶部导航条：返回箭头 + 勾选（top_bar.png，等比，固定不被挤压） ---- */
+#sendImagePreview .sip-top {
+    position: absolute;
+    left: 0; right: 0;
+    top: 40px;                    /* 让出顶部仿真状态栏（约 40px） */
+    height: 98px;                 /* 导航条约 58px + 下移调整 */
+    background-image: url('/images/sendpreview/top_bar.png');
+    background-size: 100% auto;   /* 等比：宽度撑满，高度按 393:58 比例 */
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    background-color: #000;
+    z-index: 4;                   /* 高于待发图，盖住图片顶部超出部分 */
+}
+
+/* ---- 待发图：宽度对齐画面、高度按比例自动（不 cover、不撑满巨大）---- */
+#sendImagePreview .sip-body {
+    position: absolute;
+    left: 0; right: 0;
+    top: 138px;                   /* 40 状态栏 + 98 顶条 */
+    bottom: 137px;                /* 137 底条 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    z-index: 1;
+}
+#sendImagePreview .sip-image {
+    width: 100%;                  /* 宽度对齐画面（600）—— 必须铺满，不放 max-height 限制 */
+    height: auto;                 /* 高度按图片实际比例自动（竖图自然超出，被上下横条盖住） */
+    object-fit: contain;          /* 等比，不裁切、不变形 */
+    display: block;
+}
+
+/* ---- 底部工具条：编辑 / 原图 / 发送（bottom_bar.png，等比，固定不被压缩） ----
+   关键：盒子高度 = bottom_bar.png 等比到 600 宽后的实际高度（~137px），
+   保证「编辑/原图/发送」文字完整显示、不被压缩。 */
+#sendImagePreview .sip-bottom {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 0;
+    height: 137px;                /* 393:90 比例 → 600 宽下 ≈ 137px */
+    background-image: url('/images/sendpreview/bottom_bar.png');
+    background-size: 100% 100%;   /* 撑满盒子（盒子高度=等比高度，无变形） */
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #000;
+    z-index: 4;                   /* 高于待发图，盖住图片底部超出部分 */
+}
+
+/* 素材加载前的兜底深色，避免瞬间闪白 */
+#sendImagePreview .sip-top,
+#sendImagePreview .sip-bottom { background-color: #000; }

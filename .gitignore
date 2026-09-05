@@ -1,0 +1,49 @@
+# ============ 生成物 / 大体积帧图、视频 ============
+_prod_*/
+_stall_dbg/
+_tmp_stall/
+_tmp_*/
+_repro_*/
+_refframes/
+_sparse_frames/
+_vfy_frames/
+_chk_fix/
+_video_frames/
+_remains/
+_opt1_chk_*/
+*.mp4
+*.mov
+*.gif
+*.wav
+*.mp3
+*.ogg
+# 根目录散落的帧图/截图
+_*.png
+_*.jpg
+_*.jpeg
+preview/*.png
+
+# ============ 依赖 / 运行时 ============
+node_modules/
+tools/
+*.exe
+
+# ============ Python ============
+__pycache__/
+*.pyc
+*.pyo
+
+# ============ enhance 中的大字典数据(运行时数据,非源码) ============
+enhance/_backup/
+enhance/rime-ice/
+enhance/rime/
+enhance/pinyin_data.js
+enhance/*.dict.yaml
+enhance/_tmp_*.json
+
+# ============ 日志 ============
+*.log
+
+# ============ IDE / 系统 ============
+.DS_Store
+Thumbs.db

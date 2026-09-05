@@ -1,0 +1,5 @@
+/* HarmonyOS Sans SC 字体引入（微信风格黑体，最接近苹方）
+   通过 dev server 的 public 目录 /fonts/harmony/ 加载分片 woff2。
+   Regular=400（正文），Medium=500（导航/标题）。 */
+@import url("/fonts/harmony/Regular.css");
+@import url("/fonts/harmony/Medium.css");

@@ -1,0 +1,105 @@
+/* ============================================================
+   真人行为增强层样式（main.py 注入）
+   ------------------------------------------------------------
+   1. #imageViewer：全屏图片查看器（点开放大 → 手抖 → 停留 → 关闭）。
+      放大进入动画做在 .iv-stage 上，持续的手抖/平移抖动做在 .iv-img 上，
+      两者分离避免动画互相覆盖。
+   2. 对方逐字打字气泡 .peer-typing-row：文字随逐字增长，光标闪烁。
+   ============================================================ */
+
+/* ---- 全屏图片查看器 ---- */
+#imageViewer {
+    position: fixed;
+    left: 0; right: 0; top: 0; bottom: 0;
+    z-index: 999990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .28s ease, visibility .28s ease;
+}
+#imageViewer.iv-visible { opacity: 1; visibility: visible; }
+#imageViewer.iv-open { opacity: 1; visibility: visible; }
+
+#imageViewer .iv-backdrop {
+    position: absolute;
+    inset: 0;
+    background: #000;
+}
+
+/* 舞台：承载放大进入 / 退出动画（width/height 即「点开不放大」时的默认显示大小） */
+#imageViewer .iv-stage {
+    position: relative;
+    z-index: 2;
+    width: 92%;
+    height: 92%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#imageViewer .iv-stage.iv-zoom-in { animation: ivZoom .3s ease; }
+#imageViewer .iv-stage.iv-zoom-out { animation: ivZoomOut .22s ease; }
+
+@keyframes ivZoom {
+    from { transform: scale(.68); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+@keyframes ivZoomOut {
+    from { transform: scale(1); opacity: 1; }
+    to   { transform: scale(.68); opacity: 0; }
+}
+
+/* 图片本体：改为 JS 驱动的捏合缩放（禁用旧的手抖滑动动画，避免覆盖 transform）。
+   不再用 will-change: transform —— 缩放本就是 transform，浏览器会在每次变换时自动提升合成层；
+   留下 will-change 会让关闭后的大图纹理层长期驻留，把后续(键盘弹出等)动画首帧拖到掉帧/卡顿。 */
+#imageViewer .iv-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, .62);
+    transform-origin: center center;
+    transition: none;
+}
+#imageViewer.iv-open .iv-img { animation: none; }
+
+@keyframes ivWobble {
+    0%   { transform: scale(1.02) rotate(0deg)   translate(0, 0); }
+    18%  { transform: scale(1.02) rotate(-.35deg) translate(.7px, .3px); }
+    36%  { transform: scale(1.02) rotate(.25deg)  translate(-.5px, .5px); }
+    54%  { transform: scale(1.02) rotate(-.15deg) translate(.4px, -.4px); }
+    72%  { transform: scale(1.02) rotate(.3deg)   translate(-.6px, .2px); }
+    100% { transform: scale(1.02) rotate(0deg)   translate(0, 0); }
+}
+
+#imageViewer .iv-caption {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 26px;
+    z-index: 3;
+    text-align: center;
+    color: rgba(255, 255, 255, .75);
+    font-size: 14px;
+    letter-spacing: .5px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .6);
+    pointer-events: none;
+}
+
+/* ---- 对方逐字打字气泡 ---- */
+.dialogue-section .row.peer-typing-row { opacity: .92; }
+.dialogue-section .peer-typing-text { min-width: 40px; }
+.dialogue-section .peer-typing-text .pt-cursor {
+    display: inline-block;
+    margin-left: 2px;
+    color: #576b95;
+    font-weight: 700;
+    transform: translateY(-1px);
+    animation: ptBlink .85s step-end infinite;
+}
+@keyframes ptBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}

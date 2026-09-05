@@ -1,0 +1,145 @@
+/* ============================================================
+   微信真实 SVG 图标（mask 替换 iconfont/自绘）—— 从 ipa 拆解
+   官方 SVG 作 mask，背景取 currentColor，图标随文字/选中态变色。
+   注入位置：所有皮肤之后（main.py 注入列表最末）。
+   ============================================================ */
+
+/* .icon-wechat -> wechat_logo.svg */
+.icon-wechat::before {
+    content: '' !important;
+    display: inline-block;
+    width: 1em; height: 1em;
+    background: currentColor;
+    -webkit-mask: url('/images/wxic/wechat_logo.svg') center / contain no-repeat;
+    mask: url('/images/wxic/wechat_logo.svg') center / contain no-repeat;
+}
+
+/* .icon-contact -> biz_mp_icons_regular_person.svg */
+.icon-contact::before {
+    content: '' !important;
+    display: inline-block;
+    width: 1em; height: 1em;
+    background: currentColor;
+    -webkit-mask: url('/images/wxic/biz_mp_icons_regular_person.svg') center / contain no-repeat;
+    mask: url('/images/wxic/biz_mp_icons_regular_person.svg') center / contain no-repeat;
+}
+
+/* .icon-find -> biz_finder_icon.svg */
+.icon-find::before {
+    content: '' !important;
+    display: inline-block;
+    width: 1em; height: 1em;
+    background: currentColor;
+    -webkit-mask: url('/images/wxic/biz_finder_icon.svg') center / contain no-repeat;
+    mask: url('/images/wxic/biz_finder_icon.svg') center / contain no-repeat;
+}
+
+/* .icon-me -> biz_mp_icons_outlined_me.svg */
+.icon-me::before {
+    content: '' !important;
+    display: inline-block;
+    width: 1em; height: 1em;
+    background: currentColor;
+    -webkit-mask: url('/images/wxic/biz_mp_icons_outlined_me.svg') center / contain no-repeat;
+    mask: url('/images/wxic/biz_mp_icons_outlined_me.svg') center / contain no-repeat;
+}
+
+/* .icon-return-arrow -> arrow_left_regular.svg */
+.icon-return-arrow::before {
+    content: '' !important;
+    display: inline-block;
+    width: 1em; height: 1em;
+    background: currentColor;
+    -webkit-mask: url('/images/wxic/arrow_left_regular.svg') center / contain no-repeat;
+    mask: url('/images/wxic/arrow_left_regular.svg') center / contain no-repeat;
+    /* 关键：inline-block 默认按 baseline 对齐，底边贴住行盒基线，导致整个箭头图标
+       在 header 里视觉偏下，与右侧「未读胶囊」(.nav-unread 高 36/行高 36 垂直居中)
+       不在同一水平线。这里改用 middle，让图标的垂直中心对齐行盒中线，
+       从而与胶囊(中心=top 19 + 高 36/2 = 37)完全水平对齐，一次永久解决。 */
+    vertical-align: middle !important;
+}
+
+/* .icon-dialogue-jianpan -> icons_outlined_keyboard.svg */
+.icon-dialogue-jianpan::before {
+    content: '' !important;
+    display: inline-block;
+    width: 1em; height: 1em;
+    background: currentColor;
+    -webkit-mask: url('/images/wxic/icons_outlined_keyboard.svg') center / contain no-repeat;
+    mask: url('/images/wxic/icons_outlined_keyboard.svg') center / contain no-repeat;
+}
+
+/* .icon-dialogue-voice -> 参考图图标（聊天框左侧图标.png）直接铺在元素上，旧遮罩停用 */
+.icon-dialogue-voice::before {
+    content: none !important;
+    display: none !important;
+}
+
+/* .icon-dialogue-smile -> 参考图图标（输入框右侧符号.png 左半）直接铺在元素上，旧遮罩停用 */
+.icon-dialogue-smile::before {
+    content: none !important;
+    display: none !important;
+}
+
+/* .icon-dialogue-jia -> 参考图图标（输入框右侧符号.png 右半）直接铺在元素上，旧遮罩停用。
+   注意：icons_outlined_addoutline.svg 仍被首页 app-header::after 使用，保留该 SVG 文件。 */
+.icon-dialogue-jia::before {
+    content: none !important;
+    display: none !important;
+}
+
+/* .weui-icon-search -> magnifying_glass_regular.svg */
+.weui-icon-search::before {
+    content: '' !important;
+    display: inline-block;
+    width: 1em; height: 1em;
+    background: currentColor;
+    -webkit-mask: url('/images/wxic/magnifying_glass_regular.svg') center / contain no-repeat;
+    mask: url('/images/wxic/magnifying_glass_regular.svg') center / contain no-repeat;
+}
+
+/* 聊天头部「···」菜单 */
+#wx-header .other .icon-chat-group::before,
+#wx-header .other .icon-chat-friends::before {
+    content: '' !important;
+    display: inline-block; width: 20px; height: 20px;
+    background: currentColor !important;
+    -webkit-mask: url('/images/wxic/biz_item_more_icon.svg') center / contain no-repeat !important;
+    mask: url('/images/wxic/biz_item_more_icon.svg') center / contain no-repeat !important;
+}
+
+/* 首页顶部「+」 */
+.app-header::after {
+    content: '' !important;
+    position: absolute; right: 18px; top: 10px; width: 30px; height: 30px;
+    background: currentColor !important;
+    -webkit-mask: url('/images/wxic/icons_outlined_addoutline.svg') center / contain no-repeat !important;
+    mask: url('/images/wxic/icons_outlined_addoutline.svg') center / contain no-repeat !important;
+}
+
+/* 朋友圈右上角相机（保留原 22x20 定位） */
+#moments #wx-header::after {
+    content: '' !important;
+    background: currentColor !important;
+    -webkit-mask: url('/images/wxic/camera_filled.svg') center / contain no-repeat !important;
+    mask: url('/images/wxic/camera_filled.svg') center / contain no-repeat !important;
+}
+
+/* 朋友圈 赞 */
+#moments .moments__post .btn-like .icon.icon-96::before,
+#moments .moments__post #btnLike .icon.icon-96::before,
+#moments .moments__post .liketext .icon.icon-96::before {
+    content: '' !important;
+    background: currentColor !important;
+    -webkit-mask: url('/images/wxic/biz_like_filled.svg') center / contain no-repeat !important;
+    mask: url('/images/wxic/biz_like_filled.svg') center / contain no-repeat !important;
+}
+
+/* 朋友圈 评论 */
+#moments .moments__post .btn-comment .icon.icon-3::before,
+#moments .moments__post #btnComment .icon.icon-3::before {
+    content: '' !important;
+    background: currentColor !important;
+    -webkit-mask: url('/images/wxic/biz_reply_bubble_regular.svg') center / contain no-repeat !important;
+    mask: url('/images/wxic/biz_reply_bubble_regular.svg') center / contain no-repeat !important;
+}

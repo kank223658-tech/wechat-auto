@@ -1,0 +1,182 @@
+/* ============================================================
+   iPhone 屏幕录制仿真层样式（main.py 注入）
+   ------------------------------------------------------------
+   作用：在录屏视口内渲染 iOS 状态栏（时间/信号/WiFi/电量）、
+   灵动岛、Home 指示条与四角圆角遮罩，让最终视频呈现"iPhone
+   真机录屏"效果。所有覆盖层 pointer-events:none，不影响自动化。
+
+   深色模式：状态栏压深（贴近 App 深色头部），图标统一白色，
+   电量图标为经典 iOS 圆角电池（白色非充电，贴合 iPhone 15）。
+   ============================================================ */
+
+/* ---- 屏幕四角圆角遮罩：把视口四角染黑，模拟 iPhone 屏幕圆角 ---- */
+#ios-screen-mask {
+    position: fixed;
+    inset: 0;
+    border-radius: 20px;
+    box-shadow: 0 0 0 999px #000;
+    pointer-events: none;
+    z-index: 2147483647;
+}
+
+/* ---- iOS 状态栏：固定在顶部，深色背景 + 白色图标（深色模式） ---- */
+#ios-statusbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 47px;
+    background: #1c1c1e;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+                 "PingFang SC", "HarmonyOS Sans SC", "Helvetica Neue", sans-serif;
+    z-index: 2147483646;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    display: flex;
+    align-items: center;
+    padding: 0 26px;
+    font-size: 15px;
+}
+
+/* 状态栏左侧：当前时间（白色加粗） */
+#ios-statusbar .sb-time {
+    font-weight: 600;
+    letter-spacing: .2px;
+    font-size: 15px;
+    color: #fff;
+}
+
+/* 灵动岛：黑色药丸胶囊，居中，尺寸接近真机（宽 102px 高 32px） */
+#ios-statusbar .sb-island {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 102px;
+    height: 32px;
+    border-radius: 17px;
+    background: #000;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .05) inset;
+}
+/* 灵动岛右下角的摄像头传感器小圆孔（真机细节） */
+#ios-statusbar .sb-island::after {
+    content: "";
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #2b2b2e, #000);
+    box-shadow: 0 0 2px rgba(255, 255, 255, .14) inset;
+}
+
+/* 状态栏右侧：信号 + WiFi + 电量集中在同一行（真机状态栏） */
+#ios-statusbar .sb-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+}
+
+/* ---- 信号格：4 格竖条，白色 ---- */
+#ios-statusbar .sb-signal {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+}
+#ios-statusbar .sb-signal i {
+    width: 3.2px;
+    border-radius: 1.5px;
+    background: #fff;
+    display: inline-block;
+}
+
+/* ---- WiFi 图标：白色描边三弧 + 圆点 ---- */
+#ios-statusbar .sb-wifi {
+    display: inline-flex;
+    align-items: center;
+    color: #fff;
+}
+#ios-statusbar .sb-wifi svg { display: block; }
+
+/* ---- 电量（数字 + 圆角电池图标） ---- */
+#ios-statusbar .sb-batt-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+/* 电量数字：iPhone 15 状态栏默认不显示百分比，故隐藏（仅保留图标） */
+#ios-statusbar .sb-battery-txt {
+    display: none;
+}
+/* 电池外壳：细灰描边圆角矩形 + 右侧小凸点（贴近真机 ~1.6:1 比例的圆润电池） */
+#ios-statusbar .sb-battery {
+    position: relative;
+    width: 22px;
+    height: 13px;
+    border: 1px solid rgba(255, 255, 255, .5);
+    border-radius: 4px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    padding: 1.5px;
+}
+#ios-statusbar .sb-battery::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 6px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, .5);
+}
+/* 电量填充条：白色圆角矩形（iPhone 15 填充为圆角矩形，非完全圆头胶囊），四边留空隙 */
+#ios-statusbar .sb-battery .sb-fill {
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    border-radius: 3px;
+    transition: width .3s ease;
+}
+
+/* 电量图标始终白色（无充电闪电/绿色），无需充电态样式 */
+
+/* ---- 5G 标签与左侧图标：默认隐藏，仅在聊天页（body.wx-chat）显示 ---- */
+.sb-cell5g,
+.sb-left-icon { display: none !important; }
+
+/* ---- Home 指示条：隐藏（部分机型/录屏无此元素，避免底部出现白色横线） ---- */
+#ios-home {
+    display: none !important;
+}
+
+/* ---- 布局适配：App 内容避开状态栏与 Home 条 ---- */
+.outter { top: 47px; height: calc(100% - 47px); }
+.sub-page { top: 47px; }
+
+/* 底部 Tab 栏：去掉 Home 指示条安全区留白，恢复标准高度 */
+#wx-nav nav {
+    height: 50px;
+    padding-bottom: 0;
+    box-sizing: border-box;
+}
+.app-content { padding-bottom: 0; }
+
+/* 聊天输入栏 / 评论条：贴住屏幕底部，不再为 Home 指示条让位。
+   关键：用 transform 而非 bottom 做键盘联动动画（bottom 走回流、transform 走合成器），
+   与 #wxkb 的 transform 过渡保持一致、帧序相同；时长/缓动与键盘一致(.22s easeOutQuad)。 */
+.dialogue-footer { bottom: 0; transition: transform .22s cubic-bezier(.25, .46, .45, .94); }
+#commentBar { bottom: 0; transition: transform .22s cubic-bezier(.25, .46, .45, .94); }
+/* 键盘弹出时：键盘总高由 --kb-cand-h 控制（无候选 278px，出候选 +46px） */
+body.wxkb-open .dialogue-footer { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
+body.wxkb-open #commentBar { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
+
+/* 发朋友圈编辑页从状态栏下方开始 */
+#momentCompose { top: 47px !important; }
