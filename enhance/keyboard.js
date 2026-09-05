@@ -920,13 +920,15 @@
         /* 动画期间关掉 CSS height 过渡：否则 CSS 合成器逐帧排版 与 本次 JS 写高度 会争抢，
            又回到「一帧两次 layout」。结束后恢复，让打字时 --chat-grow 增高仍平滑。 */
         sec.style.setProperty('transition', 'none');
+        /* Plan B：弹/收期间消息内容不变，scrollHeight 只读一次并缓存；逐帧只写 height(一次布局)
+           + scrollTop(滚动)，不再每帧读 scrollHeight —— 那会强制同步布局，是主线程掉帧的一大来源。 */
+        const sh0 = sec.scrollHeight;
         const tick = () => {
             const p = Math.min(1, (performance.now() - t0) / durMs);
             const h = from + (to - from) * ease(p);
             sec.style.setProperty('height', h.toFixed(2) + 'px', 'important');
-            // 贴底：内容高于容器时钉到新底；高度刚由本函数设置，读写共享同一帧 layout
-            const sh = sec.scrollHeight;
-            if (sh > h) sec.scrollTop = sh - h;
+            // 贴底：内容高于容器时钉到新底(用缓存 sh0，不再每帧强制布局)
+            if (sh0 > h) sec.scrollTop = sh0 - h;
             if (p < 1) requestAnimationFrame(tick);
             else {
                 // 交还 CSS(--wxkb-open) 稳态高度并恢复过渡；终值=CSS 目标值，故无跳变
