@@ -76,14 +76,19 @@ def ensure_frontend_running(timeout=120):
     raise SystemExit("前端启动超时，请手动运行 vue dev server。")
 
 
-def build_page(browser):
-    """创建页面并注入完整皮肤。"""
-    context = browser.new_context(
-        viewport={"width": VIEWPORT_W, "height": VIEWPORT_H},
-        device_scale_factor=SCALE,
-        user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X)",
-        is_mobile=True, has_touch=True, locale="zh-CN",
-    )
+def build_page(browser, context=None):
+    """创建页面并注入完整皮肤。
+
+    context 可选：传入已有的 context（例如带 record_video_dir / 自定义视口的录制上下文）
+    则使用它；否则按默认移动端视口新建。
+    """
+    if context is None:
+        context = browser.new_context(
+            viewport={"width": VIEWPORT_W, "height": VIEWPORT_H},
+            device_scale_factor=SCALE,
+            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X)",
+            is_mobile=True, has_touch=True, locale="zh-CN",
+        )
     page = context.new_page()
     page.goto(BASE_URL + "#/", wait_until="domcontentloaded")
     page.add_style_tag(content=".welcome { display: none !important; }")

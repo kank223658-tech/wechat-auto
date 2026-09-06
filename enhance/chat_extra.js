@@ -250,16 +250,98 @@
       .wx-sheet .tf-btns .btn-cancel { background: #f2f2f2; color: #111; }
       .wx-sheet .tf-btns .btn-ok { background: #07c160; color: #fff; }
 
-      /* ---- 表情包面板：底部滑出，网格排布表情贴纸 ---- */
-      .wx-sheet .emoji-grid {
-        display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 16px;
+      /* ---- 表情包面板（真实微信）：替换键盘的独立面板，顶部分类tab + 4×3网格 ----
+         真实微信点键盘笑脸后：键盘收起 → 表情面板从底部替换键盘位置滑入。
+         面板深色底，顶部分类tab居中，下方“添加的单个表情”小标题 + 4列×3行网格。 */
+      .wx-emoji-panel {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 999982;
+        background: #1c1c1e;
+        border-radius: 12px 12px 0 0;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, .3);
+        padding: 10px 24px 66px;
+        transform: translateY(100%);
+        /* 与键盘/输入栏同款 0.22s + easeOutQuad，保证「面板滑入 + 输入栏上移」逐帧贴合。
+           （对齐参考视频：整个底部换肤一起弹出，锐利不拖尾。） */
+        transition: transform .22s cubic-bezier(.25, .46, .45, .94);
+        will-change: transform;
       }
-      .wx-sheet .emoji-grid .emoji-cell {
-        border-radius: 6px; overflow: hidden; background: #f5f5f5; aspect-ratio: 1 / 1;
+      .wx-emoji-panel.open { transform: translateY(0); }
+      /* 表情面板打开态：输入栏【不收起、仅上移】到面板顶（真机行为）。
+         --emoji-h 为 JS 实测的面板高度；面板比键盘(513px)高，故输入栏还要再上移一截。
+         与 wxkb-open 相同的联动：输入栏顶边=面板顶，消息区同步收缩让出空间。 */
+      body.wx-emoji-open .dialogue-footer {
+        transform: translateY(calc(-1 * var(--emoji-h, 583px))) !important;
+        height: calc(var(--chat-bar-base) + var(--chat-grow, 0px)) !important;
+      }
+      body.wx-emoji-open .component-dialogue-bar-person {
+        height: calc(var(--chat-bar-base) + var(--chat-grow, 0px)) !important;
+      }
+      body.wx-emoji-open .component-dialogue-bar-person .icon-dialogue-voice,
+      body.wx-emoji-open .component-dialogue-bar-person .icon-dialogue-jianpan,
+      body.wx-emoji-open .component-dialogue-bar-person .expression,
+      body.wx-emoji-open .component-dialogue-bar-person .more {
+        top: calc(22px + var(--chat-grow, 0px)) !important;
+      }
+      /* 消息区高度：同序 552 - (面板高 - 键盘高513)，让最后一条消息仍在输入栏之上 */
+      body.wx-emoji-open .dialogue-section {
+        height: calc(var(--chat-sec-base) - var(--chat-grow, 0px) - (var(--emoji-h, 583px) - 513px)) !important;
+      }
+      body.wx-emoji-open .component-dialogue-bar-person .chat-way { top: 12px !important; }
+      body.wx-emoji-open .component-dialogue-bar-person .chat-say { top: 12px !important; }
+      /* 表情面板打开时，输入栏右侧「笑脸键」换成「键盘键」（再点一下回到键盘；对齐参考视频）。
+         用的就是你提供的键盘图标原图 kb_circle.png（已不再自己画，手绘 kb_circle.svg 已删除）。 */
+      body.wx-emoji-open .component-dialogue-bar-person .expression {
+        background: url('/images/chatbar/kb_circle.png') center / contain no-repeat !important;
+      }
+      /* 顶部分类 tab：搜索 / 笑脸 / 爱心(选中) / 手势。参考视频为【左对齐、均匀分布】：
+         1080 参考下图标中心在 x≈82/225/367/510（全在屏幕中心 540 左侧），换算 600 逻辑宽：
+         首格中心 ≈46px、格距 ≈79px、图标 ≈36px。故用 flex-start + 左内边距；居中会把整排挪到中间。 */
+      .wx-emoji-panel .ep-tabs {
+        display: flex; align-items: center; justify-content: flex-start; gap: 33px;
+        padding: 0 0 8px 0;   /* 左内边距交给面板 24px；此处只留底部间隔 */
+      }
+      .wx-emoji-panel .ep-tab {
+        width: 46px; height: 46px; border-radius: 10px;
         display: flex; align-items: center; justify-content: center;
+        opacity: .78; flex: none;
       }
-      .wx-sheet .emoji-grid .emoji-cell img { width: 68%; height: 68%; object-fit: contain; display: block; }
-
+      .wx-emoji-panel .ep-tab img { width: 36px; height: 36px; object-fit: contain; display: block; }
+      .wx-emoji-panel .ep-tab.active { background: #2e2e30; opacity: 1; }
+      /* 面板顶部居中短横把手（拖动指示；参考视频分类行下方一条，宽≈85px@1080→≈47px@600） */
+      .wx-emoji-panel .ep-handle {
+        width: 48px; height: 6px; border-radius: 3px;
+        background: #3a3a3c; margin: 33px auto 21px;
+      }
+      /* “添加的单个表情”小标题：参考视频字高≈24px@600、左缘≈24px（对齐面板内边距） */
+      .wx-emoji-panel .ep-head {
+        font-size: 24px; line-height: 1; color: #8e8e93; text-align: left; margin: 0 0 25px;
+      }
+      /* 4列×3行 网格（对齐参考视频：单元格≈100px 方、列距≈50px、行距≈22px、左右留白≈24px） */
+      .wx-emoji-panel .ep-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px 50px;
+      }
+      .wx-emoji-panel .ep-cell {
+        aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; cursor: pointer;
+      }
+      .wx-emoji-panel .ep-cell img {
+        width: 100%; height: 100%; object-fit: contain; display: block;
+      }
+      /* 第一格：虚线圆角方框 + 加号（收藏/添加） */
+      .wx-emoji-panel .ep-cell.ep-add {
+        border: 1.6px dashed rgba(255, 255, 255, .45);
+        border-radius: 10px; background: transparent;
+      }
+      .wx-emoji-panel .ep-cell.ep-add span {
+        font-size: 30px; line-height: 1; color: rgba(255, 255, 255, .55); font-weight: 300;
+      }
+      /* 选中高亮：参考真机点选后绿色浅底 + 边框 */
+      .wx-emoji-panel .ep-cell.ep-picked {
+        background: rgba(217, 246, 230, .22);
+        box-shadow: inset 0 0 0 2px rgba(7, 193, 96, .9);
+        border-radius: 10px;
+      }
       /* ---- 底部弹出面板：深色模式统一（微信深色：金融/表情面板跟随深色） ---- */
       .wx-pop-mask .wx-sheet { background: #1c1c1e !important; color: #fff !important; }
       .wx-pop-mask .wx-sheet .sheet-title { color: #fff !important; }
@@ -268,7 +350,6 @@
       .wx-sheet .tf-confirm .cf-note { color: #5a5a5e !important; }
       .wx-sheet .tf-btns .btn-cancel { background: #2e2e30 !important; color: #fff !important; }
       .wx-sheet .tf-btns .btn-ok { background: #07c160 !important; color: #fff !important; }
-      .wx-sheet .emoji-grid .emoji-cell { background: #2c2c2e !important; }
 
       /* ---- 修正：我方图片气泡去掉绿底、转账卡片统一为橙色（贴合参考图片3）---- */
       .dialogue-section .row .text.msg-image,
@@ -543,24 +624,124 @@
         }, 850);
     }
 
-    /* 表情面板：底部滑出，网格展示表情，居中高亮将发送的那个。
-       自动「点选 → 收起 → 上屏」。 */
-    function emojiSheet(url, onPick) {
-        const cells = Array.from({ length: 10 }, (_, i) =>
-            '<div class="emoji-cell" data-idx="' + i + '">' +
-            (i === 2 ? '<img src="' + url + '">' : '') +
-            '</div>').join('');
-        const body = '<div class="emoji-grid">' + cells + '</div>';
-        const mask = buildSheet('表情', body, '');
-        const cell = mask.querySelector('.emoji-cell[data-idx="2"]');
-        setTimeout(() => {
-            if (cell) cell.style.background = '#d9f6e6';
-            setTimeout(() => {
-                closeSheet(mask);
-                setTimeout(onPick, 120);
-            }, 200);
-        }, 700);
+    /* 表情面板：真实微信表情包面板（替换键盘，可点选 → 收起 → 上屏）。
+       顶部分类tab + “添加的单个表情”标题 + 4×3网格（第一格为虚线收藏格）。
+       params.url：要自动选中并上屏的表情图（脚本驱动）。缺省时不自动选中，
+       由用户点选任意一格（键盘打开开关场景），点哪张上屏哪张并收起。
+       时序（脚本）：收起键盘 → 面板滑入(0.3s) → 停 0.7s → 高亮选中格 → 0.2s → 收起 → 上屏。 */
+    function _emojiDecorList() {
+        /* 网格「添加的单个表情」：用的是导入的梗图表情包（对齐参考视频里的贴纸），
+           而不是微信小表情 / Unicode emoji（那是"发笑脸"，不是表情包图）。
+           来源：/images/avatar/ 下的表情包与表情梗图。 */
+        return [
+            '/images/avatar/赵本山表情包_20260903_193137_046.jpg',
+            '/images/avatar/鸟都不鸟你表情包_20260904_171833_132.jpg',
+            '/images/avatar/毁灭吧_我麻了_表情包_20260905_175020_589.jpg',
+            '/images/avatar/好的表情包_20260905_175144_812.jpg',
+            '/images/avatar/认可表情包_20260905_175240_649.jpg',
+            '/images/avatar/哭泣猫咪_20260905_175009_399.jpg',
+            '/images/avatar/狗歪头_20260905_204230_437.jpg',
+            '/images/avatar/吃惊_20260905_204410_412.jpg',
+            '/images/avatar/牛泪_20260905_204521_851.jpg',
+            '/images/avatar/害羞猫咪_20260905_205157_951.jpg',
+            '/images/avatar/女生好困了_20260905_205054_216.png',
+        ];
     }
+    function emojiSheet(opts, onPick) {
+        const url = (opts && opts.url) || '';
+        const autoPick = !!(opts && opts.url);   // 有 url 即脚本自动选中；无 url 则可点选
+        const deco = _emojiDecorList();
+        // 网格 12 格：0=虚线收藏格，1..11 放表情图。autoPick 时目标 url 放 index 2。
+        let cells = '<div class="ep-cell ep-add" data-idx="0"><span>+</span></div>';
+        for (let i = 1; i < 12; i++) {
+            const src = (autoPick && i === 2) ? url : deco[(i - 1) % deco.length];
+            cells += '<div class="ep-cell" data-idx="' + i + '"><img src="' + src + '"></div>';
+        }
+        const body =
+            '<div class="ep-tabs">' +
+            '<div class="ep-tab"><img src="/images/emoji_panel/tab_search.png"></div>' +
+            '<div class="ep-tab"><img src="/images/emoji_panel/tab_smile.png"></div>' +
+            '<div class="ep-tab active"><img src="/images/emoji_panel/tab_heart.png"></div>' +
+            '<div class="ep-tab"><img src="/images/emoji_panel/tab_gesture.png"></div>' +
+            '</div>' +
+            '<div class="ep-handle"></div>' +
+            '<div class="ep-head">添加的单个表情</div>' +
+            '<div class="ep-grid">' + cells + '</div>';
+
+        const panel = document.createElement('div');
+        panel.className = 'wx-emoji-panel';
+        panel.innerHTML = body;
+        document.body.appendChild(panel);
+
+        // 实测面板高度：输入栏上移到面板顶（真机：输入栏不收起、仅上移）。
+        // offsetHeight 不受 translateY 影响，故在滑入前即可测得。
+        const panelH = panel.offsetHeight || 583;
+        document.body.style.setProperty('--emoji-h', panelH + 'px');
+        // 收起键盘，但跳过消息区高度动画（表情面板接管消息区高度），
+        // 避免「键盘收起先把消息区弹回、面板再压缩」的两段跳动。
+        try {
+            if (window.__wxKeyboard && window.__wxKeyboard.hide) window.__wxKeyboard.hide({ keepSection: true });
+        } catch (e) { /* 忽略 */ }
+        document.body.classList.add('wx-emoji-open');
+        requestAnimationFrame(() => { requestAnimationFrame(() => panel.classList.add('open')); });
+
+        const close = (cb) => {
+            document.body.classList.remove('wx-emoji-open');
+            panel.classList.remove('open');
+            setTimeout(() => { if (panel.parentNode) panel.parentNode.removeChild(panel); }, 360);
+            setTimeout(cb, 160);
+        };
+
+        if (autoPick) {
+            const pick = panel.querySelector('.ep-cell[data-idx="2"]');
+            setTimeout(() => {
+                if (pick) pick.classList.add('ep-picked');
+                setTimeout(() => { close(() => { if (onPick) onPick(url); }); }, 200);
+            }, 700);
+        } else {
+            // 可点选：点任一非收藏格 → 高亮 → 上屏该图并收起
+            panel.querySelectorAll('.ep-cell:not(.ep-add)').forEach((c) => {
+                c.addEventListener('click', () => {
+                    const src = c.querySelector('img') && c.querySelector('img').src;
+                    close(() => { if (onPick) onPick(src); });
+                });
+            });
+        }
+    }
+    /* 键盘「笑脸」键 / 输入栏右侧笑脸：打开可点选的表情面板（停在原地，点哪张发哪张）。 */
+    window.__wxEmojiPanel = {
+        open: function () {
+            // 点选一张表情包：收起面板后把该图作为我方消息上屏（真实微信点表情包即发送）
+            emojiSheet({}, function (src) {
+                if (src) appendRow(true, '<p class="text msg-emoji"><img src="' + src + '"></p>');
+            });
+        },
+        close: function () {
+            document.body.classList.remove('wx-emoji-open');
+            const p = document.querySelector('.wx-emoji-panel');
+            if (p) { p.classList.remove('open'); setTimeout(() => p.remove(), 320); }
+        },
+        visible: function () {
+            const p = document.querySelector('.wx-emoji-panel');
+            return !!p && p.classList.contains('open');
+        },
+    };
+    /* 输入栏右侧「笑脸」键：点一下收起键盘、表情面板滑入；再点一下收起面板、键盘滑回。
+       （对齐参考视频：面板打开时该键回到键盘。用事件委托，兼容 Vue 重建 DOM。） */
+    document.addEventListener('click', (ev) => {
+        const ex = ev.target && ev.target.closest && ev.target.closest('.component-dialogue-bar-person .expression');
+        if (!ex || !window.__wxEmojiPanel) return;
+        /* 切换图标（笑脸↔键盘）时给一个快速回弹脉冲，让「笑脸→键盘」不是生硬一跳 */
+        ex.classList.remove('expr-switch');
+        void ex.offsetWidth;                     // 强制 reflow，保证动画每次都从头播
+        ex.classList.add('expr-switch');
+        if (window.__wxEmojiPanel.visible()) {
+            window.__wxEmojiPanel.close();
+            try { if (window.__wxKeyboard && window.__wxKeyboard.show) window.__wxKeyboard.show(); } catch (e) { /* 忽略 */ }
+        } else {
+            window.__wxEmojiPanel.open();
+        }
+    });
 
     /* ============================================================
        输入框可换行自动增高
@@ -789,10 +970,13 @@ window.__wxChatExt = {
         peerVoice(secs) { return !!appendRow(false, voiceHtml(secs, false)); },
 
         /* ---- 我方 / 对方 表情贴纸 ----
-           我方发表情：底部表情面板滑出 → 点选 → 收起 → 贴纸气泡 pop-in。 */
+           我方发表情：底部表情面板滑出 → 点选 → 收起 → 贴纸气泡 pop-in。
+           脚本链路：面板自动高亮该 url 所在格 → 收起 → 用该 url 上屏。 */
         selfEmoji(url) {
             if (!url) return false;
-            emojiSheet(url, function () { appendRow(true, '<p class="text msg-emoji"><img src="' + url + '"></p>'); });
+            emojiSheet({ url: url }, function () {
+                appendRow(true, '<p class="text msg-emoji"><img src="' + url + '"></p>');
+            });
             return true;
         },
         peerEmoji(url) {

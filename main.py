@@ -3495,6 +3495,9 @@ class WeChatAuto:
         if not str(url or "").strip():
             raise RuntimeError("[发送表情] 缺少表情图片路径。")
         self._chat_ext("selfEmoji", str(url).strip(), time_spec)
+        # 表情面板为异步驱动（滑入0.3s + 停0.7s + 高亮0.2s + 收起0.3s + 上屏缓冲），
+        # _chat_ext 只等 0.5s，这里再补足到动画完整播完 + 气泡上屏，避免录屏/下一动作截断。
+        _pump_wait(1.2)
 
     def peer_emoji(self, url: str, time_spec: str = None):
         """对方发送表情贴纸
@@ -3502,6 +3505,8 @@ class WeChatAuto:
         time_spec：时间标注（如 "18:22"），给出时该表情消息前显示一条时间分隔条。
         """
         self._chat_ext("peerEmoji", str(url).strip(), time_spec)
+        # 对方表情直接上屏，无面板动画；稍作停留让气泡可读。
+        _pump_wait(0.4)
 
     def send_voice(self, seconds: int = 3, time_spec: str = None):
         """我方发送语音消息（时长秒数决定波形长短）

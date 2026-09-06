@@ -852,7 +852,12 @@
         const label = key.dataset.key;
         if (label === 'shift') { toggleShift(); return; }
         if (label === 'globe') { pressFx(key, 150); toggleImeMode(); return; }
-        if (label === 'smile') { pressFx(key, 150); return; }
+        if (label === 'smile') {
+            pressFx(key, 150);
+            // 点键盘笑脸：收起键盘 → 表情面板从底部滑入（真实微信）
+            if (window.__wxEmojiPanel && window.__wxEmojiPanel.open) window.__wxEmojiPanel.open();
+            return;
+        }
         if (label === 'mic') { pressFx(key, 150); return; }
         if (label === '123' || label === 'abc' || label === '#+=') {
             switchLayout(label === 'abc' ? 'letters' : (label === '123' ? 'symbols' : 'symbols2'));
@@ -1093,11 +1098,12 @@
         },
 
         /* 收起键盘 */
-        hide() {
+        hide(opts) {
+            const keepSection = !!(opts && opts.keepSection);   // 表情面板打开时跳过消息区高度动画，由面板接管
             /* 仅「弹出→收起」真过渡才做高度动画；已收起则不空跑。 */
             const wasVisible = this.visible;
             const g = _chatSecGeom();
-            if (g && wasVisible) g.sec.style.setProperty('height', g.open + 'px', 'important');
+            if (g && wasVisible && !keepSection) g.sec.style.setProperty('height', g.open + 'px', 'important');
             root.classList.remove('kb-open');
             document.body.classList.remove('wxkb-open');
             this.visible = false;
@@ -1106,7 +1112,7 @@
             _topHint = null;
             clearComposition();
             setShiftState(0);
-            if (g && wasVisible) _animChatSection(g.open, g.closed, 220);   // 高度恢复+贴底，单帧一次排版
+            if (g && wasVisible && !keepSection) _animChatSection(g.open, g.closed, 220);   // 高度恢复+贴底，单帧一次排版
             if (wasVisible) {
                 // 键盘显式下滑；结束后交还 CSS 稳态(translateY(100%) + visibility:hidden)。
                 _animKb(0, 100, 220, () => {
@@ -1154,7 +1160,12 @@
             /* 功能键 */
             if (label === 'shift') { toggleShift(); return Date.now(); }
             if (label === 'globe') { toggleImeMode(); return Date.now(); }
-            if (label === 'smile' || label === 'mic') { pressFx(keys[label], holdMs); return Date.now(); }
+            if (label === 'smile') {
+                pressFx(keys[label], holdMs);
+                if (window.__wxEmojiPanel && window.__wxEmojiPanel.open) window.__wxEmojiPanel.open();
+                return Date.now();
+            }
+            if (label === 'mic') { pressFx(keys[label], holdMs); return Date.now(); }
             if (label === 'backspace' || label === 'space' || label === 'send') {
                 pressFx(keys[label], holdMs);
                 return Date.now();
