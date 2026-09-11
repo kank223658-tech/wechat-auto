@@ -52,7 +52,7 @@ _archive_dev_*/
 
 # ============ 调试/验证产出的帧图与截图（体积大，不入库） ============
 _fs/
-_ref_*/
+_ref*
 _shot*/
 _block_frames/
 _block_verify/
