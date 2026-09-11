@@ -37,7 +37,9 @@ try:
 except Exception:
     pass
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -87,6 +89,29 @@ def _collect_asset_paths(obj):
             _out += _collect_asset_paths(v)
     return _out
 
+
+def _peer_presets_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "peer_presets.json")
+
+
+def load_peer_presets():
+    """读取「对方主页」女性人设预设（peer_presets.json）。
+
+    返回 {预设名: 数据}。文件缺失/损坏时返回空字典（此时只有 enhance/config.js 内置的预设可用）。
+    """
+    try:
+        with open(_peer_presets_path(), "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    presets = data.get("presets") if isinstance(data, dict) else None
+    return presets if isinstance(presets, dict) else {}
+
+
+def resolve_peer_preset(name):
+    """按预设名取出对方资料数据；没有该预设返回 None。"""
+    return load_peer_presets().get(str(name or "").strip())
+
 # ============================================================
 # 一、常量区（所有可调参数集中在此）
 # ============================================================
@@ -99,7 +124,7 @@ ENHANCE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "enhance"
 
 # 视口 / 设备（600×1300 固定画布，像素级规格复刻）
 VIEWPORT_W, VIEWPORT_H = 600, 1300
-DEVICE_SCALE_FACTOR = 3
+DEVICE_SCALE_FACTOR = 1   # 3x 仅服务编辑器回退截图，却让详情层首次栅格化成本 x9（1800x3900），录屏推入段断流丢帧；编辑器实时预览平时复用 600px screencast 帧，不受影响
 MOBILE_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) "
              "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
 
@@ -190,16 +215,24 @@ def _list_wxemoji_urls() -> list:
                   for f in os.listdir(d)
                   if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")))
 
-# 打字倍速：>1 时**只**加快打字动画（按键节奏/拼音选字停顿/删除回删），
+# 打字倍速：>1 时**只**加快打字动画（按键节奏/拼音选字停顿），
 # 不影响翻页/滚动/等待/看图片等其它动作（那些只受 --speed 影响）。
 # 可通过命令行 --typing-speed 覆盖。默认 30：已把打字合并成单次 API 往返（pressType）。
 # 说明：30 倍是"速度档位"（按键节奏/停顿按此缩放）；实际吞吐还会受单次 Playwright 往返
 # 约 3ms 的下限影响，因此 30 与 40 的单帧观感接近、调高一档更多是心理上的"更快"，
 # 调低档位（如 20 以下）才能明显拉出人手的"稍慢连打"节奏。高于 ~10 主要靠
 # 减小 KEY_HOLD_MS/TYPE_SPEED 的停顿与更强的按压可见性（keyboard.css 近白按压）来体现。
-# 拼音选字（commitByPhrase 前后的停顿）与删除（delete_chars）同样按此倍速缩放，
-# 因此调大它就能让「咔咔咔」式连续打字 & 快速退格一起生效。
+# 拼音选字（commitByPhrase 前后的停顿）随此倍速缩放；但退格删字已改用独立的
+# DELETE_SPEED 控制（见下），两者互不影响。调大它即可得「咔咔咔」式连续打字。
 TYPE_SPEED = 30.0
+
+# 删字倍速：**固定**为 20，不再与打字速度(TYPE_SPEED)同步，也不提供命令行覆盖——
+# 即删字速度永远是固定的 20 倍，打字速度用 --typing-speed 自行设定。二者完全独立。
+# 想改删字速度：直接改这里的数值（20 → 更小删除慢、更大删除快）。
+DELETE_SPEED = 20.0
+# 删除基准每字时长（毫秒）：DELETE_SPEED=1 时每删 1 字间隔约 DEL_HOLD_MS。
+# 实际删字间隔 = DEL_HOLD_MS / DELETE_SPEED（最低 1ms，超过一帧时由浏览器 rAF 帧内补删）。
+DEL_HOLD_MS = 100
 
 # 苹果 iPhone + 微信音效（打字哒哒声 / 删除声 / 发送声）
 # ------------------------------------------------------------
@@ -208,9 +241,9 @@ TYPE_SPEED = 30.0
 # 音效来源：type/delete（打字/删除声）必须来自 sounds/ 目录下的真实音效文件
 #   （type.wav/delete.wav 或 .mp3，正确苹果音效，旧的 numpy 合成已删除）；
 #   发送声 send 同样优先读真实文件，缺文件时才用 numpy 合成近似音效。
-# 持续打字声：TYPE_SPEED ≥ CONTINUOUS_TYPE_MIN_SPEED(20) 时，把一段连打合并成一条
+# 持续打字声：TYPE_SPEED ≥ CONTINUOUS_TYPE_MIN_SPEED(5) 时，把一段连打合并成一条
 #   「持续打字声」——取 sounds/连续打字声.mp4 的原生音轨按敲击时长裁剪（不足循环），
-#   不再逐键叠加单个打字音效；低于 20 倍速保留逐键打字声。
+#   不再逐键叠加单个打字音效；低于 5 倍速保留逐键打字声。
 SOUNDS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sounds")
 ENABLE_AUDIO = True      # 总开关：False 则完全不生成/播放音效（成品视频无声）
 LIVE_AUDIO = True        # 运行过程中是否实时播放（演示/录屏时能听到，与成品音轨独立）
@@ -231,6 +264,62 @@ _PUMP_BOT = None
 # 脚本累计播放时钟（秒）：_pump_wait 实际等待时累加。旧式「后台消息队列」秒级触发的基准，
 # 后台消息队列现已改为「装载即投递」，该时钟仅保留给兼容逻辑使用。
 _RUN_CLOCK = 0.0
+
+# agent 调试日志总开关：WX_DEBUG_AGENT=1 才启用 _dbg_log/_dbg_log_batch（Python）与
+# __wxDebugAgent（浏览器端 _dbgD 的 push/fetch）。默认关闭，避免生产跑批被几千条
+# 逐条文件写入拖到 >90s（曾触发 [删除文字] 的看门狗误杀）。
+DEBUG_AGENT = os.getenv("WX_DEBUG_AGENT") == "1"
+
+# #region agent log
+def _dbg_log(location, message, data=None):
+    """Debug-mode instrumentation: append an NDJSON line to the session log."""
+    if not DEBUG_AGENT:
+        return
+    import json as _json
+    try:
+        _p = r"g:\weixin-auto\.cursor\debug-189770.log"
+        os.makedirs(os.path.dirname(_p), exist_ok=True)
+        with open(_p, "a", encoding="utf-8") as _f:
+            _f.write(_json.dumps({
+                "sessionId": "189770",
+                "id": "log_%d" % int(time.time() * 1000),
+                "timestamp": int(time.time() * 1000),
+                "location": location,
+                "message": message,
+                "data": data or {},
+            }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def _dbg_log_batch(entries):
+    """Debug-mode instrumentation: write many NDJSON entries in ONE file write.
+
+    `_dbg_log` 逐条 open/write/close，在 __wxDelDebug 累积上千条时（Rime 引擎每次
+    刷新/候选都记一条），会把单条动作拖到 >90s 触发看门狗误杀（如 [删除文字]）。
+    这里合并为一次 open + 连续 write，把 O(N) 次文件往返压成 O(1)，修复该挂起。
+    entries: [{location, message, data}, ...]（复用 __wxDelDebug 里的 _e 即可）。
+    """
+    if not DEBUG_AGENT or not entries:
+        return
+    try:
+        import json as _json
+        _p = r"g:\weixin-auto\.cursor\debug-189770.log"
+        os.makedirs(os.path.dirname(_p), exist_ok=True)
+        _now = int(time.time() * 1000)
+        with open(_p, "a", encoding="utf-8") as _f:
+            for _i, _e in enumerate(entries):
+                _f.write(_json.dumps({
+                    "sessionId": "189770",
+                    "id": "log_%d_%d" % (_now, _i),
+                    "timestamp": _now,
+                    "location": _e.get("location", "") if isinstance(_e, dict) else "",
+                    "message": _e.get("message", "") if isinstance(_e, dict) else "",
+                    "data": (_e.get("data") or {}) if isinstance(_e, dict) else {},
+                }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+# #endregion
 
 
 def _pump_wait(seconds: float):
@@ -278,6 +367,23 @@ def _type_minmax(lo: float, hi: float):
                / max(0.05, TYPE_SPEED))
 
 
+def _del_minmax(lo: float, hi: float):
+    """删除专属随机停顿：只受全局倍速 SPEED 与删字倍速 DELETE_SPEED 影响，
+    不再跟打字速度(TYPE_SPEED)绑定，故删字节奏独立可调。
+    """
+    _pump_wait(random.uniform(lo, hi) / 1000.0 / max(0.05, SPEED)
+               / max(0.05, DELETE_SPEED))
+
+
+def _del_cadence_ms() -> int:
+    """删字逐字间隔（毫秒）：由 DELETE_SPEED 决定，与打字 cadence 完全解耦。
+
+    返回 deleteHold 的 intervalMs；DELETE_SPEED 越大间隔越小（删得越快）。
+    最低 1ms（配合浏览器 rAF 在单帧内补删多字以如实达到超高速）。
+    """
+    return max(1, int(round(DEL_HOLD_MS / max(0.05, DELETE_SPEED))))
+
+
 def _type_wait(seconds: float):
     """打字专属等待（秒）：按 TYPE_SPEED 缩放，仅用于打字流程内的停顿。"""
     _pump_wait(seconds / max(0.05, TYPE_SPEED))
@@ -302,15 +408,15 @@ KEY_HOLD_MS = (80, 120)
 # 调小(如 14) → 动画更薄但更"快进"感。
 KEY_HOLD_MIN_MS = 30
 
-# 字符浮层气泡的最高打字倍速：TYPE_SPEED ≥ 此值时关闭"每键弹泡"，只保留很轻的按键高亮，
-# 避免高倍速下满屏气泡高速跳动、眼花缭乱（配合 keyboard.js 的 setPopupEnabled）。
-# 低速(<15)仍保留 iOS 字符浮层，观感更自然。
-KEY_POPUP_MAX_TYPING_SPEED = 15.0
+# 字符浮层气泡（打字气泡）开关：TYPE_SPEED ≥ 此值时关闭"每键弹泡"，只保留很轻的按键高亮。
+# 现暂设为 0：任何倍速都不弹泡（TYPE_SPEED 恒 > 0，条件永假），即暂时关掉打字气泡动画。
+# 想恢复：把此值改回 15（低速 <15 恢复 iOS 字符浮层 / ≥15 高倍速仍关闭防眼花）。
+KEY_POPUP_MAX_TYPING_SPEED = 0.0
 
 # 连续打字声的最低打字倍速：TYPE_SPEED ≥ 此值时，把一段「连续打」合并成一条持续打字声
 # （用 sounds/连续打字声.mp4 的原生音轨按敲击时长裁剪），不再逐键叠加单个打字音效。
-# 低于此值（低速真人人手感）仍保留逐键打字声。
-CONTINUOUS_TYPE_MIN_SPEED = 20.0
+# 低于此值（低速真人人手感）仍保留逐键打字声。现从 10 降到 5：≥5 倍速即用连续打字声。
+CONTINUOUS_TYPE_MIN_SPEED = 5.0
 
 # 连续打字声的「断段」间隔：相邻两次打字事件间隔超过此值（秒）即视为一段新连打，
 # 上一段先收口、再开新段，避免把跨动作/跨「等待」的长停顿也包进同一条持续声。
@@ -366,7 +472,7 @@ FRAME_CAPTURE_ENABLED = True    # True=采集并合成 VFR 视频；False=不做
 FRAME_CAPTURE_FPS = 60          # 输出时间基点：每帧按其真实停留时长复制到 1/FRAME_CAPTURE_FPS 整数倍
                                 # （60fps），从而贴合真实帧交换节奏
 # screencast 按 CSS 像素输出约 600x1300 的帧（不受 device_scale_factor 放大），体积可控。
-FRAME_JPEG_QUALITY = 92         # screencast 推帧画质：UI 文字要锐，92 进一步减少文字边缘的 JPEG 块状噪点
+FRAME_JPEG_QUALITY = 80         # screencast 推帧画质：92 会在转场爆发期产生 ~20MB/s 的 base64 流，CDP 管道饱和导致 ack 延迟、浏览器丢帧（推入动画整段丢失+补帧鬼影）；80 配合合成阶段 lanczos+unsharp 锐化，文字清晰度无感知差异
 # 转场「子页收回/推入」时，.sub-page(translate3d(±100%)) 与 .outter.hideLeft(translate3d(-30%)) 会把
 # 合成器表面撑宽到约 1380px。screencast 的 maxWidth 若只给 600，会把这块更宽的表面整幅下采样，
 # 导致内容被压到左 40%、右侧大片黑边（即「缩左+黑边」闪帧）。这里把采集上限放宽，让超宽帧
@@ -646,28 +752,28 @@ ENHANCE_JS = r"""
         animation: peerBlink 1.2s infinite;
       }
       @keyframes peerBlink { 0%,100%{opacity:.35} 50%{opacity:1} }
-      /* 评论输入条：位置/过渡与 iphone_frame 的键盘同步节奏(.32s iOS)对齐，
-         不再用旧的 bottom:0/.28s 覆盖外层皮肤。进出动画用 .in/.out 类：
-         打开时从底部滑入淡入（与键盘弹出同节奏），关闭时滑回并淡出后移除。 */
+      /* 评论输入条：复刻参考视频 t=12.5 —— 悬浮在 513px 整图键盘（含候选栏）
+         上方的深色细条：左侧输入文字 + 右侧圆角发送按钮，全程无微信绿。
+         .in/.out 控制滑入滑出（.32s 与键盘同节奏）。这里提供基础布局与动画
+         机制；外观最终值以 moments_exact.css 为准（后注入、!important 覆盖）。 */
       #commentBar {
-        position: fixed; left:0; right:0; bottom:34px; height:52px;
-        background:#fdfdfd; border-top:1px solid #b7b7b7; z-index:9999;
-        display:flex; align-items:center; padding:0 10px;
+        position: fixed; left:0; right:0; bottom:513px; height:44px;
+        background:#2a2a2a; z-index:2147483000;
+        display:flex; align-items:center; padding:0 16px 0 20px;
         transform: translateY(115%);
         opacity: 0;
         visibility: hidden;
-        transition: bottom .32s cubic-bezier(.32,.72,0,1),
-                    transform .32s cubic-bezier(.32,.72,0,1),
+        transition: transform .32s cubic-bezier(.32,.72,0,1),
                     opacity .24s ease, visibility .32s ease;
       }
       #commentBar.in { transform: translateY(0); opacity: 1; visibility: visible; }
       #commentBar.out { transform: translateY(115%); opacity: 0; visibility: hidden; }
       #commentBar input {
-        flex:1; height:34px; border-radius:6px; border:1px solid #7d7e83;
-        padding:0 10px; font-size:15px;
+        flex:1; height:100%; border:none; outline:none; background:transparent;
+        padding:0; color:#ededed; font-size:24px; caret-color:#07c160;
       }
-      .comment-entry { font-size:13px; color:#576b95; margin-top:6px; }
-      .comment-entry b { color:#576b95; font-weight:normal; }
+      .comment-entry { font-size:24px; line-height:36px; color:#ededed; margin-top:17px; }
+      .comment-entry b { color:#8b93a6; font-weight:normal; }
       /* 评论条目入场：轻微上滑 + 淡入，与真机朋友圈评论出现一致 */
       @keyframes commentPop {
         from { transform: translateY(9px); opacity: 0; }
@@ -774,7 +880,7 @@ ENHANCE_JS = r"""
              nextTick 回调覆盖（见上方 __wxLastSelfBubbleWall）。 */
           window.__wxBubbleShownAt = Date.now();
         }
-      } else if (t.id === 'commentInput') {
+      } else if (t.id === 'commentInput' || t.id === 'momentCommentInput') {
         const text = (t.value || '').trim();
         if (text) window.__wxSubmitComment(text);
         t.value = '';
@@ -819,12 +925,27 @@ ENHANCE_JS = r"""
       vm.$store.state.newMsgCount = total;
     };
     /* 构造一条后台消息 entry：o.image 为真时是图片气泡（主页预览/气泡统一显示 [图片]），
-       否则是文本气泡；o.time（如 "18:22"）给该消息前加时间分隔条。 */
+       o.emoji 为真时是表情贴纸气泡（主页预览显示 [表情]），否则是文本气泡；
+       o.time（如 "18:22"）给该消息前加时间分隔条。 */
     const _bgMsgEntry = (o, sender, headerUrl, text) => {
       const entry = { name: sender, headerUrl, date: Date.now() };
       if (o.image && String(o.image).trim()) {
         entry.text = '[图片]';
         entry.image = o.image;
+      } else if (o.emoji && String(o.emoji).trim()) {
+        entry.text = '[表情]';
+        entry.emoji = o.emoji;
+      } else if (o.link && (o.link.title || o.link.image)) {
+        entry.text = '[链接]';
+        const _li = (o.link.image || '').trim();
+        // 短名按链接卡片缩略图目录约定补前缀，避免相对路径破图
+        const _lImg = (_li && !_li.startsWith('/') && !/^https?:/i.test(_li))
+          ? '/images/link/' + _li : _li;
+        entry.link = {
+          title: String(o.link.title || '').trim(),
+          image: _lImg,
+          source: String(o.link.source || '心灵知行').trim(),
+        };
       } else {
         entry.text = text;
       }
@@ -855,10 +976,12 @@ ENHANCE_JS = r"""
       const headerUrl = o.avatar || (item.type === 'group'
         ? '/images/header/yehua.jpg' : (item.user && item.user[0] && item.user[0].headerUrl) || '/images/header/yehua.jpg');
       const hasImage = !!(o.image && String(o.image).trim());
+      const hasEmoji = !!(o.emoji && String(o.emoji).trim());
+      const hasLink = !!(o.link && (String(o.link.title || '').trim() || String(o.link.image || '').trim()));
       if (curByMid && item === curByMid) {
         /* 正在看 TA → 走即时上屏（气泡动画） */
-        if (hasImage) {
-          /* 图片后台消息在「正在看的会话」上屏：直接入 store，Vue 渲染图片气泡 */
+        if (hasImage || hasEmoji || hasLink) {
+          /* 图片/表情/链接后台消息在「正在看的会话」上屏：直接入 store，Vue 渲染对应气泡 */
           curByMid.msg.push(_bgMsgEntry(o, sender, headerUrl, text));
           item.read = false;
           item.newMsgCount = (Number(item.newMsgCount) || 0) + 1;
@@ -897,65 +1020,16 @@ ENHANCE_JS = r"""
       if (tip) tip.remove();
     };
 
-    let commentTargetPost = null;
-    window.__wxOpenCommentBox = () => {
-      closeCommentBar();
-      const posts = document.querySelectorAll('.moments__post');
-      if (!posts.length) return false;
-      commentTargetPost = posts[posts.length - 1];
-      const bar = document.createElement('div');
-      bar.id = 'commentBar';
-      bar.innerHTML = '<input id="commentInput" type="text" placeholder="评论">';
-      document.body.appendChild(bar);
-      // 下一帧加 .in，触发从底部滑入+淡入（与键盘弹出同节奏）
-      requestAnimationFrame(() => { requestAnimationFrame(() => bar.classList.add('in')); });
-      return true;
-    };
-    const closeCommentBar = () => {
-      const old = document.getElementById('commentBar');
-      if (!old) return;
-      // 先切到 .out 滑出淡出，等动画结束后再移除 DOM，避免瞬时消失
-      if (!old.classList.contains('out')) {
-        old.classList.remove('in');
-        old.classList.add('out');
-      }
-      setTimeout(() => { if (old.parentNode) old.parentNode.removeChild(old); }, 360);
-    };
-    window.__wxSubmitComment = (text) => {
-      if (!commentTargetPost) return;
-      const bd = commentTargetPost.querySelector('.weui-cell__bd') || commentTargetPost;
-      const p = document.createElement('p');
-      p.className = 'comment-entry comment-pop';
-      p.innerHTML = '<b>' + meName() + '</b>：';
-      p.appendChild(document.createTextNode(text));
-      bd.appendChild(p);
-      commentTargetPost = null;
-      closeCommentBar();
-    };
-
-    /* 给最后一条朋友圈点赞：显示操作菜单 + 追加我的昵称 + 按钮高亮 */
-    window.__wxLikePost = () => {
-      const posts = document.querySelectorAll('.moments__post');
-      if (!posts.length) return false;
-      const post = posts[posts.length - 1];
-      const menu = post.querySelector('.action-menu, #actionMenu');
-      if (menu) {
-        menu.classList.add('open');
-        // 模拟真机：点完「赞」后菜单自动收起（配合 open 弹出动画）
-        setTimeout(() => menu.classList.remove('open'), 520);
-      }
-      const like = post.querySelector('.liketext');
-      const nm = meName();
-      if (like && !like.textContent.includes(nm)) {
-        const s = document.createElement('span');
-        s.className = 'nickname';
-        s.textContent = (like.textContent.trim() ? ',' : '') + nm;
-        like.appendChild(s);
-      }
-      const btn = post.querySelector('.btn-like, #btnLike');
-      if (btn) btn.classList.add('liked');
-      return true;
-    };
+    /* 朋友圈「点赞 / 评论」入口：旧内嵌实现已迁移到 enhance/moments_extra.js
+       （复刻真机「···」两格弹窗、点赞条弹出、输入条随键盘滑入、评论上屏动画）。
+       这里保留旧入口名做转发（参数 i = 第几条动态，缺省最后一条），
+       兼容历史调用与编辑器实时画面。 */
+    window.__wxOpenCommentBox = (i) =>
+      (window.__wxMoments ? window.__wxMoments.tapComment(i) : false);
+    window.__wxSubmitComment = (text) =>
+      (window.__wxMoments ? window.__wxMoments.submitComment(text) : false);
+    window.__wxLikePost = (i) =>
+      (window.__wxMoments ? window.__wxMoments.tapLike(i) : false);
 })();
 """
 
@@ -1065,20 +1139,28 @@ def inject_overlays(page) -> None:
     page.add_style_tag(content=_read_enhance("wechat_modern.css"))
     page.add_style_tag(content=_read_enhance("human_actions.css"))
     page.add_style_tag(content=_read_enhance("transfer_ui.css"))
+    page.add_style_tag(content=_read_enhance("transfer_detail.css"))
     page.add_style_tag(content=_read_enhance("send_image_ui.css"))
+    page.add_style_tag(content=_read_enhance("peer_pages.css"))
+    page.add_style_tag(content=_read_enhance("block_ui.css"))
+    page.add_style_tag(content=_read_enhance("video_player.css"))
     # 首页像素级规格覆盖（600×1300 固定画布）需最后注入，压在其它皮肤之上
     page.add_style_tag(content=_read_enhance("homepage_exact.css"))
     for name in ("config.js", "chat_extra.js", "moments_extra.js", "iphone_frame.js",
-                 "wxemoji_map.js", "emoji_map.js", "transfer_ui.js", "send_image_ui.js"):
+                 "wxemoji_map.js", "emoji_map.js", "transfer_ui.js", "transfer_detail.js",
+                 "send_image_ui.js",
+                 "video_player.js", "peer_pages.js", "block_ui.js"):
         page.evaluate(_read_enhance(name))
     # pinyin_data.js 体积大（候选词库，几 MB~十几 MB），用 <script> 内联注入让浏览器原生解析，
     # 比 page.evaluate(大字符串) 快得多（实测 10MB 词库从 ~11s 降到 ~2s），避免录屏/截图启动卡顿。
     page.add_script_tag(content=_read_enhance("pinyin_data.js"))
+    # 把 agent 调试开关推给浏览器：keyboard.js 的 _dbgD 据此决定是否推 __wxDelDebug / fetch。
+    page.evaluate("window.__wxDebugAgent = %s" % ("true" if DEBUG_AGENT else "false"))
     page.evaluate(_read_enhance("keyboard.js"))
     page.evaluate(ENHANCE_JS)
     # 真 Rime WASM 引擎（雾凇）引导：注入并预热，供 keyboard.js 取真实候选。
     _inject_rime_engine(page)
-    # 高速打字(按倍速)时关闭字符浮层气泡，避免高倍速下满屏弹泡、眼花缭乱；低速保留。
+    # 字符浮层气泡（打字气泡）：现暂全部关闭（KEY_POPUP_MAX_TYPING_SPEED=0），任何倍速不弹泡。
     page.evaluate("window.__wxKeyboard && window.__wxKeyboard.setPopupEnabled(%s)"
                   % ("true" if TYPE_SPEED < KEY_POPUP_MAX_TYPING_SPEED else "false"))
     # 真人行为层：图片查看器 / 对方逐字打字（需在 ENHANCE_JS 之后注入，复用 __wxPeerMsg）
@@ -1093,6 +1175,11 @@ def inject_overlays(page) -> None:
     page.add_style_tag(content=_read_enhance("chat_exact.css"))
     # 微信真实 SVG 图标（mask 替换 iconfont/自绘），置于最末确保覆盖所有皮肤
     page.add_style_tag(content=_read_enhance("wx_icons.css"))
+    # 朋友圈像素级规格覆盖（600×1300 固定画布，参考录屏逐帧复刻）——最后注入，压住所有旧皮肤
+    page.add_style_tag(content=_read_enhance("moments_exact.css"))
+    # 发现页像素级规格覆盖（600×1300 固定画布，参考图 发现页面.jpg）——最后注入，
+    # 仅在 body.wx-on-explore（发现 Tab）时生效，须压住 wx_icons/moments_exact
+    page.add_style_tag(content=_read_enhance("discover_exact.css"))
     # 修复转场闪帧（此处用 add_style_tag，实测生效；放 init script 不生效）：
     # 根因（已用捕获帧实锤）：vue 路由子页用 translateX(±100%) 做左右滑动转场，转场瞬间
     # 子页 `.sub-page`（宽 100%，translate3d(100%) 后右缘到 1200px）与底页 `.outter`
@@ -1318,9 +1405,49 @@ def _port_open(port: int, host: str = "127.0.0.1") -> bool:
         return sock.connect_ex((host, port)) == 0
 
 
+def _frontend_http_ready(timeout: float = 2.0) -> bool:
+    """探测前端首页是否已能返回 HTTP 响应（「端口在监听」≠「页面可访问」）。
+
+    Vite dev server 会先监听端口、再按需编译 Vue 首页；只测端口会在
+    「端口已开但首页还没编译完」时误判为就绪，导致随后 Playwright 打开页面
+    超时失败（Page.goto Timeout）。这里真正 GET 一次首页，拿到任何 HTTP
+    响应（含 4xx/5xx）才算就绪。
+    """
+    url = f"http://localhost:{PORT}/"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "wxauto-readiness/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            resp.read(64)
+            return True
+    except urllib.error.HTTPError:
+        return True          # 有 HTTP 响应即说明服务已在处理请求
+    except Exception:        # noqa: BLE001
+        return False
+
+
+def _wait_frontend_ready(deadline: float, quiet: bool = False) -> bool:
+    """在 deadline 之前轮询，直到前端首页可访问；返回是否就绪。"""
+    first = True
+    while time.time() < deadline:
+        if _frontend_http_ready():
+            return True
+        if first and not quiet:
+            print("[前端] 端口已监听，正在等待首页编译完成……", flush=True)
+            first = False
+        time.sleep(0.5)
+    return False
+
+
 def ensure_frontend_running() -> None:
-    """确保 vue-WeChat 前端已在 http://localhost:8080 运行。"""
-    if not AUTO_START_FRONTEND or _port_open(PORT):
+    """确保 vue-WeChat 前端已在 http://localhost:8080 运行且首页可访问。"""
+    if not AUTO_START_FRONTEND:
+        return
+    if _port_open(PORT):
+        # 端口已占用：先等首页真正可访问再返回（可能是别处实例仍在冷编译）。
+        # 等不到也不直接失败——后续 page.goto 还有长超时与重试兜底。
+        if not _wait_frontend_ready(time.time() + FRONTEND_START_TIMEOUT_SEC):
+            print(f"[前端] 注意：{PORT} 端口有服务但首页迟迟不可访问，"
+                  f"稍后打开页面时可能较慢。", flush=True)
         return
     if not os.path.isdir(FRONTEND_DIR):
         raise RuntimeError(f"找不到前端项目目录：{FRONTEND_DIR}")
@@ -1351,8 +1478,9 @@ def ensure_frontend_running() -> None:
     deadline = time.time() + FRONTEND_START_TIMEOUT_SEC
     while time.time() < deadline:
         if _port_open(PORT):
+            # 端口开了 ≠ 页面能打开：继续等首页编译完成，避免随后 page.goto 超时
+            _wait_frontend_ready(deadline, quiet=True)
             print(f"[前端] 启动成功：http://localhost:{PORT}")
-            time.sleep(1)
             return
         if proc.poll() is not None:
             log_fh.close()
@@ -1430,6 +1558,9 @@ class WeChatAuto:
         self._audio_events = []    # [(wall_ts, name[, dur]), ...] 每次按键/回删/发送都记录一条
         self._audio_offset = 0.0   # CDP 视频时间戳 - 进程墙钟时间戳 的常数偏移（时钟校准）
         self._audio_calibrated = False
+        # 硬切时间区间 [(cdp_ts_start, cdp_ts_end), ...]：Tab 切换等「真实微信就是瞬时硬切」的
+        # 场景在此登记；合成时落在区间内的长间隔不再插入交叉混合帧（避免凭空出现渐变动画）。
+        self._hard_cut_spans = []
         # 连续打字声状态：TYPE_SPEED ≥ CONTINUOUS_TYPE_MIN_SPEED 时，把一段连打合并成一条
         # 「持续打字声」事件（记录起止）；_ct_open 表示当前连打段是否正在收集中。
         self._ct_open = False
@@ -1442,6 +1573,8 @@ class WeChatAuto:
         # 后台消息队列（[对方后台发消息] / [后台消息队列]）：由 load_bg_queue 装载并投递
         self._bg_queue = []
         self._bg_base_clock = 0.0  # 装载队列时的 _RUN_CLOCK 基准，供「秒」触发使用
+        # 我方表情包库（离线解析时由 _collect_emoji_library 算好，经 set_emoji_lib 注入前端）
+        self._emoji_lib = []
 
     # ---------- 启动 / 收尾 ----------
 
@@ -1509,8 +1642,15 @@ class WeChatAuto:
                             (st.allContacts || []).forEach(u => add2(u && u.headerUrl));
                         }
                     } catch (e) {}
-                    // 逐张预载：触发浏览器图片解码与缓存
-                    urls.forEach(u => { const im = new Image(); im.src = u; });
+                    // 逐张预载：只热 HTTP 缓存（fetch），禁止 new Image()。
+                    // new Image() 会把大图按自然尺寸放进 Chromium 解码缓存，之后
+                    // 112px object-fit:cover 朋友圈缩略图光栅化会错误复用该解码，
+                    // 被画成「整图拉伸填充」（幽灵贴片/开关图前后对不上的根源，
+                    // 20260911 探针实锤）。fetch 不进解码缓存，首帧渲染再解码。
+                    urls.forEach(u => {
+                        fetch(u, { cache: 'force-cache' })
+                            .then(r => (r && r.ok ? r.blob() : null)).catch(() => {});
+                    });
                     return urls.size;
                 }""",
                 urls)
@@ -1655,10 +1795,13 @@ class WeChatAuto:
         return self._prewarm_workflow(steps)
 
     def _preload_images(self, urls):
-        """在页面里立即预载一组静态资源路径（相对 '/'），触发浏览器解码与缓存。
+        """在页面里立即预载一组静态资源路径（相对 '/'），只热 HTTP 缓存。
 
-        用于预热阶段之外、运行中动态更换头像/封面之后调用，确保新图在首帧渲染前已就绪，
-        避免切换后我方头像闪一下才出来。
+        用 fetch 而非 new Image()：后者会把原图按自然尺寸放进解码缓存，之后
+        朋友圈 112px object-fit:cover 缩略图会错误复用该解码画成「整图拉伸
+        填充」（幽灵贴片根源，20260911 探针实锤）。fetch 不进解码缓存，
+        首帧渲染时再按目标尺寸解码，切换后头像/封面照样不闪。
+        用于预热阶段之外、运行中动态更换头像/封面之后调用。
         """
         urls = [u for u in (urls or []) if u and isinstance(u, str)]
         if not urls:
@@ -1667,7 +1810,10 @@ class WeChatAuto:
             self.page.evaluate(
                 """(us) => {
                     const abs = (u) => { try { return new URL(u, location.origin).href; } catch (e) { return u; } };
-                    us.forEach(u => { const im = new Image(); im.src = abs(u); });
+                    us.forEach(u => {
+                        fetch(abs(u), { cache: 'force-cache' })
+                            .then(r => (r && r.ok ? r.blob() : null)).catch(() => {});
+                    });
                 }""",
                 list(dict.fromkeys(urls)))
         except Exception as exc:                                    # noqa: BLE001
@@ -1681,6 +1827,7 @@ class WeChatAuto:
         self._audio_events = []
         self._audio_calibrated = False
         self._audio_offset = 0.0
+        self._hard_cut_spans = []
         self._ct_open = False
         self._ct_start = 0.0
         self._ct_last = 0.0
@@ -1755,7 +1902,30 @@ class WeChatAuto:
         self.page_open = True          # Python 层面的存活标记（供后台线程判断，不触碰 Playwright）
         # screencast 真 60fps 采集：浏览器每个合成帧主动推送（固定走此方案）
         self._start_screencast()
-        self.page.goto(BASE_URL, wait_until="domcontentloaded")
+        # 首次导航：Vite dev server 冷启动时首页要「按需编译」，Playwright 默认
+        # 10s 超时经常不够（表现为 Page.goto: Timeout 10000ms exceeded）。这里给足
+        # 90s，并在失败时重试——重试前用 _wait_frontend_ready 确认首页真的可访问，
+        # 避免在服务尚未就绪时白白重试。
+        _goto_deadline = time.time() + 90.0
+        _goto_err = None
+        while True:
+            _remain = _goto_deadline - time.time()
+            if _remain <= 0:
+                break
+            try:
+                self.page.goto(BASE_URL, wait_until="domcontentloaded",
+                               timeout=max(10_000, int(_remain * 1000)))
+                _goto_err = None
+                break
+            except Exception as exc:                  # noqa: BLE001
+                _goto_err = exc
+                if time.time() >= _goto_deadline:
+                    break
+                print(f"[前端] 打开页面失败，稍后重试：{exc}", flush=True)
+                _wait_frontend_ready(time.time() + 15.0, quiet=True)
+                time.sleep(1.0)
+        if _goto_err is not None:
+            raise _goto_err
         # 等 Vue 根应用真正渲染出会话列表，避免视频开头出现白屏/黑屏
         try:
             self.page.wait_for_selector(".wechat-list li, #wx-nav, .welcome",
@@ -1776,7 +1946,7 @@ class WeChatAuto:
             self.page.wait_for_function(
                 "() => { const vm = document.getElementById('app') && document.getElementById('app').__vue__;"
                 " return !!(vm && vm.$store && window.__wxConfig); }",
-                timeout=10_000)
+                timeout=20_000)
         except Exception:                    # noqa: BLE001
             pass
         # store 就绪后立刻应用一次配置（DEFAULT_HOME/现代数据），
@@ -1814,6 +1984,23 @@ class WeChatAuto:
         """关闭录制并合成按真实时间戳输出的 VFR MP4。"""
         global _PUMP_BOT
         self.page_open = False
+        # #region agent log: flush browser debug buffers before closing (bypasses CORS)
+        if DEBUG_AGENT:
+            try:
+                buf = self.page.evaluate("window.__wxDelDebug || []")
+                _dbg_log_batch(buf)
+                self.page.evaluate("window.__wxDelDebug = []")
+            except Exception:
+                pass
+            try:
+                plog = self.page.evaluate("window.__wxPerfLog || []")
+                _dbg_log_batch([{"location": _e.get("label", ""), "message": "perf",
+                                 "data": {"dt": _e.get("dt"), "total": _e.get("total")}}
+                                for _e in plog])
+                self.page.evaluate("window.__wxPerfLog = []")
+            except Exception:
+                pass
+        # #endregion
         mp4_vfr_path = None
         # 先停止 screencast，避免合成期间继续往 _FRAMES 追加帧
         try:
@@ -1839,7 +2026,8 @@ class WeChatAuto:
                 ffmpeg = shutil.which("ffmpeg") or (_bundled_ffmpeg() if _bundled_ffmpeg else None)
                 if ffmpeg:
                     WeChatAuto._assemble_vfr_mp4(ffmpeg, frames, mp4_vfr_path,
-                                                 trim_sec=self.trim_head_sec)
+                                                 trim_sec=self.trim_head_sec,
+                                                 hard_cut_spans=getattr(self, "_hard_cut_spans", None))
                     # 把按键音效按视频时间轴混流进成品（实时播放弃用不影响这里）
                     mp4_vfr_path = self._mux_audio(ffmpeg, frames, mp4_vfr_path)
                 else:
@@ -1861,12 +2049,16 @@ class WeChatAuto:
         return mp4_vfr_path
 
     @staticmethod
-    def _assemble_vfr_mp4(ffmpeg: str, frames, mp4_path: str, trim_sec: float = None) -> None:
+    def _assemble_vfr_mp4(ffmpeg: str, frames, mp4_path: str, trim_sec: float = None,
+                          hard_cut_spans=None) -> None:
         """把带真实交换时间戳的 JPEG 帧按真实停留时长合成视频。
 
         frames: [(timestamp_seconds, jpeg_bytes), ...]
         timestamp 是 CDP metadata.timestamp（浏览器合成器真实帧交换时刻，秒）。
         相邻两帧的时间差即该帧在屏幕上停留的真实时长。
+
+        hard_cut_spans: [(cdp_ts_start, cdp_ts_end), ...] 可选。落在区间内的间隔
+        按「真实微信本来就是瞬时硬切」处理，跳过 GAP_BLEND 交叉混合（Tab 切换等）。
 
         说明：ffmpeg 的 concat/image2 对「图片帧」会把时长量化到 1/25s 网格
         （每帧至少 0.04s，无法表达 60fps 的 ~0.0167s 间隔，会导致慢放）。因此这里
@@ -1877,6 +2069,11 @@ class WeChatAuto:
         """
         if not frames:
             raise ValueError("没有采集到任何帧")
+        # 采集阶段缓存的是 base64 字符串（避免抢占 ack 节奏，见 _on_screencast_frame），
+        # 此处已脱离采集链路，统一解码回 jpeg 字节。
+        import base64 as _b64mod
+        frames = [(ts, data if isinstance(data, bytes) else _b64mod.b64decode(data))
+                  for ts, data in frames]
         frames = sorted(frames, key=lambda f: f[0])
         t0 = frames[0][0]
         trim = TRIM_HEAD_SEC if trim_sec is None else float(trim_sec)
@@ -1927,9 +2124,25 @@ class WeChatAuto:
                     _app_ar = VIEWPORT_W / float(VIEWPORT_H)
                     _ar = _w / float(_h)
                     if abs(_ar - _app_ar) <= 0.06:
-                        # 等比放大/缩小帧 → 缩到 600x1300（显示完整页面，消除左上角错位）
-                        _im2 = _im.convert("RGB").resize(
-                            (VIEWPORT_W, VIEWPORT_H), _PIL.LANCZOS)
+                        # 等比放大/缩小帧：先判断是不是「合成器表面膨胀」帧——
+                        # 内容集中在左上 600x1300、右侧/下侧全黑（转场后表面
+                        # 被 transform 撑大的残留帧）。这类帧必须裁左上，若整幅
+                        # 等比压扁会把页面挤到左 1/3 + 大片黑边（录屏鬼影来源）。
+                        _crop_inflated = False
+                        if _w > VIEWPORT_W or _h > VIEWPORT_H:
+                            _g = _im.convert("L")
+                            _hist = _g.crop((VIEWPORT_W, 0, _w, _h)).resize((32, 32)).histogram()
+                            _bright_right = max((i for i, v in enumerate(_hist) if v), default=0)
+                            _hist2 = _g.crop((0, VIEWPORT_H, _w, _h)).resize((32, 32)).histogram()
+                            _bright_bottom = max((i for i, v in enumerate(_hist2) if v), default=0)
+                            if _bright_right < 24 and _bright_bottom < 24:
+                                _crop_inflated = True
+                        if _crop_inflated:
+                            _im2 = _im.convert("RGB").crop((0, 0, VIEWPORT_W, VIEWPORT_H))
+                        else:
+                            # 真·整页等比缩放帧 → 缩到 600x1300（显示完整页面，消除左上角错位）
+                            _im2 = _im.convert("RGB").resize(
+                                (VIEWPORT_W, VIEWPORT_H), _PIL.LANCZOS)
                     else:
                         # 非等比转场帧 → 裁左上 600x1300，不足补黑（保持原有转场视觉）
                         _cw = min(VIEWPORT_W, _w); _ch = min(VIEWPORT_H, _h)
@@ -1970,7 +2183,8 @@ class WeChatAuto:
                 hold = n
                 blend = 0
                 if (n >= GAP_BLEND_MIN_FRAMES and i + 1 < len(keep)
-                        and _PIL is not None):
+                        and _PIL is not None
+                        and not any(a <= ts <= b for a, b in (hard_cut_spans or ()))):
                     _d = _visual_diff(jpeg, keep[i + 1][1])
                     if _d >= GAP_BLEND_DIFF_EPS:
                         hold = max(2, int(round(n * GAP_BLEND_HOLD_FRAC)))
@@ -2081,24 +2295,24 @@ class WeChatAuto:
         })
 
     def _on_screencast_frame(self, params):
-        """screencast 推送帧：解码后写入 _FRAMES，并 ack 让浏览器继续推。
+        """screencast 推送帧：ack 后把 base64 数据原样写入 _FRAMES（解码延后到合成）。
 
         帧时间直接用 CDP metadata.timestamp（浏览器合成器真实帧交换时刻，秒）。
         VFR 合成时相邻两帧的时间差就是该帧在屏幕上停留的真实时长，按这个节奏
         输出即可消除「CFR 网格重排」造成的时间量化卡顿。
+
+        性能关键：这里绝不做 base64 解码/PIL 解码。CDP screencast 是「每帧等
+        ack 才推下一帧」，动画爆发期（转场 60fps 大帧）若在本回调里逐帧解码，
+        ack 会延迟、浏览器被迫丢帧，录出的转场只剩首尾两帧 + 合成器补帧鬼影。
+        base64 字符串直接入缓存（零拷贝），解码统一挪到 _assemble_vfr_mp4
+        （离线阶段，慢一点无所谓）。
         """
-        import base64
-        # 关键：先 ACK 再解码。CDP screencast 是「每帧等 ack 才推下一帧」，
-        # base64 解码 + 写缓存是较慢的一步；若放在 ack 前，浏览器会被这一帧的解码
-        # 时间卡住、下一帧晚到，动画段（键盘弹/收、快打字）就会出现连续掉帧。
-        # 这里先回 ack 让浏览器立刻继续推帧，解码/写缓存放在其后，避免拖慢推帧节奏。
         try:
             self._cdp.send("Page.screencastFrameAck",
                            {"sessionId": params["sessionId"]})
         except Exception:                    # noqa: BLE001
             pass
         try:
-            jpeg = base64.b64decode(params["data"])
             meta = params.get("metadata") or {}
             ts = meta.get("timestamp", time.monotonic())
             # 时钟校准：用「CDP 视频时间戳 - 本地墙钟」推算二者常数偏移。
@@ -2114,7 +2328,7 @@ class WeChatAuto:
             elif self._audio_offset < _cdp_wall:
                 self._audio_offset = _cdp_wall
             with _FRAME_LOCK:
-                _FRAMES.append((float(ts), jpeg))
+                _FRAMES.append((float(ts), params["data"]))
         except Exception:                    # noqa: BLE001
             pass
 
@@ -2161,6 +2375,13 @@ class WeChatAuto:
         with _FRAME_LOCK:
             if _FRAMES:
                 jpeg = _FRAMES[-1][1]
+        if jpeg is not None and isinstance(jpeg, str):
+            # 采集缓存里存的是 base64 字符串（见 _on_screencast_frame），此处解码
+            import base64 as _b64
+            try:
+                jpeg = _b64.b64decode(jpeg)
+            except Exception:                   # noqa: BLE001
+                jpeg = None
         if jpeg is None:
             # 无已采帧：回退到一次轻量截图（主要覆盖编辑模式初始/静止期）
             page = getattr(self, "page", None)
@@ -2755,7 +2976,7 @@ class WeChatAuto:
                                                        on_progress)
 
         if send:
-            _type_minmax(*AFTER_TYPING_PAUSE_MS)
+            _pump_wait(0.15)   # 打完字后固定停顿 0.15s 再发送（原 _type_minmax 会被倍速压到近乎 0）
             # 时间标注（时间分隔条占位）：把标注时刻放进临时变量，sendSelfFromInput
             # 在 Enter 回车触发发送时取出并挂到新上屏的这条消息上。
             self.page.evaluate("(t) => { window.__wxNextSendTime = t || ''; }", time_spec or "")
@@ -2786,6 +3007,9 @@ class WeChatAuto:
     def _inject_peer_msg(self, text: str, avatar: str = None, show_typing: bool = False):
         """在打字过程中注入一条对方气泡（插话），并稍作停顿让气泡可读。
 
+        插话若以 [对方表情]/[表情] 等标记开头，则注入「对方表情贴纸」气泡，
+        而非纯文字（否则 [对方表情] 会原样显示成文字）。
+
         走主线程 page.evaluate，绝不开新线程（同页并发会触发 greenlet 错误）。
         停顿用 _sd_minmax（只受全局倍速影响，不被 TYPE_SPEED 压成不可见）。
         """
@@ -2795,6 +3019,28 @@ class WeChatAuto:
             _sd_minmax(150, 320)
             self.page.evaluate("window.__wxTypingOff()")
             _sd_minmax(60, 160)
+        # 表情标记插话：解析出表情图，注入对方表情贴纸
+        m = _IJ_EMOJI_RE.match(text or "")
+        if m:
+            ref = m.group(1).strip()
+            ref, _time = _strip_trailing_time(ref)
+            ref = ref.strip()
+            if not (ref.startswith("/") or ref.startswith("http")):
+                hit = _lookup_emoji_file(ref)
+                ref = hit or ""
+            if not _emoji_url_valid(ref):
+                # 解析不到真实图片：回退默认表情，避免裸短名渲染成对方表情黑图。
+                print(f"[插话] 对方表情「{m.group(1).strip()}」没找到对应图片文件，"
+                      f"已回退为默认表情 {DEFAULT_EMOJI_FALLBACK}。")
+                ref = DEFAULT_EMOJI_FALLBACK
+            try:
+                self._chat_ext("peerEmoji", ref, _time or None)
+            except Exception as exc:                    # noqa: BLE001
+                print(f"[插话] 对方表情注入失败（跳过）：{text} - {exc}")
+                return
+            _sd_minmax(260, 440)      # 像真人被对方打断、稍停再继续打字
+            self.live_snapshot()
+            return
         try:
             self.page.evaluate("([t, a]) => window.__wxPeerMsg(t, a)", [text, avatar])
         except Exception as exc:                    # noqa: BLE001
@@ -3046,7 +3292,7 @@ class WeChatAuto:
 
     def send_peer_message_bg(self, contact: str, text: str, avatar: str = None,
                              sender: str = None, move_top: bool = True,
-                             time_spec: str = None, image: str = None):
+                             time_spec: str = None, image: str = None, link: dict = None):
         """后台对方消息：给「未打开的会话」投递一条对方消息，并刷新主页预览/角标。
 
         在你正看着别的聊天（或主页）时注入，画面本身不变，但目标会话在主页的
@@ -3055,18 +3301,19 @@ class WeChatAuto:
         若目标会话恰好就是当前打开的会话，则退化为即时上屏（走 __wxPeerMsg）。
         time_spec：时间标注（如 "18:22"），给出时该消息前显示一条时间分隔条。
         image：图片路径（/images/...），给出时该消息为图片气泡（主页预览显示 [图片]）。
+        link：链接卡片 dict（{title,image,source}），给出时该消息为链接卡片气泡。
         """
         self._ensure_enhance()
         contact = str(contact or "").strip()
         text = str(text or "")
         if not contact:
             raise RuntimeError("[对方后台发消息] 缺少联系人名称。")
-        if not text and not image:
+        if not text and not image and not link:
             raise RuntimeError(f"[对方后台发消息] 缺少消息内容（联系人：{contact}）。")
         ok = self.page.evaluate(
             "([c, t, o]) => window.__wxPeerMsgBg && window.__wxPeerMsgBg(c, t, o)",
             [contact, text, {"avatar": avatar, "sender": sender, "moveTop": move_top,
-                             "time": time_spec, "image": image}])
+                             "time": time_spec, "image": image, "link": link}])
         if not ok:
             raise RuntimeError(
                 f"[对方后台发消息] 找不到会话「{contact}」（主页列表不存在该联系人）。"
@@ -3206,7 +3453,8 @@ class WeChatAuto:
         if not ok:
             raise RuntimeError("查看图片失败：图片查看器未注入，或路径无效。")
         # 放大动画 + 查看停留（快速放大 → 微抖细看期间）
-        _sd_minmax(350, 500)
+        # PhotoSwipe / human 查看器动画已压到 ~170ms，这里同步收紧，避免成片里「打开很慢」。
+        _sd_minmax(220, 320)
         # 用户显式给定「停留」→ 严格按它停；未给 → 用默认 0.3s。
         # 旧逻辑 wait_real = max(hold/SPEED, 动画时长) 会把用户设的短停留（如 0.1s）
         # 抬到缩放/细看动画时长（约 1~2s），造成「预设 0.1s 却停留很久」；现改为优先尊重设定值，
@@ -3214,13 +3462,12 @@ class WeChatAuto:
         hold_s = hold_seconds if hold_seconds is not None else VIEW_IMAGE_HOLD_DEFAULT
         wait_real = hold_s / max(0.05, SPEED)
         _pump_wait(max(0.05, wait_real))
-        _sd_minmax(100, 250)
+        _sd_minmax(80, 180)
         self.page.evaluate("window.__wxHuman && window.__wxHuman.closeImage()")
-        # 关闭动画是 JS rAF 固定时长(~0.17~0.26s)，不随 SPEED 缩放；这里如果用被 SPEED 压短的
-        # 等待(高倍速下 250~450ms 会缩到 50~90ms)，键盘弹出的 0.22s 动画会撞上还没播完的缩小动画，
-        # 两个动画同时抢主线程/合成器 → 开键盘卡顿断帧。故保底等完约 0.32s 真实时长再返回。
-        close_wait = random.uniform(250, 450) / 1000.0 / max(0.05, SPEED)
-        _pump_wait(max(0.32, close_wait))
+        # 关闭动画约 120~170ms，不随 SPEED 缩放；保底等完 0.22s 真实时长再返回。
+        # （朋友圈/通用图片查看没有后续键盘动画，0.22s 足够；聊天场景 keyboard 动画由 send 动作自己兜底。）
+        close_wait = random.uniform(220, 360) / 1000.0 / max(0.05, SPEED)
+        _pump_wait(max(0.22, close_wait))
 
     # ---------- Tab 与朋友圈 ----------
 
@@ -3228,6 +3475,9 @@ class WeChatAuto:
         """点击底部 Tab：微信 / 通讯录 / 发现 / 我
 
         settle 可选：切完 Tab 后的等待秒数；缺省用 NAV_WAIT。
+        真实微信切 Tab 没有渐变动画——旧页面瞬间被新页面替换，只有底部高亮移动。
+        这里把点击前后的一段墙钟时间换算成 CDP 时间戳区间登记为「硬切区」，
+        合成视频时落在区内的长间隔一律按硬切处理，不再插入交叉混合帧。
         """
         valid = {"微信", "通讯录", "发现", "我"}
         if name not in valid:
@@ -3236,52 +3486,603 @@ class WeChatAuto:
         tab = self.page.locator(f'#wx-nav nav dl:has(dd:text-is("{name}"))')
         if tab.count() == 0:
             raise RuntimeError(f"底部导航栏中找不到 Tab「{name}」（#wx-nav nav dl）。")
+        t0 = time.time()
         tab.first.click()
         self._wait(NAV_WAIT if settle is None else settle)
+        # 墙钟 -> CDP 视频时间戳（cdp_ts ≈ wall + _audio_offset）；
+        # 前后各放宽一点余量，覆盖 Vue 路由懒加载导致的画面突变可能落在点击稍前/稍后。
+        self._record_no_blend_span(t0)
+
+    def _record_no_blend_span(self, t0_wall: float, t1_wall: float = None,
+                              pad_before: float = 0.15, pad_after: float = 0.30):
+        """登记「无混合区」：合成时落在区内的长间隔一律停留后硬切，不插交叉混合帧。
+
+        用于两类场景：
+        · Tab 切换——真实微信就是瞬时硬切，混合帧会凭空造出渐变；
+        · 滚动 / 开关图片查看器——本身有真实动画，停顿时补混合帧同样表现为假渐变。
+        """
+        t1 = t1_wall if t1_wall is not None else time.time()
+        off = getattr(self, "_audio_offset", 0.0)
+        self._hard_cut_spans.append((t0_wall + off - pad_before, t1 + off + pad_after))
+
+    # 「朋友圈」入口定位器，按可靠性从高到低；新旧两套「发现」页皮肤都兼容。
+    # · [data-wx-action] 是 explore.vue 上的稳定钩子，皮肤改版也不会失效；
+    # · .disc-cell 是新版深色发现页（enhance/discover_exact.css）；
+    # · .weui-cell 是旧版发现页，保留作兜底。
+    MOMENTS_ENTRY_SELECTORS = (
+        '[data-wx-action="moments"]:visible',
+        '#explore .disc-cell:has-text("朋友圈"):visible',
+        '.weui-cell:has-text("朋友圈"):visible',
+    )
+
+    def _moments_entry(self):
+        """返回可见的「朋友圈」入口 Locator；找不到返回 None。"""
+        for sel in self.MOMENTS_ENTRY_SELECTORS:
+            try:
+                loc = self.page.locator(sel)
+                if loc.count() > 0:
+                    return loc.first
+            except Exception:                               # noqa: BLE001
+                continue
+        return None
 
     def enter_moments(self):
         """从发现页进入朋友圈；若当前不在「发现」Tab，自动切过去。"""
         self._kb_hide()
-        moment_entry = self.page.locator('.weui-cell:has-text("朋友圈"):visible')
-        if moment_entry.count() == 0:
+        entry = self._moments_entry()
+        if entry is None:
             # 大部分朋友圈入口在「发现」页，自动切过去再找，省去手动插一步 [切换Tab]
             self.switch_tab("发现")
-            moment_entry = self.page.locator('.weui-cell:has-text("朋友圈"):visible')
-        if moment_entry.count() == 0:
+            # 发现页是路由懒加载，首帧偶尔晚于 NAV_WAIT；给一个短轮询窗口，
+            # 避免偶发的「找不到入口」直接判失败。
+            deadline = time.time() + 3.0
+            while entry is None and time.time() < deadline:
+                entry = self._moments_entry()
+                if entry is None:
+                    _pump_wait(0.15)
+        if entry is None:
             raise RuntimeError('找不到「朋友圈」入口。请先执行 [切换Tab] 发现。')
-        moment_entry.first.click()
+        entry.click()
         self._wait(NAV_WAIT)
 
-    def scroll_down(self, pixels: int):
-        """向下滚动指定像素（鼠标滚轮，视觉更接近真人）"""
-        self.page.mouse.move(VIEWPORT_W / 2, VIEWPORT_H / 2)
+    # ---------- 对方个人主页 / 对方朋友圈（参考视频「微信进入主页加入朋友圈」） ----------
+
+    PEER_TRANSITION_WAIT = 0.42          # 推入/推出转场 0.34s + 稳定余量
+
+    def _peer_eval(self, method: str, arg=None):
+        """调用前端 window.__wxPeer 的某个方法（幂等，缺参数时走无参调用）。"""
+        self._ensure_enhance()
+        if arg is None:
+            return self.page.evaluate(
+                "() => (window.__wxPeer && window.__wxPeer.%s())" % method)
+        return self.page.evaluate(
+            "(a) => (window.__wxPeer && window.__wxPeer.%s(a))" % method, arg)
+
+    def set_peer(self, data):
+        """设置「对方」的资料与朋友圈数据。
+
+        data 可以是：预设名字符串（如「餐车老板娘·吴遂卿」）、dict、JSON 字符串或 .json 路径。
+        字段：name / wxid / area / gender(0女1男) / avatar / signature / cover /
+              momentsThumbs[] / video{name,thumbs[]} / posts[{date,images[],text}]
+        """
+        self._ensure_enhance()
+        payload = data
+        if isinstance(data, str):
+            s = data.strip()
+            if s.startswith("{") or s.startswith("["):
+                payload = json.loads(s)
+            elif s.endswith(".json"):
+                path = s if os.path.isabs(s) else os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), s)
+                with open(path, "r", encoding="utf-8") as fh:
+                    payload = json.load(fh)
+            else:
+                payload = resolve_peer_preset(s) or s   # 预设名（peer_presets.json 优先）
+        self._peer_eval("apply", payload)
+        if isinstance(payload, dict):
+            urls = [payload.get("avatar"), payload.get("cover")]
+            urls += list(payload.get("momentsThumbs") or [])
+            v = payload.get("video") or {}
+            urls += list(v.get("thumbs") or [])
+            for post in (payload.get("posts") or []):
+                urls += list(post.get("images") or [])
+            self._preload_images([u for u in urls if u])
+        self._sleep_with_capture(0.2)
+
+    def open_peer_profile(self, contact: str = None, tap_header: bool = True):
+        """打开「对方个人资料页」（从聊天页右滑推入，底层页面左移压暗）。
+
+        contact 非空时先切换到对应人设（预设名 / 数据）。
+        tap_header=True 且当前在聊天页时，先点一下**对方消息的头像**（真机路径：
+        点头像 → 进对方资料页）；没有对方消息时退回点顶部标题。
+        """
+        self._ensure_enhance()
+        if contact:
+            self.set_peer(contact)
+        if tap_header and self.page.locator(".dialogue-section").count():
+            self._kb_hide()
+            clicked = False
+            # 优先点最后一条对方消息的头像（最可能在视口内，贴近真机动作）
+            av = self.page.locator(".dialogue-section .row:not(.self) img.header").last
+            if av.count():
+                try:
+                    av.click(timeout=900)
+                    clicked = True
+                except Exception:                # noqa: BLE001
+                    clicked = False
+            if not clicked:
+                head = self.page.locator("#wx-header .center > span").first
+                if head.count():
+                    try:
+                        head.click(timeout=800)
+                    except Exception:            # noqa: BLE001
+                        pass
+            _sd_minmax(80, 180)
+        self._peer_eval("openProfile")
+        self._sleep_with_capture(self.PEER_TRANSITION_WAIT)
+        self.live_snapshot()
+
+    def open_peer_moments(self, open_profile_first: bool = True):
+        """打开「对方朋友圈」：先确保资料页在（真机路径：资料页 → 点「朋友圈」行）。"""
+        self._ensure_enhance()
+        st = self._peer_eval("isOpen") or {}
+        if open_profile_first and not st.get("profile"):
+            self._peer_eval("openProfile")
+            self._sleep_with_capture(self.PEER_TRANSITION_WAIT)
+        cell = self.page.locator("#wxPeerProfile [data-peer-moments-entry]")
+        clicked = False
+        if cell.count():
+            try:
+                cell.first.click(timeout=1200)
+                clicked = True
+            except Exception:                    # noqa: BLE001
+                clicked = False
+        if not clicked:
+            self._peer_eval("openMoments")
+        self._sleep_with_capture(self.PEER_TRANSITION_WAIT)
+        self.live_snapshot()
+
+    def peer_back(self):
+        """返回上一页：朋友圈 → 资料页 → 聊天页（iOS 推出转场）。"""
+        self._ensure_enhance()
+        target = self._peer_eval("back")
+        if target:
+            self._sleep_with_capture(self.PEER_TRANSITION_WAIT)
+            self.live_snapshot()
+        return target
+
+    def peer_close(self):
+        """直接关闭对方主页/朋友圈（不做逐级返回）。"""
+        self._peer_eval("close")
+        self._sleep_with_capture(self.PEER_TRANSITION_WAIT)
+
+    # ---- 联系人设置页 / 拉黑动画（复刻「拉黑界面，实现拉黑的功能.mp4」） ----
+
+    def _block_eval(self, method: str, arg=None):
+        """调用前端 window.__wxBlock 的某个方法（幂等，缺参数时走无参调用）。"""
+        self._ensure_enhance()
+        if arg is None:
+            return self.page.evaluate(
+                "() => (window.__wxBlock && window.__wxBlock.%s())" % method)
+        return self.page.evaluate(
+            "(a) => (window.__wxBlock && window.__wxBlock.%s(a))" % method, arg)
+
+    def open_peer_settings(self, contact: str = None):
+        """打开「联系人设置页」（真机路径：资料页右上角 … → 设置）。
+
+        contact 非空时先切换到对应人设（预设名 / 数据）。
+        设置页没开且资料页也没开时，JS 侧会自动先补开资料页垫底（返回栈才对）。
+        """
+        self._ensure_enhance()
+        if contact:
+            self.set_peer(contact)
+        st = self._block_eval("isOpen") or {}
+        if not st.get("settings"):
+            self._block_eval("openSettings")
+            self._sleep_with_capture(self.PEER_TRANSITION_WAIT)
+        self.live_snapshot()
+
+    def block_peer(self, confirm: bool = True, toast_sec: float = 1.4,
+                   hold: float = 0.8, unblock: bool = False):
+        """「加入黑名单」全过程动画（逐步执行，每步间录屏在跑）：
+
+          拨开关（变绿，0.5s）→ 底部弹起确认弹窗（0.85s）
+          → 点「确定」（弹窗收起 0.4s）→ 中央「正在加载」Toast（toast_sec 秒）
+          → 结束停留 hold 秒。
+
+        confirm=False 时第 3 步点「取消」：开关弹回灰色，无 Toast（演示取消路径）。
+        unblock=True 时走「移出黑名单」：开关关掉、弹窗文案换移出版本。
+        """
+        self._ensure_enhance()
+        direction = "unblock" if unblock else "block"
+        # 1. 拨「加入黑名单」开关
+        ok = self._block_eval("tapToggleOff" if unblock else "tapToggle")
+        if not ok:
+            raise RuntimeError(
+                "[移出黑名单] 当前不是拉黑状态，无法移出。" if unblock else
+                "[加入黑名单] 当前已处于拉黑状态（开关已开），请先用 [移出黑名单] 复位。")
+        self._sleep_with_capture(0.5)
+        # 2. 底部弹起确认弹窗
+        self._block_eval("showSheet", direction)
+        self._sleep_with_capture(0.85)
+        # 3. 确认 / 取消
+        self._block_eval("cancelSheet" if not confirm else "confirmSheet")
+        self._sleep_with_capture(0.4)
+        # 4. 「正在加载」Toast + 结束停留（取消路径无 Toast）
+        if confirm:
+            self._block_eval("showToast", float(toast_sec))
+            self._sleep_with_capture(float(toast_sec) + 0.5)
+        self._sleep_with_capture(hold)
+        self.live_snapshot()
+
+    def peer_hard_cut(self, settle: float = 0.12, flash: bool = False):
+        """「闪回聊天」硬切：瞬间隐藏对方主页/朋友圈，直接回到聊天界面接着录制。
+
+        不做 iOS 滑出转场（观感 = 视频剪辑里的一次硬切/闪切）：
+        临时给 body 挂 .wx-peer-nocut 关掉覆盖层与底层页面的所有过渡，关闭覆盖层后
+        立刻移除该标记，于是覆盖层和底层页面在同一帧内切回「聊天页」状态。
+        flash=True 时在切镜瞬间叠一帧白色闪白，剪辑感更强（默认关）。
+        """
+        self._ensure_enhance()
+        self.page.evaluate(
+            """() => {
+                document.body.classList.add('wx-peer-nocut');
+                if (window.__wxPeer && window.__wxPeer.closeViewers) window.__wxPeer.closeViewers();
+                if (window.__wxMoments && window.__wxMoments.closeImage) window.__wxMoments.closeImage();
+                if (window.__wxVideo) window.__wxVideo.close();
+                if (window.__wxHuman && window.__wxHuman.isImageOpen
+                        && window.__wxHuman.isImageOpen()) {
+                    window.__wxHuman.closeImage();
+                }
+                const iv = document.getElementById('imageViewer');
+                if (iv) { iv.classList.remove('iv-open', 'iv-visible'); iv.style.display = 'none'; }
+                if (window.__wxPeer) window.__wxPeer.close();
+                // 强制重排：让「无过渡」的 transform 立即生效，再移除标记
+                void document.body.offsetWidth;
+                document.body.classList.remove('wx-peer-nocut');
+            }""")
+        if flash:
+            self._cut_flash()
+        _pump_wait(max(0.06, settle))
+        self.live_snapshot()
+
+    def _cut_flash(self):
+        """切镜瞬间叠一帧白（配合硬切，剪辑感更强）。"""
+        self.page.evaluate(
+            """() => {
+                let f = document.getElementById('wxCutFlash');
+                if (!f) {
+                    f = document.createElement('div');
+                    f.id = 'wxCutFlash';
+                    document.body.appendChild(f);
+                }
+                f.classList.remove('on');
+                void f.offsetWidth;
+                f.classList.add('on');
+                setTimeout(() => f.classList.remove('on'), 110);
+            }""")
+
+    def flash_back_to_chat(self, contact: str = None, settle: float = 0.12,
+                           flash: bool = False):
+        """「闪回聊天」硬切（通用）：从「我的朋友圈」或「对方朋友圈/主页」一帧切回聊天界面。
+
+        观感 = 视频剪辑里的一次硬切：不做滑出转场，覆盖层/朋友圈页与底层页在同一帧切回，
+        然后继续录制。停在我的朋友圈时，会顺手切回「微信」Tab（聊天列表）；
+        contact 非空时，闪回后立刻打开该会话（同样无转场）。
+        flash=True 时在切镜瞬间叠一帧白。
+        """
+        self._ensure_enhance()
+        on_moments = bool(self.page.evaluate("() => !!document.getElementById('moments')"))
+        self.page.evaluate(
+            """() => {
+                document.body.classList.add('wx-nocut');
+                document.body.classList.add('wx-peer-nocut');
+                if (window.__wxMoments && window.__wxMoments.closeViewers) {
+                    window.__wxMoments.closeViewers();
+                }
+                if (window.__wxPeer && window.__wxPeer.closeViewers) {
+                    window.__wxPeer.closeViewers();
+                }
+                if (window.__wxVideo) window.__wxVideo.close();
+                if (window.__wxHuman && window.__wxHuman.isImageOpen
+                        && window.__wxHuman.isImageOpen()) {
+                    window.__wxHuman.closeImage();
+                }
+                const iv = document.getElementById('imageViewer');
+                if (iv) { iv.classList.remove('iv-open', 'iv-visible'); iv.style.display = 'none'; }
+                if (window.__wxPeer) window.__wxPeer.close();
+                // 仅当停在「我的朋友圈」路由子页时点返回；聊天会话页也是子页，不能误点
+                if (document.getElementById('moments')) {
+                    const back = document.querySelector('#moments .icon-return-arrow');
+                    if (back) back.click();
+                }
+                void document.body.offsetWidth;
+            }""")
+        if flash:
+            self._cut_flash()
+        _pump_wait(max(0.05, settle))
+        if on_moments:
+            # 朋友圈是从「发现」Tab 进来的，硬切后回到聊天列表
+            try:
+                self.switch_tab("微信", settle=0.05)
+            except Exception:                  # noqa: BLE001
+                pass
+            if contact:
+                self.open_chat(str(contact).strip())
+        _pump_wait(0.08)
+        self.page.evaluate(
+            "() => { document.body.classList.remove('wx-nocut');"
+            " document.body.classList.remove('wx-peer-nocut'); }")
+        self.live_snapshot()
+
+    def play_video(self, src: str = None, index: int = 1, hold: float = None):
+        """点开朋友圈视频并全屏播放。
+
+        src 非空：直接播放该地址（/videos/xxx.mp4 或 http 地址）。
+        src 为空：点开当前打开的朋友圈里第 index 个视频动态（默认第 1 个）——
+                  优先「对方朋友圈」，没开时退回「我的朋友圈」。
+        hold：播放停留秒数；缺省按视频时长（最多 6s）自动决定，至少 1.2s。
+        """
+        self._ensure_enhance()
+        src = (src or "").strip()
+        if src:
+            ok = self.page.evaluate(
+                "(o) => !!(window.__wxVideo && window.__wxVideo.open(o.src, {cover: o.cover}))",
+                {"src": src, "cover": ""})
+        else:
+            ok = self._peer_eval("playVideo", int(index))
+            if not ok:
+                # 对方朋友圈没开 / 没视频 → 退回「我的朋友圈」里的视频动态
+                ok = self.page.evaluate(
+                    "(i) => !!(window.__wxMoments && window.__wxMoments.playVideo(i))",
+                    int(index))
+        if not ok:
+            raise RuntimeError("播放视频失败：当前没有可播放的视频（朋友圈里没有视频动态，"
+                               "或视频播放器未注入）。请先用 [编辑对方资料] / [编辑朋友圈] "
+                               "配置 posts[].video。")
+        _sd_minmax(300, 550)
+        opened = self.page.evaluate(
+            "() => !!(window.__wxVideo && window.__wxVideo.isOpen())")
+        if not opened:
+            raise RuntimeError("视频播放器没有打开（视频地址可能无法加载）。")
+        # 等元数据就绪（本地视频通常 <200ms），保证按真实时长停留、首帧可见
+        try:
+            self.page.wait_for_function(
+                "() => { const v = document.querySelector('#wxVideoPlayer video');"
+                " return !!(v && v.readyState >= 1 && v.duration > 0); }",
+                timeout=1500)
+        except Exception:                      # noqa: BLE001
+            pass
+        if hold is None:
+            dur = self.page.evaluate(
+                "() => (window.__wxVideo && window.__wxVideo.duration()) || 0")
+            wait = max(1.2, min(6.0, float(dur) or 2.0))
+        else:
+            wait = max(0.3, float(hold))
+        _pump_wait(wait / max(0.05, SPEED))
+        self.page.evaluate("window.__wxVideo && window.__wxVideo.close()")
+        _pump_wait(0.25)
+        self.live_snapshot()
+
+    def scroll(self, pixels: int):
+        """滚动指定像素（正=向下，负=向上）。
+
+        在「朋友圈 / 对方朋友圈 / 对方主页」里用 rAF 缓动滚动（起步加速 + 收尾减速，
+        观感接近真人手指滑动，不是一格一格跳）；其它页面退回鼠标滚轮。
+        """
+        self._ensure_enhance()
+        info = None
+        t0 = time.time()
+        try:
+            info = self.page.evaluate(
+                """(px) => {
+                    const sels = ['#wxPeerMoments .wpm-scroll', '#wxPeerProfile .wpp-scroll',
+                                  '#moments.sub-page'];
+                    let n = null;
+                    for (const s of sels) {
+                        const el = document.querySelector(s);
+                        if (el && el.scrollHeight > el.clientHeight + 2) { n = el; break; }
+                    }
+                    if (!n) return null;
+                    const start = n.scrollTop;
+                    const max = Math.max(0, n.scrollHeight - n.clientHeight);
+                    const target = Math.max(0, Math.min(max, start + px));
+                    const dist = target - start;
+                    if (!dist) return { start: start, target: target, dur: 0 };
+                    // 距离越远滚得越久（320~600ms），带一点随机更自然
+                    const dur = (320 + Math.min(280, Math.abs(dist) * 0.4))
+                                * (0.92 + Math.random() * 0.16);
+                    const t0 = performance.now();
+                    const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+                    const step = (now) => {
+                        const p = Math.min(1, (now - t0) / dur);
+                        n.scrollTop = start + dist * ease(p);
+                        if (p < 1) requestAnimationFrame(step);
+                        else n.scrollTop = target;
+                    };
+                    requestAnimationFrame(step);
+                    return { start: start, target: target, dur: dur };
+                }""", int(pixels))
+        except Exception:                          # noqa: BLE001
+            info = None
+        if info is not None:
+            dur = float(info.get("dur") or 0) / 1000.0
+            if dur > 0:
+                _pump_wait(dur + random.uniform(0.04, 0.14))
+            self.live_snapshot()
+            self._record_no_blend_span(t0)
+            return
+        # 兜底：不在朋友圈/对方主页时用鼠标滚轮（原逻辑）
+        try:
+            center = self.page.evaluate(
+                """() => {
+                    const sels = ['#wxPeerMoments .wpm-scroll', '#wxPeerProfile .wpp-scroll',
+                                  '#moments.sub-page'];
+                    for (const s of sels) {
+                        const n = document.querySelector(s);
+                        if (n && n.scrollHeight > n.clientHeight + 2) {
+                            const r = n.getBoundingClientRect();
+                            return {x: r.left + r.width / 2, y: r.top + r.height / 2};
+                        }
+                    }
+                    return {x: window.innerWidth / 2, y: window.innerHeight / 2};
+                }""")
+        except Exception:                          # noqa: BLE001
+            center = {"x": VIEWPORT_W / 2, "y": VIEWPORT_H / 2}
+        self.page.mouse.move(float(center.get("x", VIEWPORT_W / 2)),
+                             float(center.get("y", VIEWPORT_H / 2)))
         _sd_minmax(100, 250)
-        steps = max(3, int(pixels / 120))
+        steps = max(3, int(abs(pixels) / 120))
         per_step = pixels / steps
         for _ in range(steps):
             self.page.mouse.wheel(0, per_step * random.uniform(0.85, 1.15))
             _sd_minmax(80, 200)
         _sd_minmax(200, 450)
+        self._record_no_blend_span(t0)
         self.live_snapshot()
 
-    def like(self):
-        """给当前可见的最后一条朋友圈点赞（JS 统一处理，兼容注入/原生动态）"""
-        self._ensure_enhance()
-        ok = self.page.evaluate("window.__wxLikePost()")
-        if not ok:
-            raise RuntimeError("当前页面没有朋友圈动态（.moments__post）。请先 [进入朋友圈]。")
-        _sd_minmax(400, 700)
+    def open_moment_image(self, index: int = 1, image_index: int = 1,
+                          hold: float = None):
+        """点开朋友圈动态里的配图（全屏大图查看），等价于真人点缩略图。
 
-    def comment(self, text: str):
-        """展开评论框，走真人键盘打字流程发表评论"""
+        index：第几条动态（从 1 开始）；image_index：该动态里第几张配图（从 1 开始）。
+        优先「对方朋友圈」，没开时退回「我的朋友圈」；都没有配图时报错。
+        hold：停留秒数（缺省用 VIEW_IMAGE_HOLD_DEFAULT）。
+        """
         self._ensure_enhance()
-        opened = self.page.evaluate("window.__wxOpenCommentBox()")
+        st = self._peer_eval("isOpen") or {}
+        t0_open = time.time()
+        if st.get("moments"):
+            ok = self.page.evaluate(
+                "([i, j]) => !!(window.__wxPeer && window.__wxPeer.openImage(i, j))",
+                [int(index), int(image_index)])
+            scope = "对方朋友圈"
+        else:
+            ok = self.page.evaluate(
+                "([i, j]) => !!(window.__wxMoments && window.__wxMoments.openImage(i, j))",
+                [int(index), int(image_index)])
+            scope = "我的朋友圈"
+        if not ok:
+            raise RuntimeError(
+                f"[点开图片] {scope}里没有可点开的配图（第 {index} 条动态 / 第 {image_index} 张）。"
+                "请先 [进入朋友圈] 或 [进入对方朋友圈]，并用 [编辑朋友圈] / [编辑对方资料] "
+                "配置 posts[].images。")
+        # 等放大动画走完再进「停留」观察窗。开图动画已由 moments_exact.css 从 333ms 压到 120ms，
+        # 这里的下限同步收紧（原来 320~520ms），否则等于白等，成片里显得打开很慢。
+        _sd_minmax(120, 190)
+        # 开图动画窗：本身是真实的缩放+压暗动画，停顿补混合帧会变成假渐变
+        self._record_no_blend_span(t0_open)
+        opened = self.page.evaluate(
+            "() => !!(document.querySelector('.pswp--open')"
+            " || (window.__wxHuman && window.__wxHuman.isImageOpen"
+            "     && window.__wxHuman.isImageOpen()))")
         if not opened:
-            raise RuntimeError("无法打开评论框：当前页面没有朋友圈动态。请先 [进入朋友圈]。")
+            raise RuntimeError("图片查看器没有打开（配图地址可能无法加载）。")
+        hold_s = hold if hold is not None else VIEW_IMAGE_HOLD_DEFAULT
+        _pump_wait(max(0.05, hold_s / max(0.05, SPEED)))
+        _sd_minmax(80, 180)
+        t0_close = time.time()
+        self.page.evaluate(
+            """() => {
+                if (window.__wxMoments && window.__wxMoments.closeImage) window.__wxMoments.closeImage();
+                if (window.__wxHuman && window.__wxHuman.isImageOpen
+                        && window.__wxHuman.isImageOpen()) window.__wxHuman.closeImage();
+            }""")
+        _pump_wait(max(0.22, random.uniform(220, 360) / 1000.0 / max(0.05, SPEED)))
+        # 旧版此处有两波 will-change/0.999 透明度强制重刷，已删：实测无效。
+        # 20260911 复盘：曾经的「关图幽灵/开关图前后对不上/下滑后闪回原处」三症状
+        # 均为本函数此前内嵌的临时调试块所致——它在开图前用原始数据 renderPosts
+        # 重渲染了整个朋友圈（DOM 重建→图片重载→布局高度瞬变→scrollTop 被钳制，
+        # 画面弹回上方 + 图片闪没闪现），且两次 page.screenshot() 在 screencast
+        # 录制期间抢占合成器、往视频流里混入陈旧帧。调试块已全部删除，
+        # 探针环境（无该块）从未复现过任何一症，与此结论互为印证。
+        # 关图动画窗：收尾多放宽一点，覆盖 pswp 兜底回收（closeImage 内定时器）的落点
+        self._record_no_blend_span(t0_close, pad_after=0.40)
+        self.live_snapshot()
+
+    def scroll_down(self, pixels: int):
+        """向下滚动指定像素（鼠标滚轮，视觉更接近真人）"""
+        self.scroll(abs(int(pixels)))
+
+    def scroll_up(self, pixels: int):
+        """向上滚动指定像素（鼠标滚轮，视觉更接近真人）"""
+        self.scroll(-abs(int(pixels)))
+
+    def scroll_to(self, position: str = "bottom"):
+        """把朋友圈滚到顶部/底部。
+
+        position：'顶'/'顶部'/'top' 或 '底'/'底部'/'bottom'（缺省底部）。
+        优先「对方朋友圈」，没开时退回「我的朋友圈」；都没开时返回 False。
+        """
+        self._ensure_enhance()
+        pos = ("top" if str(position).strip().lower() in
+               ("顶", "顶部", "top", "上", "最上") else "bottom")
+        ok = self.page.evaluate(
+            """(p) => {
+                const n = document.querySelector('#wxPeerMoments .wpm-scroll')
+                       || document.querySelector('#moments.sub-page');
+                if (!n) return false;
+                n.scrollTop = (p === 'top') ? 0 : n.scrollHeight;
+                return true;
+            }""", pos)
+        if ok:
+            _sd_minmax(220, 460)
+            self.live_snapshot()
+        return bool(ok)
+
+    def like(self, index=None):
+        """给朋友圈动态点赞（复刻真机：弹出「···」两格菜单 → 点「赞」→
+        菜单收起 + 点赞/评论深灰条弹出）。
+
+        index：第几条动态（从 1 开始）；缺省 None = 最后一条（兼容旧脚本）。
+        """
+        self._ensure_enhance()
+        t0 = time.time()
+        opened = self.page.evaluate(
+            "(i) => !!(window.__wxMoments && window.__wxMoments.openMenu(i))", index)
+        if not opened:
+            raise RuntimeError("当前页面没有朋友圈动态（.moments__post）。请先 [进入朋友圈]。")
+        _sd_minmax(320, 520)          # 菜单弹出后的阅读停顿（真机先看一眼再点）
+        ok = self.page.evaluate(
+            "(i) => !!(window.__wxMoments && window.__wxMoments.tapLike(i))", index)
+        if not ok:
+            raise RuntimeError("[点赞] 失败：目标动态不存在。")
+        # 动画窗：菜单收起(~90ms) + 点赞条弹出(~220ms)，停顿补帧会变成假渐变
+        self._record_no_blend_span(t0)
+        _sd_minmax(400, 700)
+        self.live_snapshot()
+
+    def comment(self, text: str, index=None):
+        """给朋友圈动态发评论（复刻真机：「···」菜单 → 点「评论」→ 底部输入条
+        随键盘滑入 → 真人键盘打字 → 点「发送」→ 键盘滑出 + 评论上屏）。
+
+        text：评论内容；index：第几条动态（从 1 开始），缺省 None = 最后一条。
+        """
+        self._ensure_enhance()
+        opened = self.page.evaluate(
+            "(i) => !!(window.__wxMoments && window.__wxMoments.openMenu(i))", index)
+        if not opened:
+            raise RuntimeError("无法打开评论：当前页面没有朋友圈动态。请先 [进入朋友圈]。")
+        _sd_minmax(320, 520)          # 菜单弹出后的阅读停顿（真机先看一眼再点）
+        t0 = time.time()
+        opened = self.page.evaluate(
+            "(i) => !!(window.__wxMoments && window.__wxMoments.tapComment(i))", index)
+        if not opened:
+            raise RuntimeError("无法打开评论：目标动态不存在。")
+        # 动画窗：菜单收起 + 输入条随键盘滑入（~0.32s）
+        self._record_no_blend_span(t0)
         _sd_minmax(300, 500)
-        self.human_type("#commentInput", text)
+        # send=False：不用聊天页的回车发送，改由「发送」按钮/提交动画收尾
+        self.human_type("#momentCommentInput", text, send=False)
         _sd_minmax(200, 400)
-        self._kb_hide()
+        t1 = time.time()
+        ok = self.page.evaluate(
+            "() => !!(window.__wxMoments && window.__wxMoments.submitComment())")
+        if not ok:
+            raise RuntimeError("[评论] 发送失败（输入内容为空或目标动态丢失）。")
+        # 动画窗：键盘滑出 + 输入条滑出 + 评论行弹进深灰条
+        self._record_no_blend_span(t1, pad_after=0.40)
+        self.live_snapshot()
 
     # ---------- 新动作：打字不发 / 删除 / 个人资料 / 朋友圈编辑 ----------
 
@@ -3316,6 +4117,9 @@ class WeChatAuto:
           - 删除期间给 body 加 wx-deleting：输入框光标变蓝、退格键稳定长按高亮
             （模拟真机长按退格，而非"按下即闪"），并加快逐字删除节奏。
         """
+        # #region agent log
+        _dbg_log("main.py:delete_chars", "DEL_ENTER", {"count": count})
+        # #endregion
         box = self.page.locator(".chat-txt")
         if box.count() == 0:
             raise RuntimeError("当前不在聊天对话页，无法删除。请先 [打开聊天]。")
@@ -3335,34 +4139,42 @@ class WeChatAuto:
         n = max(0, n)
         if n <= 0:
             return
+        # #region agent log
+        _dbg_log("main.py:delete_chars", "DELCHARS", {"orig_len": orig_len, "n": n, "DELETE_SPEED": DELETE_SPEED})
+        # #endregion
         # 进入"删除中"态：光标变蓝 + 退格键长按高亮（真机长按退格效果）
         self.page.evaluate("() => document.body.classList.add('wx-deleting')")
-        if TYPE_SPEED >= 8.0:
-            # 高倍速：真实每字间隔不足一帧，Python 逐字往返必然把删除切成错位帧（观感掉帧）。
-            # 交给 JS 的 deleteHold：由浏览器 rAF 每显示帧删 1 字，节奏帧对齐、无 CDP 抖动。
-            target = max(0, orig_len - n)
-            self.page.evaluate(
-                "(cnt) => window.__wxKeyboard && window.__wxKeyboard.deleteHold(cnt)", n)
-            try:
-                self.page.wait_for_function(
-                    "(target) => { const el = document.querySelector('.chat-txt');"
-                    " return !el || el.value.length <= target; }",
-                    arg=target, timeout=2500 + int(n * 40))
-            except Exception:                      # noqa: BLE001
-                pass   # 等待超时不阻断：下面照常收尾
-            self._register_delete_sounds()
-        else:
-            # 低速：肉眼本就可见逐字节奏，保持 Python 逐字驱动。
-            # 每字一趟 pressType：按键高亮 + JS 截字在**同一 JS 任务**完成，
-            # 不再 pressKey(高亮)+单独截字两趟 CDP（高亮与删字落不同帧会错位）。
-            for _ in range(n):
-                self._kb_type("backspace", 110)
-                _type_minmax(26, 55)      # 加快删除节奏（原 40~90，删得更快更连贯）
-        _type_minmax(120, 240)
+        # 删字节奏与打字速度(TYPE_SPEED)解耦，由 DELETE_SPEED 独立决定。
+        # 交给 JS 的 deleteHold：浏览器 rAF 帧内按 intervalMs 删除（不足一帧时补删多字），
+        # 节奏均匀、无 CDP 抖动；interval 越大删得越慢（DELETE_SPEED 越小）。
+        del_cadence = _del_cadence_ms()
+        target = max(0, orig_len - n)
+        self.page.evaluate(
+            "(args) => window.__wxKeyboard && window.__wxKeyboard.deleteHold(args[0], args[1])",
+            [n, del_cadence])
+        try:
+            self.page.wait_for_function(
+                "(target) => { const el = document.querySelector('.chat-txt');"
+                " return !el || Array.from(el.value || '').length <= target; }",
+                arg=target, timeout=2500 + int(n * max(1, int(del_cadence)) * 2))
+        except Exception:                      # noqa: BLE001
+            pass   # 等待超时不阻断：下面照常收尾
+        self._register_delete_sounds()
+        # 删除收尾停顿：只随删字倍速缩放，不影响打字
+        _del_minmax(120, 240)
         self.page.evaluate("() => document.body.classList.remove('wx-deleting')")
+        # #region agent log: flush JS-side delete debug buffer to disk (bypasses CORS)
+        if DEBUG_AGENT:
+            try:
+                buf = self.page.evaluate("window.__wxDelDebug || []")
+                _dbg_log_batch(buf)
+                self.page.evaluate("window.__wxDelDebug = []")
+            except Exception:
+                pass
+        # #endregion
 
     def _register_delete_sounds(self):
-        """高速 rAF 删字：从 JS 读取每字删除的墙钟时刻，直接登记成品音轨。
+        """rAF 删字：从 JS 读取每字删除的墙钟时刻，直接登记成品音轨。
 
         删字节奏交给 deleteHold(rAF) 后不再有 Python 逐键往返，因此这里补登记
         window.__delWalls 里每字的视觉时刻作为 delete 音效锚点（逐字删除声依旧保留）。
@@ -3487,14 +4299,61 @@ class WeChatAuto:
             raise RuntimeError("[对方发图片] 缺少图片路径参数（params.图片）。请在剧本中为该动作配置图片。")
         self._chat_ext("peerImage", url, time_spec)
 
+    def send_link(self, title: str, image: str = None, source: str = "心灵知行",
+                  time_spec: str = None):
+        """我方发送链接卡片（公众号文章 / 分享链接）
+
+        title ：链接卡片标题（链接上的文字，会自动换行，字多时撑高卡片）。
+        image ：卡片方形缩略图。可为 /images/... 绝对路径、图库关键词、或文件名；
+                留空则按「标题里的字」自动匹配（_resolve_link_image）。
+        source：左下角来源名（如「心灵知行」），可由脚本替换。
+        time_spec：时间标注（如 "18:22"），给出时该卡片消息前显示一条时间分隔条。
+        """
+        title = str(title or "").strip()
+        if not title:
+            raise RuntimeError("[我方发链接] 缺少链接标题（params.标题）。请在剧本中为该动作配置标题。")
+        img = _resolve_link_image(title, image)
+        # 卡片缩略图先预载，避免首帧闪图/空白方框
+        if img:
+            self._preload_images([img])
+        self._chat_ext("selfLink", title, img, str(source or "心灵知行"), time_spec)
+
+    def peer_link(self, title: str, image: str = None, source: str = "心灵知行",
+                  time_spec: str = None):
+        """对方发送链接卡片（公众号文章 / 分享链接）
+
+        参数含义同 send_link，只是气泡在左侧（对方）。
+        """
+        title = str(title or "").strip()
+        if not title:
+            raise RuntimeError("[对方发链接] 缺少链接标题（params.标题）。请在剧本中为该动作配置标题。")
+        img = _resolve_link_image(title, image)
+        if img:
+            self._preload_images([img])
+        self._chat_ext("peerLink", title, img, str(source or "心灵知行"), time_spec)
+
     def send_emoji(self, url: str, time_spec: str = None):
         """我方发送表情贴纸（带表情面板弹出 -> 点选 -> 上屏动画）
 
         time_spec：时间标注（如 "18:22"），给出时该表情消息前显示一条时间分隔条。
+
+        ★ 连贯开面板：目前前端没有「键盘未弹出时就点开表情」的入口，所以剧本里若
+          在未 [打开键盘] 的情况下直接发表情，这里会先把键盘弹出，再无缝切到表情面板
+          （中间不加额外停顿，动作连贯）。键盘已是弹出态则直接切面板。
         """
-        if not str(url or "").strip():
+        url = str(url or "").strip()
+        if not url:
             raise RuntimeError("[发送表情] 缺少表情图片路径。")
-        self._chat_ext("selfEmoji", str(url).strip(), time_spec)
+        self._ensure_enhance()
+        if self.page.locator(".dialogue-section").count() == 0:
+            raise RuntimeError("当前不在聊天对话页，无法发送表情。请先 [打开聊天]。")
+        # 先确保键盘弹出：发表情需要先进入输入态；未弹出则先开键盘（等其动画到位），
+        # 随后立刻调 selfEmoji 切表情面板——键盘上滑与面板滑入视为同一段连贯动作。
+        if not self._kb_is_open():
+            self.page.evaluate("window.__wxKeyboard && window.__wxKeyboard.show()")
+            self._scroll_chat_bottom()
+            _pump_wait(KB_OPEN_WAIT)   # 只等键盘上推动画播完，不额外暂停
+        self._chat_ext("selfEmoji", url, time_spec)
         # 表情面板为异步驱动（滑入0.3s + 停0.7s + 高亮0.2s + 收起0.3s + 上屏缓冲），
         # _chat_ext 只等 0.5s，这里再补足到动画完整播完 + 气泡上屏，避免录屏/下一动作截断。
         _pump_wait(1.2)
@@ -3507,6 +4366,52 @@ class WeChatAuto:
         self._chat_ext("peerEmoji", str(url).strip(), time_spec)
         # 对方表情直接上屏，无面板动画；稍作停留让气泡可读。
         _pump_wait(0.4)
+
+    def send_peer_bg_emoji(self, contact: str, url: str, time_spec: str = None):
+        """对方后台发表情：给「未打开的会话」投递一条对方表情，并刷新主页预览/角标。
+
+        与 [对方后台发消息] 行为一致（画面不变，主页预览/未读/标题同步更新），
+        只是内容是表情贴纸。若目标会话恰好是当前打开的会话，则直接上屏。
+        time_spec：时间标注（如 "18:22"），给出时该表情消息前显示一条时间分隔条。
+        """
+        self._ensure_enhance()
+        contact = str(contact or "").strip()
+        if not contact:
+            raise RuntimeError("[对方后台发表情] 缺少联系人名称。")
+        if not str(url or "").strip():
+            raise RuntimeError("[对方后台发表情] 缺少表情图片路径。")
+        ok = self.page.evaluate(
+            "([c, u, t]) => window.__wxPeerMsgBg && window.__wxPeerMsgBg(c, '', "
+            "{emoji: u, time: t, moveTop: true})",
+            [contact, str(url).strip(), time_spec])
+        if not ok:
+            raise RuntimeError(
+                f"[对方后台发表情] 找不到会话「{contact}」（主页列表不存在该联系人）。"
+                f"请确认首页会话列表里有此人，或在流程里先用 [编辑主页] 加入。")
+        _sd_minmax(200, 420)
+
+    def set_emoji_lib(self, lib: list):
+        """把「我方表情包库」注入前端，供表情面板显示（去重后的 /images/... 路径列表）。
+
+        离线解析时由 _collect_emoji_library(steps) 算好再调用本方法注入。
+        """
+        self._emoji_lib = list(lib or [])
+        self._ensure_enhance()
+        try:
+            self.page.evaluate(
+                "(lib) => window.__wxConfig && window.__wxConfig.setEmojiLib(lib)",
+                list(self._emoji_lib))
+        except Exception:                    # noqa: BLE001
+            pass
+
+    def get_emoji_lib(self) -> list:
+        """读前端已注入的表情包库（供合并 / 校验）。"""
+        try:
+            return self.page.evaluate(
+                "window.__wxConfig && window.__wxConfig.getEmojiLib ? "
+                "window.__wxConfig.getEmojiLib() : []")
+        except Exception:                    # noqa: BLE001
+            return []
 
     def send_voice(self, seconds: int = 3, time_spec: str = None):
         """我方发送语音消息（时长秒数决定波形长短）
@@ -3548,15 +4453,15 @@ class WeChatAuto:
         self._ensure_enhance()
         if self.page.locator(".dialogue-section").count() == 0:
             raise RuntimeError("当前不在聊天对话页，无法转账。请先 [打开聊天]。")
-        # 1) 打开功能面板（图片1）
+        # 1) 打开功能面板（图片1；面板+输入栏整体升起动画 0.33s，停留展示）
         self._kb_hide()
         self.page.evaluate("window.__wxTransfer && window.__wxTransfer.openPanel()")
-        _pump_wait(0.4)
+        _pump_wait(0.9)
         # 2) 进入转账金额页（图片2）
         self.page.evaluate("window.__wxTransfer && window.__wxTransfer.openAmount(%r)" % str(recipient).strip())
-        # 等金额页布局就绪（等数字键盘渲染，避免按键点空）
+        # 等金额页布局就绪 + 键盘延迟升起动画（页面滑入 0.26s → 键盘 0.43s 起 0.3s 升完）
         self._wait_js("!!document.querySelector('#taKeyboard .tkr-key[data-key=\"1\"]')", 2.0)
-        _pump_wait(0.3)
+        _pump_wait(0.85)
         # 3) 输入金额（数字键盘逐字）
         self._transfer_type_amount(str(amount))
         # 4) 可选：设置转账说明（转账页是独立覆盖层，直接注入值最稳，避免与人 QWERTY 键盘冲突）
@@ -3564,19 +4469,23 @@ class WeChatAuto:
             self.page.evaluate(
                 "() => { const n = document.querySelector('#taNote'); if (n) { n.value = %r; n.dispatchEvent(new Event('input', { bubbles: true })); } }" % str(note).strip())
             _pump_wait(0.3)
-        # 5) 点「转账」绿色键 → 打开密码页
+        # 5) 点「转账」绿色键 → 微信支付 toast(~1.8s) → 付款面板底部滑起（对齐真机动画链）
         self.page.evaluate("() => { const k = document.querySelector('#taKeyboard .tkr-ok'); if (k) k.click(); }")
-        # 等密码页数字键盘就绪
-        self._wait_js("!!document.querySelector('#pwKeyboard .tkr-key[data-key=\"1\"]')", 2.0)
-        _pump_wait(0.2)
-        # 6) 逐位输入 6 位密码
+        # 等付款面板滑出且数字键盘就绪
+        self._wait_js("!!document.querySelector('#wxPaySheet.open .tkr-key[data-key=\"1\"]')", 6.0)
+        _pump_wait(0.35)
+        # 6) 逐位输入 6 位密码（面板 6 格密码）
         pwd = str(password or "123456").strip()
         for ch in pwd:
             if not ch.isdigit():
                 continue
             self.page.evaluate("(d) => { const k = document.querySelector('#pwKeyboard .tkr-key[data-key=\"' + d + '\"]'); if (k) k.click(); }", ch)
             _pump_wait(random.uniform(0.10, 0.22) / SPEED)
-        # 密码输满 6 位后前端自动确认并上屏橙色卡片
+        # 密码输满：面板加载态(~1.3s) → 支付成功页滑入
+        self._wait_js("!!document.querySelector('#wxPaySuccess.open')", 6.0)
+        _pump_wait(1.1)
+        # 7) 点「完成」→ 成功页下滑回聊天页，橙色卡片上屏
+        self.page.evaluate("() => { const b = document.querySelector('#payDoneBtn'); if (b) b.click(); }")
         _pump_wait(0.8)
 
     def _transfer_type_amount(self, amount: str):
@@ -3604,6 +4513,50 @@ class WeChatAuto:
     def peer_transfer(self, recipient: str, amount: str, note: str = ""):
         """对方转账：转账卡片上屏（左侧）"""
         self._chat_ext("peerTransfer", str(recipient).strip(), str(amount), str(note))
+
+    def open_transfer_detail(self):
+        """点击对方转账卡片，打开转账详情页（右滑推入，对齐参考视频）。"""
+        self._ensure_enhance()
+        if self.page.locator(".dialogue-section").count() == 0:
+            raise RuntimeError("当前不在聊天对话页，无法打开转账详情。请先 [打开聊天] 与 [对方转账]。")
+        # 先泵一小段恢复帧流（ack 队列），再启动动画：否则动作间黑窗吞掉推入
+        # 动画前半段，合成器被迫用前后帧交叉淡化补帧，画面出现「渐变鬼影」。
+        _pump_wait(0.25)
+        ok = self.page.evaluate(
+            "() => window.__wxTransferDetail && window.__wxTransferDetail.open()")
+        if not ok:
+            raise RuntimeError("打开转账详情失败：__wxTransferDetail 未注入。")
+        _pump_wait(0.6)
+
+    def accept_transfer(self):
+        """在转账详情页点「接收」：内容瞬时切换为已收款（对齐参考视频）。"""
+        self._ensure_enhance()
+        _pump_wait(0.15)
+        ok = self.page.evaluate(
+            "() => window.__wxTransferDetail && window.__wxTransferDetail.accept()")
+        if not ok:
+            raise RuntimeError("接收转账失败：转账详情页未打开。请先 [打开转账详情]。")
+        _pump_wait(0.8)
+
+    def close_transfer_detail(self):
+        """关闭转账详情页（右滑退出回聊天页）。"""
+        self._ensure_enhance()
+        _pump_wait(0.25)
+        ok = self.page.evaluate(
+            "() => window.__wxTransferDetail && window.__wxTransferDetail.close()")
+        if not ok:
+            raise RuntimeError("关闭转账详情失败：转账详情页未打开。请先 [打开转账详情]。")
+        _pump_wait(0.6)
+
+    def set_phone_scene(self, mode: str):
+        """切换手机状态栏场景（转账参考视频场景 / 默认场景）。"""
+        self._ensure_enhance()
+        scene = "transfer" if str(mode).strip() in ("转账", "transfer") else "default"
+        ok = self.page.evaluate(
+            "(m) => window.__wxPhoneFrame && window.__wxPhoneFrame.setScene(m)", scene)
+        if not ok:
+            raise RuntimeError("切换状态栏场景失败：__wxPhoneFrame 未注入。")
+        _pump_wait(0.3)
 
     def forward(self, text: str):
         """转发一条消息（我方气泡：转发：内容）"""
@@ -3635,14 +4588,100 @@ class WeChatAuto:
         _pump_wait(0.8)
 
     def edit_moments(self, data):
-        """编辑朋友圈内容：按 posts 数组重建动态列表（昵称/文案/图片/点赞/评论全可配）"""
+        """编辑朋友圈内容。
+
+        data 支持三种形式：
+          1) 动态数组：直接重建动态列表（向后兼容，原写法不变）；
+          2) 对象 {"me": {...}, "posts": [...]}：一次同时改「我的主页资料」和动态；
+          3) JSON 字符串 / .json 文件路径（内容同上）。
+
+        每条动态字段：author(作者) / avatar(头像) / text(文案) / images[](配图)
+        / video(视频地址或 {src,cover}) / cover(视频封面) / source(来源小字)
+        / time(时间) / likes[](点赞者) / comments[{name,text}](评论)。
+        """
         self._ensure_enhance()
-        posts = data
+        payload = data
         if isinstance(data, str):
-            posts = json.loads(data)
+            s = data.strip()
+            if s.endswith(".json"):
+                path = s if os.path.isabs(s) else os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), s)
+                with open(path, "r", encoding="utf-8") as fh:
+                    payload = json.load(fh)
+            else:
+                payload = json.loads(s)
+        me_patch = None
+        if isinstance(payload, dict):
+            me_patch = (payload.get("me") or payload.get("我") or payload.get("资料")
+                        or payload.get("主页") or payload.get("profile"))
+            posts = (payload.get("posts") or payload.get("动态")
+                     or payload.get("moments") or [])
+        else:
+            posts = payload
+        if not isinstance(posts, list):
+            posts = []
+        if isinstance(me_patch, dict) and me_patch:
+            self.edit_me(me_patch, render=False)
+        # 预加载动态里的配图 / 头像 / 视频封面，避免上屏瞬间破图
+        urls = []
+        for p in posts:
+            if not isinstance(p, dict):
+                continue
+            urls += [u for u in (p.get("images") or []) if isinstance(u, str) and u]
+            for key in ("avatar", "cover"):
+                if isinstance(p.get(key), str) and p[key]:
+                    urls.append(p[key])
+            v = p.get("video")
+            if isinstance(v, dict):
+                urls += [u for u in (v.get("cover"), v.get("封面"), v.get("poster"))
+                         if isinstance(u, str) and u]
+        if urls:
+            self._preload_images(urls)
         self.page.evaluate("(p) => window.__wxConfig.setMomentsPosts(p)", posts)
         self.page.evaluate("(p) => window.__wxMoments.renderPosts(p)", posts)
         _pump_wait(0.6)
+
+    def edit_me(self, data, render: bool = True):
+        """编辑「我」的主页资料：昵称 / 头像 / 朋友圈封面 / 个性签名。
+
+        data 支持 dict / JSON 字符串 / .json 文件路径，字段（英文或中文键名均可）：
+        name/昵称、avatar/头像、bg/封面/朋友圈封面、signature/签名/个性签名。
+        只给其中几项时，其余保持原样。
+        """
+        self._ensure_enhance()
+        payload = data
+        if isinstance(data, str):
+            s = data.strip()
+            if s.endswith(".json"):
+                path = s if os.path.isabs(s) else os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), s)
+                with open(path, "r", encoding="utf-8") as fh:
+                    payload = json.load(fh)
+            else:
+                payload = json.loads(s)
+        if not isinstance(payload, dict):
+            raise ValueError("[编辑我的资料] 数据必须是 JSON 对象或 .json 文件路径。")
+        patch = {}
+        name = payload.get("name", payload.get("昵称"))
+        avatar = payload.get("avatar", payload.get("头像"))
+        bg = payload.get("bg", payload.get("封面", payload.get("朋友圈封面")))
+        signature = payload.get("signature", payload.get("签名", payload.get("个性签名")))
+        if name is not None:
+            patch["name"] = str(name)
+        if avatar is not None:
+            patch["avatar"] = str(avatar)
+        if bg is not None:
+            patch["bg"] = str(bg)
+        if signature is not None:
+            patch["signature"] = str(signature)
+        if not patch:
+            raise ValueError(
+                "[编辑我的资料] 没有可应用的字段（name/avatar/bg/signature，或中文 昵称/头像/封面/签名）。")
+        self.page.evaluate("(p) => window.__wxConfig.setMe(p)", patch)
+        self.page.evaluate("() => window.__wxConfig.apply()")
+        self._preload_images([v for k, v in patch.items() if k in ("avatar", "bg") and v])
+        if render:
+            _pump_wait(0.4)
 
 
 # ============================================================
@@ -3669,7 +4708,17 @@ _TIME_DETECT_RE = re.compile(
 TIMEABLE_ACTIONS = {
     "我方打字", "对方发消息", "对方后台发消息", "后台消息队列",
     "发送图片", "对方发图片", "我方发送图片", "对方发送图片",
+    "发送表情", "对方表情", "对方发表情", "对方后台发表情",
+    "我方发链接", "对方发链接",
 }
+
+# 「打字不发」内联第 2 段只有这种纯秒数才当作「停留」；否则视为对方插话
+# （`[打字不发] 说明 | 我试试` 以前会被误当成 停留="我试试"，插话丢失且停留值非法）。
+_HOLD_SECONDS_RE = re.compile(r"^\d+(?:\.\d+)?\s*(?:秒|s)?$", re.IGNORECASE)
+# 消息内容以 [链接]/【链接】/[小程序卡片] 开头：后续 `|` 是链接卡片自身的参数
+# （标题 | 图片 | 来源 | 时间），不能按「插话」在第一个 `|` 处截断。
+_LINK_CONTENT_LEAD_RE = re.compile(
+    r"^\s*[\[\【]\s*(?:链接|小程序卡片|分享)\s*[\]】]")
 
 
 def _strip_trailing_time(arg):
@@ -3688,6 +4737,556 @@ def _strip_trailing_time(arg):
     return arg, ""
 
 
+# ============================================================
+# 表情包库（emoji library）：区分「图片」与「表情包」
+# ------------------------------------------------------------
+# 图片=整张原尺寸（图片气泡按「面积恒定」等比缩放，约 196×196）；
+# 表情包=小尺寸贴纸（表情气泡固定 78×78，无白底直接上屏）。
+# 解析时据动作名自动路由到对应气泡类型，大小不同、不能混用。
+# ============================================================
+
+# 我方发表情：这些动作引用的表情包会进「表情包库」（去重）。
+MY_EMOJI_ACTIONS = {"发送表情", "我方发送表情", "我方发表情", "发表情", "发贴纸", "发送表情包"}
+# 对方发表情：只直接上屏，不进表情包库（用户要求：对方的不过到我的库）。
+PEER_EMOJI_ACTIONS = {"对方表情", "对方发表情", "对方表情包", "对方发送表情"}
+# 对方后台发表情：给未打开的会话投递一条表情消息（主页预览/角标），不进库。
+BG_PEER_EMOJI_ACTIONS = {"对方后台发表情"}
+
+# 表情包库清单文件（用户每条视频上传的表情图，由助手把图片放进库并登记到这里）。
+EMOJI_LIBRARY_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "emoji_library.json")
+
+# 自定义表情包图库：用户把表情包图片直接丢进「表情包图片」文件夹，程序每次启动会
+# 自动同步到前端公开目录（vue-WeChat/public/images/myemoji）并注入表情面板，无需手工登记。
+# 这是表情包「一键即用」的入口；emoji_library.json 与剧本里的引用仍作为补充/覆盖。
+EMOJI_CUSTOM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "表情包图片")
+EMOJI_CUSTOM_PUBLIC_DIR = os.path.join(FRONTEND_DIR, "public", "images", "myemoji")
+
+# 表情包别名/名字的常用映射：`[发送表情] 赵本山` 这类短名字也能找到库里的对应图片。
+# 匹配顺序：先按名字直接匹配文件名（去扩展名），再按此表。
+DEFAULT_EMOJI_ALIASES = {
+    "随机": "__random__", "random": "__random__", "任意": "__random__",
+    "随便": "__random__", "抽查": "__random__",
+}
+
+# 对方/我方表情引用解析不到图时（中文短名如「小女孩大笑」不在图片目录）的兜底表情图，
+# 避免把中文短名当作 <img src> 导致破图/404。
+DEFAULT_EMOJI_FALLBACK = "/images/wxemoji/wx_1.png"
+
+
+def _norm_emoji_ref(ref: str) -> str:
+    """去掉表情引用里的尾部时间标注，去掉首尾空白，返回规范化引用。"""
+    if not isinstance(ref, str):
+        return ""
+    ref = ref.strip()
+    ref, _ = _strip_trailing_time(ref)
+    return ref.strip()
+
+
+def _load_emoji_library_file() -> list:
+    """读 emoji_library.json（表情包库清单）。不存在/格式错返回 []。
+
+    文件内容：JSON 数组，每项是 /images/... 图片路径，或 {name,url} / {名字,url}。
+    """
+    try:
+        with open(EMOJI_LIBRARY_JSON, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    out = []
+    if isinstance(data, list):
+        for it in data:
+            if isinstance(it, str) and it.strip():
+                out.append(it.strip())
+            elif isinstance(it, dict):
+                u = it.get("url", it.get("图片"))
+                if isinstance(u, str) and u.strip():
+                    out.append(u.strip())
+    return out
+
+
+def _sync_custom_emoji_images() -> list:
+    """把「表情包图片」文件夹里的图片同步到前端公开目录，返回可用于表情面板的 URL 列表。
+
+    - 源目录 EMOJI_CUSTOM_DIR 不存在时自动创建并打印提示（首次使用），返回 []。
+    - 仅认图片扩展名；按文件名去重、排序。
+    - 复制到 EMOJI_CUSTOM_PUBLIC_DIR（public/images/myemoji），返回 /images/myemoji/<文件名>。
+    - 同步时清理公开目录里已不在源目录的旧图（同扩展名），避免旧表情残留。
+    """
+    src = EMOJI_CUSTOM_DIR
+    if not os.path.isdir(src):
+        try:
+            os.makedirs(src, exist_ok=True)
+            print(f"[表情包库] 已创建自定义表情目录：{src}\n"
+                  f"            把表情包图片丢进这个文件夹，下次运行即自动同步到表情面板。")
+        except OSError:
+            pass
+        return []
+    ext = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
+    files = sorted(f for f in os.listdir(src)
+                   if f.lower().endswith(ext) and os.path.isfile(os.path.join(src, f)))
+    if not files:
+        print(f"[表情包库] 自定义表情目录 {src} 里还没有图片，已跳过（丢图进去后自动生效）。")
+        return []
+    pub = EMOJI_CUSTOM_PUBLIC_DIR
+    try:
+        os.makedirs(pub, exist_ok=True)
+    except OSError:
+        return []
+    # 清理公开目录里已不在源目录的旧图，避免旧表情残留
+    for f in list(os.listdir(pub)):
+        if f.lower().endswith(ext) and f not in files:
+            try:
+                os.remove(os.path.join(pub, f))
+            except OSError:
+                pass
+    urls = []
+    for f in files:
+        s = os.path.join(src, f)
+        d = os.path.join(pub, f)
+        try:
+            if not os.path.exists(d) or os.path.getsize(d) != os.path.getsize(s):
+                shutil.copy2(s, d)
+        except OSError:
+            continue
+        urls.append("/images/myemoji/" + f)
+    return urls
+
+
+# 演员表/头像在 /images/avatar、微信小表情在 /images/wxemoji、自定义表情在 /images/myemoji；
+# 用户自传的表情图也会放进这些目录。
+_IMAGE_SEARCH_DIRS = [
+    os.path.join(FRONTEND_DIR, "public", "images", "avatar"),
+    os.path.join(FRONTEND_DIR, "public", "images", "emoji"),
+    os.path.join(FRONTEND_DIR, "public", "images", "wxemoji"),
+    EMOJI_CUSTOM_PUBLIC_DIR,
+    os.path.join(FRONTEND_DIR, "public", "images"),
+]
+
+
+def _lookup_emoji_file(name: str) -> str:
+    """在图片目录里按「文件名包含名字」搜一张表情图，返回 /images/... URL；找不到返回 ''。
+
+    用于把剧本里写短名字（如 `[发送表情] 赵本山`）解析成真实图片路径。
+    """
+    name = (name or "").strip().lower()
+    if not name:
+        return ""
+    stem = os.path.splitext(name)[0]           # 去扩展名再比
+    for d in _IMAGE_SEARCH_DIRS:
+        if not os.path.isdir(d):
+            continue
+        try:
+            for fn in os.listdir(d):
+                if not fn.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")):
+                    continue
+                low = fn.lower()
+                fstem = os.path.splitext(low)[0]
+                # 精确（去扩展名）或互相包含
+                if fstem == name or fstem == stem or \
+                        (len(name) >= 2 and (name in fstem or fstem in name)):
+                    return "/images/" + os.path.basename(d) + "/" + fn
+        except OSError:
+            continue
+    return ""
+
+
+def _emoji_url_valid(url: str) -> bool:
+    """判断一个表情 URL 是否真实可加载（不会渲染成黑图/破图）。
+
+    - 空串 / 裸短名（如「猫咪蹭头」）：False——它不是图片地址，浏览器无法加载。
+    - http(s):// 外链：信任存在（无法离线校验），返回 True。
+    - /images/...：映射到前端 public 目录，校验文件确实存在；路径越界返回 False。
+    用于保证表情库与发送动作里注入的都是可显示图片，而不是原始未解析短名。
+    """
+    if not url or not isinstance(url, str):
+        return False
+    if url.startswith("http://") or url.startswith("https://"):
+        return True
+    if not url.startswith("/images/"):
+        return False
+    pub = os.path.normpath(os.path.join(FRONTEND_DIR, "public", "images"))
+    rel = url[len("/images/"):]
+    fp = os.path.normpath(os.path.join(pub, rel))
+    if fp != pub and not fp.startswith(pub + os.sep):
+        return False                      # 路径越界（../），拒绝
+    return os.path.isfile(fp)
+
+
+def _collect_emoji_library(steps) -> list:
+    """构建「我方表情包库」：优先读清单文件，再叠加剧本里我方发表情引用的图。
+
+    只取我方发表情（含后台我方/别名），把短名字解析成真实图片路径后去重保序，
+    约 3 张左右。对方表情/对方后台表情 不进库（用户要求：对方的不过到我的库）。
+
+    ★ 鲁棒性：库里只存「真实可加载的图片 URL」。短名/路径解析不到真实文件时，
+       不能把原始文本（如「猫咪蹭头」）塞进库——那会在表情面板渲染成黑图，
+       发送时也会把裸名当 `<img src>` 导致破图。一律回退到默认表情并告警。
+    """
+    lib = list(dict.fromkeys(_load_emoji_library_file()))
+    # 自动扫描「表情包图片」目录：用户丢进去的图直接同步到前端公开目录并成为表情库，
+    # 无需在清单里手工登记。清单文件仍作为补充/覆盖。
+    _custom = _sync_custom_emoji_images()
+    if _custom:
+        lib = list(dict.fromkeys(lib + _custom))
+    # 清单/目录里可能混入无效路径：先洗一遍，只留可加载的
+    lib = [u for u in lib if _emoji_url_valid(u)]
+    seen = set(lib)
+    for s in steps or []:
+        if not isinstance(s, dict):
+            continue
+        action = ACTION_ALIASES.get(s.get("action"), s.get("action"))
+        if action not in MY_EMOJI_ACTIONS:
+            continue
+        p = s.get("params") or {}
+        raw = str(p.get("表情", p.get("图片", "")))
+        ref = _norm_emoji_ref(raw)
+        if not ref or ref in DEFAULT_EMOJI_ALIASES:
+            continue
+        # 把名字解析成真实路径（库里存的都是可显示的 /images/... URL）
+        if not (ref.startswith("/") or ref.startswith("http")):
+            hit = _emoji_name_match(lib, ref) or _lookup_emoji_file(ref)
+            ref = hit or ""
+        if not _emoji_url_valid(ref):
+            # 解析不到真实图片：退回默认表情，避免裸短名/残缺路径渲染成黑图。
+            print(f"[表情包库] 我方发表情的「{raw}」没找到对应图片文件，"
+                  f"已回退为默认表情 {DEFAULT_EMOJI_FALLBACK}。"
+                  f"请把表情图丢进「表情包图片」文件夹（自动同步），"
+                  f"或放进 vue-WeChat/public/images/avatar/、images/emoji/，"
+                  f"再在剧本里用它的文件名/关键词引用。")
+            ref = DEFAULT_EMOJI_FALLBACK
+        if ref not in seen:
+            seen.add(ref)
+            lib.append(ref)
+    return lib
+
+
+def _emoji_name_match(lib: list, name: str) -> str:
+    """按短名字在表情库中匹配一张图：先精确文件名（去扩展名），再模糊包含，最后大小写忽略。"""
+    if not name or not lib:
+        return ""
+    lower = name.lower()
+    base = lower.rsplit(".", 1)[0]
+    # 1) 文件名去扩展名后 == 名字
+    for u in lib:
+        fn = u.rsplit("/", 1)[-1]
+        if fn.rsplit(".", 1)[0].lower() == lower or fn.rsplit(".", 1)[0].lower() == base:
+            return u
+    # 2) 名字包含在文件名里（或反过来）
+    for u in lib:
+        fn = u.rsplit("/", 1)[-1].lower()
+        if lower and (lower in fn or fn in lower):
+            return u
+    # 3) 直接按路径里出现的名字段匹配
+    for u in lib:
+        if lower and lower in u.lower():
+            return u
+    return ""
+
+
+def _resolve_emoji_ref(ref: str, lib: list) -> str:
+    """把剧本里的表情引用解析成库中的一张图片 URL。
+
+    支持：
+      - 完整路径 /images/... 直接返回；
+      - 文件名 赵本山.jpg（可省略 /images/... 前缀）→ 去库里匹配；
+      - 短名字 赵本山 → 去库里按名匹配，再回退到图片目录里按文件名搜；
+      - 随机 / random / 任意 → 从库里随机挑一张；
+    ``__random__`` 也返回库里随机一张，供 execute_step 把「随机」转成具体图。
+
+    ★ 鲁棒性：返回值保证是「真实可加载的图片 URL」。完整路径若指向不存在的文件、
+       或短名解析不到任何图，一律回退默认表情；绝不把裸短名/残缺路径当作 `<img src>`。
+    """
+    if not ref:
+        return ""
+    if ref in DEFAULT_EMOJI_ALIASES and DEFAULT_EMOJI_ALIASES.get(ref) == "__random__":
+        return random.choice(lib) if lib else DEFAULT_EMOJI_FALLBACK
+    if ref.startswith("http") or (ref.startswith("/images/") and _emoji_url_valid(ref)):
+        return ref
+    if ref.startswith("/") and not ref.startswith("/images/"):
+        # 其它 / 开头的路径（非 /images/ 资源）不视为图片，回退默认表情
+        return DEFAULT_EMOJI_FALLBACK
+    # 看起来就是文件路径/文件名（含扩展名或以路径分隔符开头）
+    if "/" in ref or "\\" in ref or ref.lower().endswith(
+            (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")):
+        # 文件名可能省略了 /images/... 前缀：先在库里/目录里搜，搜不到则回退
+        hit = _emoji_name_match(lib, ref) or _lookup_emoji_file(ref)
+        return hit if hit else DEFAULT_EMOJI_FALLBACK
+    hit = _emoji_name_match(lib, ref) or _lookup_emoji_file(ref)
+    if hit:
+        return hit
+    # 短名字（中文/关键词）搜不到对应图：回退默认表情，避免把它当成 <img src> 破图。
+    return DEFAULT_EMOJI_FALLBACK
+
+
+# ============================================================
+# 链接卡片图库（link card）：区分「链接卡片缩略图」与普通图片
+# ------------------------------------------------------------
+# 用户把「链接卡片要配的方形缩略图」上传到 vue-WeChat/public/images/link/，
+# 文件名可带一个能代表该链接主题的关键词（如 男生.jpg / 脱单.jpg）。
+# 剧本里 `[我方发链接] 标题 | 图片 | 来源`：
+#   · 图片 可写 /images/... 真实路径 或 关键词/文件名；
+#   · 图片 留空时按「标题里的字」自动匹配（文件名/图库关键词 与 标题 互相包含），
+#     实现「图片跟着链接标题的字变」。
+# ============================================================
+
+# 链接卡片缩略图目录（前端 /images/link/...）
+LINK_IMAGE_DIR = os.path.join(FRONTEND_DIR, "public", "images", "link")
+# 链接卡片图库清单（可选，关键词 -> 缩略图 url 的映射）
+LINK_LIBRARY_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "link_library.json")
+
+
+def _list_link_folder_images() -> list:
+    """列出 public/images/link/ 下的卡片缩略图，返回 /images/link/xxx URL 列表（按文件名排序）。"""
+    if not os.path.isdir(LINK_IMAGE_DIR):
+        return []
+    return sorted("/images/link/" + f for f in os.listdir(LINK_IMAGE_DIR)
+                  if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")))
+
+
+def _load_link_library_file() -> list:
+    """读 link_library.json（链接卡片图库）。返回 [{url, name, keywords}] 列表。
+
+    json 示例：
+      [
+        {"url": "/images/link/男生.jpg", "name": "脱单", "keywords": "男生,脱单,恋爱"},
+        "/images/link/副业.jpg"
+      ]
+    keywords（关键词）/ name（名字）用于按标题自动匹配；字符串项等价于仅有 url。
+    文件不存在或格式错返回 []。
+    """
+    try:
+        with open(LINK_LIBRARY_JSON, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    out = []
+    if isinstance(data, list):
+        for it in data:
+            if isinstance(it, str) and it.strip():
+                out.append({"url": it.strip(), "name": "", "keywords": []})
+            elif isinstance(it, dict):
+                url = it.get("url", it.get("图片"))
+                if isinstance(url, str) and url.strip():
+                    name = str(it.get("name", it.get("名字", "")) or "")
+                    keys = it.get("keywords", it.get("关键词", it.get("字", "")))
+                    keys = [x.strip() for x in re.split(r"[,，、/;；]+", str(keys or "")) if x.strip()]
+                    out.append({"url": url.strip(), "name": name, "keywords": keys})
+    return out
+
+
+# 链接卡片「封面」关键词：用户写「视频封面 / 封面 / 封面图」等，表示要用一张封面缩略图，
+# 而不是空占位方框。命中后走 _resolve_link_cover：优先文件名含「封面/cover」的图，其次
+# 按标题自动匹配，最后从图库挑一张，保证不落空。
+_LINK_COVER_KEYWORDS = {
+    "视频封面", "封面", "封面图", "封面缩略图", "封面图片", "视频封面图",
+    "视频封面缩略图", "cover", "coverimage", "videocover", "封面cover",
+}
+# 链接卡片「随机」关键词：随机挑一张图库封面。为避免 _collect_link_library（预载）与
+# send_link/peer_link（实际上屏）对同一标题解析出不同图，随机按「标题」做种子，保证同标题恒同。
+_LINK_RANDOM_KEYWORDS = {
+    "随机", "random", "任意", "随便", "随机图", "随机封面", "随机图片", "随便一张",
+}
+# 链接卡片「不要缩略图」关键词：用户明确写「无 / - / none」等，表示这张卡片不带缩略图
+#（渲染成空占位方框），与「封面」「随机」语义相反。
+_LINK_NO_IMAGE_KEYWORDS = {
+    "无", "无图", "无图卡", "空", "不要图", "不配图", "-", "--", "none", "无图片",
+}
+
+
+def _norm_link_keyword(s: str) -> str:
+    """图片引用归一成「关键词比较用」的字符串：去空白 + 转小写。
+
+    这样「视频 封面」「视频封面」「Video Cover」都会被当成同一个关键词。
+    """
+    return re.sub(r"\s+", "", (s or "")).lower()
+
+
+def _resolve_link_cover(title: str) -> str:
+    """「封面」关键词：挑一张链接卡片封面缩略图（确定性，保证不落空为空占位方框）。"""
+    # 1) 文件名含「封面/cover」的图（用户明确以封面命名的覆盖优先）
+    for url in _list_link_folder_images():
+        stem = os.path.splitext(url.rsplit("/", 1)[-1])[0].lower()
+        if "封面" in stem or "cover" in stem:
+            return url
+    # 2) 图库 name/keywords 含「封面/cover」
+    for e in _load_link_library_file():
+        name = (e.get("name") or "").lower()
+        if "封面" in name or "cover" in name or \
+                any("封面" in (k or "").lower() or "cover" in (k or "").lower()
+                    for k in e.get("keywords", [])):
+            return e["url"]
+    # 3) 按标题自动匹配
+    url = _match_link_auto(title)
+    if url:
+        return url
+    # 4) 兜底：从图库/目录挑一张（取第一张，保证确定性），避免渲染成空占位方框
+    lib = _list_link_folder_images() or [e["url"] for e in _load_link_library_file()]
+    return lib[0] if lib else ""
+
+
+def _resolve_link_random(title: str) -> str:
+    """「随机」关键词：随机挑一张链接卡片缩略图。
+
+    用「标题」做随机种子，保证同一标题在 _collect_link_library 预载与实际 send_link 上屏
+    解析到同一张图（否则预载的图与实际发的图不一致会闪空）；不同标题则挑到不同图，有变化。
+    """
+    lib = _list_link_folder_images() or [e["url"] for e in _load_link_library_file()]
+    if lib:
+        return random.Random(str(title or "")).choice(lib)
+    return ""
+
+
+def _match_link_auto(title: str) -> str:
+    """按「标题里的字」自动挑选一张链接卡片缩略图。
+
+    规则（按匹配度择优）：
+      1) 图库 entries 的 keywords / name 与标题互相包含（key 在标题里）→ 取最长 key 的 url；
+      2) link 目录文件名（去扩展名）与标题互相包含 → 取最长匹配文件名的 url；
+      3) 都找不到 → 返回 ''（卡片渲染成不带图的占位方框）。
+    """
+    title = (title or "").strip()
+    if not title:
+        return ""
+    best = ("", 0)                      # (url, 匹配长度)
+    # 1) 图库关键词 / 名字
+    for e in _load_link_library_file():
+        for key in [e.get("name", "")] + list(e.get("keywords", [])):
+            key = (key or "").strip()
+            if key and (key in title or title in key):
+                if len(key) > best[1]:
+                    best = (e["url"], len(key))
+    if best[0]:
+        return best[0]
+    # 2) link 目录文件名去扩展名后与标题互相包含
+    for url in _list_link_folder_images():
+        stem = os.path.splitext(url.rsplit("/", 1)[-1])[0].strip()
+        if stem and (stem in title or title in stem):
+            if len(stem) > best[1]:
+                best = (url, len(stem))
+    return best[0] if best[0] else ""
+
+
+def _resolve_link_image(title: str, ref: str) -> str:
+    """把剧本里的链接卡片图片引用解析成真实 /images/... URL。
+
+    优先级：
+      1) ref 是 /images/... 绝对路径 或 http...：直接用；
+      2) ref 是「封面」关键词（视频封面/封面/封面图…）：走封面挑选（_resolve_link_cover）；
+      3) ref 是「随机」关键词（随机/任意/随便…）：走随机挑选（_resolve_link_random）；
+      4) ref 是文件名/关键词：先在 link 目录里按文件名/图库名字匹配，再无则原样返回；
+      5) ref 为空：按标题自动匹配（_match_link_auto）；
+      6) 全部落空：返回 ''（渲染空占位方框，不报错）。
+    """
+    ref = (ref or "").strip()
+    if not ref:
+        return _match_link_auto(title)
+    if ref.startswith("/") or ref.startswith("http"):
+        return ref
+    kw = _norm_link_keyword(ref)
+    # 「封面」关键词：视频封面 / 封面 / 封面图 等，解析到一张封面缩略图，不落空。
+    if kw in _LINK_COVER_KEYWORDS:
+        return _resolve_link_cover(title)
+    # 「随机」关键词：随机挑一张图库封面（按标题做种子，保证预载与上屏一致）。
+    if kw in _LINK_RANDOM_KEYWORDS:
+        return _resolve_link_random(title)
+    # 「不要图」关键词：显式不带缩略图（渲染空占位方框）。
+    if kw in _LINK_NO_IMAGE_KEYWORDS:
+        return ""
+    # 绝对路径 / 外部 URL 之外，其余一律先按「link 目录文件」匹配（含带扩展名的文件名），
+    # 命中则归一成 /images/link/xxx，避免 `src="男生.jpg"` 这类相对路径在前端解析失败。
+    for url in _list_link_folder_images():
+        stem = os.path.splitext(url.rsplit("/", 1)[-1])[0]
+        name = url.rsplit("/", 1)[-1]
+        if name == ref or stem == ref or ref in stem or stem in ref:
+            return url
+    # 「课程封面图 / 文章封面 / 封面缩略图」这类带前缀的封面写法：目录里没有同名文件时，
+    # 按封面关键词兜底（与历史会话块 _resolve_link_image_ref 一致）。放在文件名匹配之后，
+    # 避免把「cover2.jpg」这类真实文件名误当成封面关键词而挑到另一张图。
+    if "封面" in kw or "cover" in kw:
+        return _resolve_link_cover(title)
+    # 图库名字/关键词精确匹配
+    for e in _load_link_library_file():
+        if e.get("name") == ref or any(k == ref for k in e.get("keywords", [])):
+            return e["url"]
+        if ref in e["url"]:
+            return e["url"]
+    # 纯路径引用（/images/... 之外带分隔符或 .ext 后缀的文件名）原样返回——这属于
+    # 用户指向的一张具体图片文件；但若它正好带 .ext 后缀却没被上面 link 目录命中，
+    # 说明它是「想指 link 目录里某张图但文件不存在」，交给 _match_link_auto 按标题兜底；
+    # 若仍无匹配则返回 ''（空占位方框），避免把无效文件名当 img src 导致破图。
+    if "/" in ref or "\\" in ref:
+        return ref
+    if ref.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")):
+        return _match_link_auto(title)
+    return ""
+
+
+def _collect_link_library(steps) -> list:
+    """构建「链接卡片图库」：扫描剧本里所有链接动作的图片引用，解析成真实 URL 去重。
+
+    覆盖三类（离线解析 / 并发模式都要能预载这些图，避免历史会话/后台链接首帧闪空）：
+      1) 实时链接卡片：[我方发链接]/[对方发链接] 的「图片」参数；
+      2) 后台链接卡片：[对方后台发消息] 时内容以 [链接] 开头，或带「链接」参数；
+      3) 历史/场景里的链接：编辑主页/应用场景/编辑会话 数据里 kind==link 消息的 image。
+    图片引用可能是短名字（如 男生.jpg）→ 经 _resolve_link_image 归一成 /images/link/xxx；
+    已是 /images/... 或 http... 的保留；解析不到的跳过（空占位，不预载）。
+    """
+    lib, seen = [], set()
+
+    def _add(ref, title):
+        if not (ref or "").strip():
+            return
+        url = _resolve_link_image(str(title or ""), str(ref))
+        if url and url not in seen:
+            seen.add(url)
+            lib.append(url)
+
+    def _scan_conv(conv):
+        if not isinstance(conv, dict):
+            return
+        for m in conv.get("messages") or []:
+            if isinstance(m, dict) and m.get("kind") == "link":
+                _add(m.get("image"), m.get("title"))
+
+    for s in steps or []:
+        if not isinstance(s, dict):
+            continue
+        action = ACTION_ALIASES.get(s.get("action"), s.get("action"))
+        p = s.get("params") or {}
+        if action in ("我方发链接", "对方发链接"):
+            _add(p.get("图片"), p.get("标题"))
+        elif action in ("我方打字", "对方发消息", "发送消息", "打字不发"):
+            # 兼容未走 convert_link_marker_steps 的步骤：消息内容以 [链接] 开头时，
+            # 封面也要进图库预载（否则历史/并发首帧可能闪空）。
+            _lk = _link_from_content(str(p.get("内容", "")))
+            if _lk:
+                _add(_lk["image"], _lk["title"])
+        elif action == "对方后台发消息":
+            _link = p.get("链接") or p.get("link")
+            if isinstance(_link, dict):
+                _add(_link.get("image", _link.get("图片")),
+                     _link.get("title", _link.get("标题")))
+            else:
+                _c = str(p.get("内容", ""))
+                if _c.startswith("[链接]") or _c.startswith("【链接】") or \
+                        _c.startswith("[小程序卡片]"):
+                    _re = re.match(r"^[\[\【]\s*(?:链接|小程序卡片|分享)\s*[\]】]\s*(.*)$", _c)
+                    if _re:
+                        _ps = [x.strip() for x in re.split(r"\|", _re.group(1))]
+                        _add(_ps[1] if len(_ps) > 1 else "", _ps[0] if _ps else "")
+        elif action in ("编辑主页", "应用场景", "编辑会话"):
+            data = p.get("数据", p.get("data"))
+            if isinstance(data, str) and data.strip():
+                try:
+                    data = json.loads(data)
+                except (ValueError, TypeError):
+                    data = None
+            if isinstance(data, list):
+                for conv in data:
+                    _scan_conv(conv)
+    return lib
+
+
 # 文本剧本指令 -> (动作id, 参数名)。无参数的动作参数名为 None
 TEXT_COMMAND_MAP = {
     "打开聊天": "联系人",
@@ -3701,8 +5300,22 @@ TEXT_COMMAND_MAP = {
     "查看图片": "图片",
     "切换Tab": "Tab",
     "进入朋友圈": None,
+    "打开对方主页": "对方",
+    "进入对方朋友圈": None,
+    "打开对方设置": "对方",
+    "加入黑名单": "确认",
+    "移出黑名单": "确认",
+    "返回上一页": None,
+    "闪回聊天": "回到",
+    "编辑对方资料": "数据",
     "向下滚动": "像素",
-    "点赞": None,
+    "向上滚动": "像素",
+    "滚动到": "位置",
+    "点开图片": "序号",
+    "点开朋友圈图片": "序号",
+    "查看朋友圈图片": "序号",
+    "播放视频": "视频",
+    "点赞": "序号",
     "评论": "内容",
     "发朋友圈": "内容",
     "设置头像": "图片",
@@ -3714,6 +5327,7 @@ TEXT_COMMAND_MAP = {
     "隐藏键盘": None,
     "等待": "秒数",
     "编辑主页": "数据",
+    "编辑我的资料": "数据",
     "应用场景": "场景",
     "编辑会话": "数据",
     "修改昵称": "昵称",
@@ -3722,8 +5336,30 @@ TEXT_COMMAND_MAP = {
     "对方发图片": "图片",
     "我方发送图片": "图片",
     "对方发送图片": "图片",
+    "我方发链接": "标题",
+    "发链接": "标题",
+    "发送链接": "标题",
+    "分享链接": "标题",
+    "发文章": "标题",
+    "对方发链接": "标题",
     "发送表情": "表情",
     "对方表情": "表情",
+    "对方发表情": "表情",
+    "对方后台发表情": "表情",
+    # 表情别名（文本剧本里也认这些写法，执行时经 ACTION_ALIASES 归一）
+    "发表情": "表情",
+    "发一个表情": "表情",
+    "发贴纸": "表情",
+    "发个表情": "表情",
+    "发表情包": "表情",
+    "我方发表情": "表情",
+    "我方发送表情": "表情",
+    "发送表情包": "表情",
+    "对面发表情": "表情",
+    "对方表情包": "表情",
+    "对方发送表情": "表情",
+    "后台对方发表情": "表情",
+    "对方后台发来表情": "表情",
     "发送语音": "秒数",
     "对方语音": "秒数",
     "撤回我的消息": None,
@@ -3742,6 +5378,18 @@ TEXT_COMMAND_MAP = {
     "看朋友圈": None,
     "滚屏": "像素",
     "滚动": "像素",
+    "上滑": "像素",
+    "向上滑": "像素",
+    "滚到顶": "位置",
+    "滚动到顶": "位置",
+    "滚动到底": "位置",
+    "滚到底": "位置",
+    "闪回": None,
+    "硬切": None,
+    "切回聊天": None,
+    "看视频": "视频",
+    "点开视频": "视频",
+    "播放朋友圈视频": "视频",
     "切换标签": "Tab",
     "切换tab": "Tab",
 }
@@ -3753,6 +5401,36 @@ ACTION_ALIASES = {
     "回到主页": "返回主页",
     "返回": "返回主页",
     "回聊天主页": "返回主页",
+    # 对方个人主页 / 对方朋友圈
+    "打开个人主页": "打开对方主页",
+    "进入个人主页": "打开对方主页",
+    "查看个人主页": "打开对方主页",
+    "个人主页": "打开对方主页",
+    "对方主页": "打开对方主页",
+    "打开对方资料": "打开对方主页",
+    "查看对方资料": "打开对方主页",
+    "对方资料页": "打开对方主页",
+    "查看对方朋友圈": "进入对方朋友圈",
+    "看对方朋友圈": "进入对方朋友圈",
+    "对方朋友圈": "进入对方朋友圈",
+    "进入对方主页": "打开对方主页",
+    "返回上一页": "返回上一页",
+    "上一页": "返回上一页",
+    "后退": "返回上一页",
+    "返回上一步": "返回上一页",
+    "编辑对方主页": "编辑对方资料",
+    "设置对方资料": "编辑对方资料",
+    "对方资料": "编辑对方资料",
+    # 我的资料 / 我的朋友圈（主页资料与动态都可编辑）
+    "编辑我的资料": "编辑我的资料",
+    "编辑我的主页": "编辑我的资料",
+    "编辑个人资料": "编辑我的资料",
+    "修改我的资料": "编辑我的资料",
+    "设置我的资料": "编辑我的资料",
+    "我的资料": "编辑我的资料",
+    "编辑我的朋友圈": "编辑朋友圈",
+    "设置朋友圈": "编辑朋友圈",
+    "编辑动态": "编辑朋友圈",
     "对方打字": "对方发消息",
     "对方正在输入中": "对方正在输入",
     "对方后台发言": "对方后台发消息",
@@ -3772,6 +5450,32 @@ ACTION_ALIASES = {
     "滚屏": "向下滚动",
     "滚动": "向下滚动",
     "滑动": "向下滚动",
+    # 朋友圈滚动 / 硬切返回 / 视频
+    "向上滚动": "向上滚动",
+    "上滑": "向上滚动",
+    "向上滑": "向上滚动",
+    "滚上去": "向上滚动",
+    "滚到顶": "滚动到",
+    "滚动到顶": "滚动到",
+    "滚动到底": "滚动到",
+    "滚到底": "滚动到",
+    "闪回聊天": "闪回聊天",
+    "闪回": "闪回聊天",
+    "硬切": "闪回聊天",
+    "切回聊天": "闪回聊天",
+    "直接返回聊天": "闪回聊天",
+    "剪辑返回": "闪回聊天",
+    "播放视频": "播放视频",
+    "看视频": "播放视频",
+    "点开视频": "播放视频",
+    "播放朋友圈视频": "播放视频",
+    # 朋友圈配图查看
+    "点开图片": "点开图片",
+    "点开朋友圈图片": "点开图片",
+    "查看朋友圈图片": "点开图片",
+    "看朋友圈图片": "点开图片",
+    "点开配图": "点开图片",
+    "查看配图": "点开图片",
     "切换标签": "切换Tab",
     "切换tab": "切换Tab",
     "发朋友圈动态": "发朋友圈",
@@ -3785,8 +5489,48 @@ ACTION_ALIASES = {
     "发表情": "发送表情",
     "发一个表情": "发送表情",
     "发贴纸": "发送表情",
+    "发个表情": "发送表情",
+    "发表情包": "发送表情",
+    "发一张表情": "发送表情",
+    "我方发表情": "发送表情",
+    "我方发送表情": "发送表情",
+    "发送表情包": "发送表情",
+    "对面发表情": "对方表情",
+    "对方发表情": "对方表情",
+    "对方表情包": "对方表情",
+    "对方发送表情": "对方表情",
+    "对面发来表情": "对方表情",
+    "对方后台发表情": "对方后台发表情",
+    "后台对方发表情": "对方后台发表情",
+    "对方后台发来表情": "对方后台发表情",
     "我方发送图片": "发送图片",
     "对方发送图片": "对方发图片",
+    "我方发链接": "我方发链接",
+    "我发链接": "我方发链接",
+    "发链接": "我方发链接",
+    "发送链接": "我方发链接",
+    "分享链接": "我方发链接",
+    "发文章": "我方发链接",
+    "发送文章": "我方发链接",
+    "发卡片": "我方发链接",
+    "发送卡片": "我方发链接",
+    "对方发链接": "对方发链接",
+    "对面发链接": "对方发链接",
+    "对方发送链接": "对方发链接",
+    "对方发文章": "对方发链接",
+    # 联系人设置页 / 拉黑（复刻「拉黑界面，实现拉黑的功能.mp4」）
+    "打开设置": "打开对方设置",
+    "打开联系人设置": "打开对方设置",
+    "联系人设置": "打开对方设置",
+    "对方设置": "打开对方设置",
+    "设置页": "打开对方设置",
+    "拉黑": "加入黑名单",
+    "拉黑对方": "加入黑名单",
+    "拉黑他": "加入黑名单",
+    "把他拉黑": "加入黑名单",
+    "解除拉黑": "移出黑名单",
+    "取消拉黑": "移出黑名单",
+    "移出黑名单": "移出黑名单",
 }
 
 
@@ -3805,6 +5549,7 @@ def parse_script_text(text: str):
             print(f"[剧本警告] 第 {lineno} 行格式无法识别，已跳过：{line}")
             continue
         cmd, arg = m.group(1).strip(), m.group(2).strip()
+        cmd = ACTION_ALIASES.get(cmd, cmd)   # 别名先归一：让常见的别名在文本剧本里也能正确识别、挂时间
         param_name = TEXT_COMMAND_MAP.get(cmd)
         if param_name is None and cmd not in TEXT_COMMAND_MAP:
             print(f"[剧本警告] 第 {lineno} 行未知指令 [{cmd}]，已跳过")
@@ -3819,34 +5564,71 @@ def parse_script_text(text: str):
             params["时间"] = time_annot
         # [打字不发] 支持内联停顿 + 对方插话：`[打字不发] 内容 | 0.3 | 对方消息；再一条`
         #   -> 内容=「内容」，停留=0.3 秒，插话=[「对方消息」,「再一条」]。
-        # 无「| 秒数」时与原来一致（停留缺省）；无「| 插话」时无插话（向后兼容）。
+        # 第 2 段只有纯秒数才是「停留」；写的是文字（`内容 | 我试试`）则整体算插话，
+        # 避免把插话误塞进 停留 导致插话丢失、停留值非法。
         if cmd == "打字不发" and "|" in arg:
             parts = [x.strip() for x in arg.split("|")]
             params["内容"] = parts[0]
-            if len(parts) > 1 and parts[1]:
-                params["停留"] = parts[1]
-            if len(parts) > 2 and parts[2]:
-                params["插话"] = parts[2]
+            tail = [x for x in parts[1:] if x]
+            if tail and _HOLD_SECONDS_RE.match(tail[0]):
+                params["停留"] = tail.pop(0)
+            if tail:
+                params["插话"] = "；".join(tail)
         # [我方打字] 支持内联对方插话：`[我方打字] 内容 | 对方消息；再一条`
-        #   -> 内容=「内容」，插话=[「对方消息」,「再一条」]。无「| 插话」时无插话。
-        elif cmd == "我方打字" and "|" in arg:
+        #   -> 内容=「内容」，插话=「对方消息；再一条」。无「| 插话」时无插话。
+        # 例外：内容以 [链接]/【链接】/[小程序卡片] 开头时，后面的 `|` 属于链接卡片参数
+        #   （`[我方打字] [链接] 标题 | 图片 | 来源`），整段保留为内容，交 convert_link_marker_steps
+        #   转成「我方发链接」，否则封面/来源会被当成插话发出去。
+        elif cmd == "我方打字" and "|" in arg and not _LINK_CONTENT_LEAD_RE.match(arg):
             content, _, ij = arg.partition("|")
             params["内容"] = content.strip()
             ij = ij.strip()
             if ij:
                 params["插话"] = ij
+        # [我方发链接] / [对方发链接] 支持内联多参数：`[我方发链接] 标题 | 图片 | 来源`
+        #   -> 标题=「标题」，图片=「图片/关键词」，来源=「来源名」（缺省心灵知行）。
+        #   时间（如 `| 18:22`）已在上面作为尾部时间剥离。
+        elif cmd in ("我方发链接", "对方发链接") and "|" in arg:
+            parts = [x.strip() for x in arg.split("|")]
+            params["标题"] = parts[0]
+            if len(parts) > 1 and parts[1]:
+                params["图片"] = parts[1]
+            if len(parts) > 2 and parts[2]:
+                params["来源"] = parts[2]
         # [对方后台发消息] 支持内联目标会话：`[对方后台发消息] 联系人 | 内容`
         #   -> 联系人=「联系人」，内容=「内容」。无「|」时内容取整行（联系人缺省，运行时报错）。
+        #   内容以 [链接]/[小程序卡片] 开头时，后续 `| 图片 | 来源` 属于链接卡片的参数，
+        #   不当作分隔符截断（否则会丢链接的图片/来源）；改用「链接开头才整体保留」的规则。
         elif cmd == "对方后台发消息" and "|" in arg:
             contact, _, content = arg.partition("|")
             params["联系人"] = contact.strip()
-            params["内容"] = content.strip()
+            _c = (content or "").strip()
+            if _c.startswith("[链接]") or _c.startswith("【链接】") or \
+                    _c.startswith("[小程序卡片]"):
+                # 链接消息：从「联系人 | 」之后整段都是内容（含链接的 | 参数），
+                # 把分隔的第一个 | 后半段直接作为内容；后续 | 由 execute 解析。
+                params["内容"] = arg.partition("|")[2].strip()
+            else:
+                params["内容"] = _c
+        # [对方后台发表情] 支持内联目标会话：`[对方后台发表情] 联系人 | 表情路径 | 18:40`
+        #   -> 联系人=「联系人」，表情=「表情路径」，时间=「18:40」（时间已在上面剥离）。
+        elif cmd == "对方后台发表情" and "|" in arg:
+            contact, _, emoji = arg.partition("|")
+            params["联系人"] = contact.strip()
+            params["表情"] = emoji.strip()
         # [后台消息队列] 也支持内联目标会话：`[后台消息队列] 联系人 | 内容`
         #   -> 数据=[{"联系":「联系人」,"内容":「内容」}]（装载即投递，之后打开该会话可看到）。
         #   纯 JSON 数组写法仍然支持：`[后台消息队列] [{"联系":X,"内容":Y},...]`。
         elif cmd == "后台消息队列" and "|" in arg:
             contact, _, content = arg.partition("|")
             params["数据"] = [{"联系": contact.strip(), "内容": content.strip()}]
+        # [加入黑名单] / [移出黑名单] 支持内联参数：`[加入黑名单] 确定 | 1.4`
+        #   -> 确认=「确定」（弹窗点哪个按钮），加载秒=1.4（「正在加载」显示秒数）。
+        elif cmd in ("加入黑名单", "移出黑名单") and "|" in arg:
+            parts = [x.strip() for x in arg.split("|")]
+            params["确认"] = parts[0]
+            if len(parts) > 1 and parts[1]:
+                params["加载秒"] = parts[1]
         steps.append({"action": cmd, "params": params})
     return steps
 
@@ -3913,7 +5695,7 @@ def _extract_bg_queue_contacts(data) -> list:
     return names
 
 
-def _reconcile_home_contacts(steps: list) -> list:
+def _reconcile_home_contacts(steps: list, base_home: list = None) -> list:
     """运行前兜底：确保 [编辑主页] 的「数据」覆盖此后所有 [打开聊天] 引用的联系人。
 
     历史会话块（或旧转译）生成的 [编辑主页] 通常只含块内的联系人；若剧本其余部分
@@ -3922,6 +5704,11 @@ def _reconcile_home_contacts(steps: list) -> list:
     凡是 [打开聊天] 的联系人不在 [编辑主页] 数据里，就补一条
     {{"name": 联系人名, "text": "", "avatar": 人物库头像}}（人物库没有该名字时 avatar 留空，
     运行时用默认头像）。若步骤里根本没有 [编辑主页]，则在最前面插入一条。
+
+    base_home：套用 --scene 时传入「场景编辑器」里的主页会话列表。此时若步骤里
+    没有 [编辑主页]/[应用场景]，就以场景主页为基底补齐，而不是从空列表重建——
+    否则插入的 [编辑主页] 会把刚刚 apply_scene 铺好的聊天主页覆盖成精简版
+    （丢了头像、历史消息、未读等），失去「工作流主页直接用场景」的效果。
 
     返回新的步骤列表（原地补齐，返回同一引用）。
     """
@@ -3964,7 +5751,14 @@ def _reconcile_home_contacts(steps: list) -> list:
         if home_exists:
             # 数据来自 .json 文件路径，无法内联补联系人，贸然插入会与文件版冲突，跳过。
             return steps
-        home = []
+        if isinstance(base_home, list) and base_home:
+            # 套用了场景：以场景主页为基底（浅拷贝一层，不改动调用方对象），
+            # 这样场景里的头像 / 历史消息 / 未读 / 时间 都原样保留，只补缺的联系人。
+            home = [dict(it) if isinstance(it, dict) else it for it in base_home]
+            existing = {str(it.get("name", "")).strip()
+                        for it in home if isinstance(it, dict)}
+        else:
+            home = []
         steps.insert(0, {"action": "编辑主页", "params": {"数据": home}})
     avatars = _load_people_avatars()
     for n in contacts:
@@ -3980,8 +5774,11 @@ def _reconcile_home_contacts(steps: list) -> list:
         script_translator.cap_home_and_align_contacts(steps, warns)
         for w in warns:
             print(f"[工作流] {w}", flush=True)
-    except Exception:
-        pass  # 兜底增强失败不影响运行（仍按补齐后的列表执行）
+    except Exception as exc:                # noqa: BLE001
+        # 兜底增强失败不影响运行（仍按补齐后的列表执行），但要把原因打出来，
+        # 避免「主页第 10 个及之后的联系人被丢弃、但引用未对齐」这类问题被静默吞掉，
+        # 运行期才在 [对方后台发消息] 报「找不到会话」。
+        print(f"[工作流] 主页联系人对齐处理失败（忽略，继续运行）：{exc}", flush=True)
     return steps
 
 
@@ -4061,6 +5858,12 @@ def _parse_interjections(value):
     return [x.strip() for x in parts if x.strip()]
 
 
+# 插话里的表情标记：`[对方表情] 哭笑不得` / `[表情] 大哭` / `[对方发表情] ...` / `[表情包] ...`。
+# 命中这条前缀表示这条插话应渲染成「对方表情贴纸」而非纯文字气泡。
+_IJ_EMOJI_RE = re.compile(
+    r"^\s*[\[\【]\s*(?:对方表情|对方发表情|对方表情包|对面发表情|表情|表情包)\s*[\]】]\s*(.*)$")
+
+
 def _typing_hold_default() -> float:
     """读取「打字不发」默认停留时长（秒）；可用 settings.json 的 typing_hold_default 覆盖，缺省 1.5。"""
     try:
@@ -4098,7 +5901,8 @@ def _truthy(value):
     if isinstance(value, bool):
         return value
     s = str(value).strip().lower()
-    return s not in ("", "0", "no", "off", "false", "否", "不", "关闭", "不打开")
+    return s not in ("", "0", "no", "off", "false", "否", "不", "关闭", "不打开",
+                     "取消", "cancel")
 
 
 def _parse_open_mode(value):
@@ -4125,6 +5929,31 @@ def _parse_move_top(value):
         return value
     s = str(value).strip().lower()
     return s not in ("0", "no", "off", "false", "否", "不", "不置顶", "不顶置", "关闭")
+
+
+_LINK_MSG_RE = re.compile(r"^[\[\【]\s*(?:链接|小程序卡片|分享)\s*[\]】]\s*(.*)$")
+
+
+def _link_from_content(content: str):
+    """若内容以 [链接]/【链接】/【小程序卡片】开头，解析出链接卡片 {title,image,source}；否则 None。
+
+    链接格式：`[链接] 标题 | 图片 | 来源`；图片/来源可缺省（缺省图片走空占位方框，来源为心灵知行）。
+    供 execute_step 里「我方打字/对方发消息/对方后台发消息」把 [链接] 前缀消息转成链接卡片。
+    """
+    c = str(content or "").strip()
+    m = _LINK_MSG_RE.match(c)
+    if not m:
+        return None
+    rest = m.group(1).strip()
+    parts = [x.strip() for x in re.split(r"\|", rest)]
+    link = {
+        "title": parts[0] if parts else "",
+        "image": (parts[1] if len(parts) > 1 and parts[1] != "-" else ""),
+        "source": (parts[2] if len(parts) > 2 and parts[2] else "心灵知行"),
+    }
+    if not link["title"] and not link["image"]:
+        return None
+    return link
 
 
 def _parse_zoom(value, default=IMAGE_ZOOM_DEFAULT):
@@ -4178,9 +6007,14 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
     elif action == "打开聊天":
         bot.open_chat(str(p.get("联系人", "")).strip())
     elif action == "我方打字":
+        _c = str(p.get("内容", ""))
+        _lk = _link_from_content(_c)
+        if _lk:
+            bot.send_link(_lk["title"], _lk["image"], _lk["source"], p.get("时间"))
+            return
         if bot.page.locator(".dialogue-section").count() == 0:
             raise RuntimeError("当前不在聊天对话页，无法打字。请先 [打开聊天]。")
-        bot.human_type(".chat-txt", str(p.get("内容", "")),
+        bot.human_type(".chat-txt", _c,
                        interjections=_parse_interjections(p.get("插话")),
                        time_spec=p.get("时间"))
     elif action == "打字不发":
@@ -4191,8 +6025,14 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
     elif action == "对方正在输入":
         bot.show_typing(_num(p.get("秒数"), 1.2))
     elif action == "对方发消息":
-        # 对方文字一整行上屏（不再逐字打字），更贴近真机一条消息
-        bot.send_peer_message(str(p.get("内容", "")), p.get("头像"), p.get("时间"))
+        _c = str(p.get("内容", ""))
+        _lk = _link_from_content(_c)
+        if _lk:
+            # 内容以 [链接] 开头 -> 对方发来一张链接卡片（气泡在左）
+            bot.peer_link(_lk["title"], _lk["image"], _lk["source"], p.get("时间"))
+        else:
+            # 对方文字一整行上屏（不再逐字打字），更贴近真机一条消息
+            bot.send_peer_message(_c, p.get("头像"), p.get("时间"))
     elif action == "对方后台发消息":
         # 对方的会话不在当前画面：给「未打开的会话」投递消息，只更新主页预览/角标
         contact = str(p.get("联系人", p.get("会话", ""))).strip()
@@ -4200,8 +6040,22 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
             raise ValueError("[对方后台发消息] 缺少联系人（params.联系人），"
                              "表示要给哪个会话投递后台消息。")
         move_top = _parse_move_top(p.get("置顶"))
-        bot.send_peer_message_bg(contact, str(p.get("内容", "")), p.get("头像"),
-                                 p.get("发送者"), move_top, p.get("时间"), p.get("图片"))
+        # [链接] 开头的内容 → 后台链接卡片消息：剥离前缀，余下按 [链接] 格式解析出
+        # 标题/图片/来源，交给前端渲染链接气泡（图片缺省走空占位方框）。
+        _content = str(p.get("内容", ""))
+        _link = p.get("链接") or p.get("link")
+        _bg_link = None
+        if _link and isinstance(_link, dict):
+            _bg_link = {
+                "title": str(_link.get("title", _link.get("标题", ""))),
+                "image": str(_link.get("image", _link.get("图片", ""))),
+                "source": str(_link.get("source", _link.get("来源", "心灵知行"))),
+            }
+        else:
+            _bg_link = _link_from_content(_content)
+        bot.send_peer_message_bg(contact, _content, p.get("头像"),
+                                 p.get("发送者"), move_top, p.get("时间"), p.get("图片"),
+                                 _bg_link)
     elif action == "后台消息队列":
         # 装载后台消息队列：队列里每条消息都在【当前这一时刻】后台发出（不改变当前画面），
         # 刷新对应会话的主页预览+未读角标，之后打开该会话即可看到。
@@ -4220,12 +6074,76 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
         bot.switch_tab(str(p.get("Tab", "")))
     elif action == "进入朋友圈":
         bot.enter_moments()
+    elif action == "打开对方主页":
+        _who = p.get("对方", p.get("联系人", p.get("预设", "")))
+        bot.open_peer_profile(str(_who).strip() or None)
+    elif action == "进入对方朋友圈":
+        bot.open_peer_moments()
+    elif action == "打开对方设置":
+        # 联系人设置页（真机路径：资料页右上角 … → 设置）
+        _who = p.get("对方", p.get("联系人", p.get("预设", "")))
+        bot.open_peer_settings(str(_who).strip() or None)
+    elif action == "加入黑名单":
+        # 拉黑全过程动画：拨开关变绿 → 底部确认弹窗 → 确定 → 「正在加载」Toast
+        _confirm = _truthy(p.get("确认", "是"))
+        _toast = _num(p.get("加载秒", p.get("加载秒数")), 1.4)
+        _hold = _num(p.get("停留"), 0.8)
+        bot.block_peer(confirm=_confirm, toast_sec=_toast, hold=_hold)
+    elif action == "移出黑名单":
+        # 把已拉黑的联系人移出黑名单（开关关掉，同样带弹窗 + 加载动画）
+        _confirm = _truthy(p.get("确认", "是"))
+        _toast = _num(p.get("加载秒", p.get("加载秒数")), 1.4)
+        _hold = _num(p.get("停留"), 0.8)
+        bot.block_peer(confirm=_confirm, toast_sec=_toast, hold=_hold, unblock=True)
+    elif action == "返回上一页":
+        bot.peer_back()
+    elif action == "闪回聊天":
+        # 硬切回聊天页：不做滑出转场，观感等同视频剪辑的一次切镜。
+        # 同时兼容「我的朋友圈」（路由子页）与「对方朋友圈/主页」（覆盖层）。
+        _hold = p.get("停留")
+        _settle = 0.12 if _hold in (None, "") else float(_hold)
+        bot.flash_back_to_chat(str(p.get("回到", p.get("联系人", ""))).strip() or None,
+                               _settle, _truthy(p.get("闪白")))
+    elif action == "编辑对方资料":
+        data = p.get("数据", p.get("data", p.get("对方")))
+        if not data:
+            raise ValueError("[编辑对方资料] 缺少数据参数（预设名 / JSON / .json 路径）")
+        bot.set_peer(data)
     elif action == "向下滚动":
         bot.scroll_down(_num(p.get("像素"), 300))
+    elif action == "向上滚动":
+        bot.scroll_up(_num(p.get("像素"), 300))
+    elif action == "滚动到":
+        bot.scroll_to(str(p.get("位置", p.get("到", "底部"))))
+    elif action == "点开图片":
+        # 点开朋友圈动态里的配图：序号 "2" = 第 2 条第 1 张，"2,3" = 第 2 条第 3 张
+        _seq = str(p.get("序号", p.get("图片", ""))).strip()
+        _pi, _ii = 1, 1
+        if _seq:
+            _parts = [x for x in re.split(r"[,，/\s]+", _seq) if x]
+            if _parts:
+                try:
+                    _pi = int(float(_parts[0]))
+                except (ValueError, TypeError):
+                    _pi = 1
+            if len(_parts) > 1:
+                try:
+                    _ii = int(float(_parts[1]))
+                except (ValueError, TypeError):
+                    _ii = 1
+        _hold = p.get("停留")
+        bot.open_moment_image(_pi, _ii,
+                              None if _hold in (None, "") else float(_hold))
+    elif action == "播放视频":
+        _hold = p.get("停留")
+        bot.play_video(str(p.get("视频", p.get("图片", ""))).strip(),
+                       _num(p.get("序号"), 1),
+                       None if _hold in (None, "") else float(_hold))
     elif action == "点赞":
-        bot.like()
+        # 序号 = 第几条动态（从 1 开始）；留空 = 最后一条（兼容旧脚本）
+        bot.like(_num(p.get("序号"), 0) or None)
     elif action == "评论":
-        bot.comment(str(p.get("内容", "")))
+        bot.comment(str(p.get("内容", "")), _num(p.get("序号"), 0) or None)
     elif action == "发朋友圈":
         bot.post_moment(str(p.get("内容", "")), p.get("图片"))
     elif action == "设置头像":
@@ -4266,6 +6184,11 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
         bot.edit_conversation(data)
     elif action == "修改昵称":
         bot.set_name(str(p.get("昵称", "")).strip())
+    elif action == "编辑我的资料":
+        data = p.get("数据", p.get("data"))
+        if not data:
+            raise ValueError("[编辑我的资料] 缺少数据参数（JSON 对象或 .json 文件路径）")
+        bot.edit_me(data)
     elif action == "修改签名":
         bot.set_signature(str(p.get("签名", "")).strip())
     elif action == "发送图片":
@@ -4276,10 +6199,28 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
         img_path = str(p.get("图片", "")).strip()
         bot.peer_image(img_path, p.get("时间"))
         _open_image_if_requested(bot, p, img_path)
+    elif action == "我方发链接":
+        bot.send_link(str(p.get("标题", "")), p.get("图片"), p.get("来源", "心灵知行"),
+                      p.get("时间"))
+    elif action == "对方发链接":
+        bot.peer_link(str(p.get("标题", "")), p.get("图片"), p.get("来源", "心灵知行"),
+                      p.get("时间"))
     elif action == "发送表情":
-        bot.send_emoji(str(p.get("表情", p.get("图片", ""))).strip())
+        lib = bot.get_emoji_lib() or bot._emoji_lib or []
+        ref = _resolve_emoji_ref(str(p.get("表情", p.get("图片", ""))).strip(), lib)
+        bot.send_emoji(ref, p.get("时间"))
     elif action == "对方表情":
-        bot.peer_emoji(str(p.get("表情", p.get("图片", ""))).strip())
+        lib = bot.get_emoji_lib() or bot._emoji_lib or []
+        ref = _resolve_emoji_ref(str(p.get("表情", p.get("图片", ""))).strip(), lib)
+        bot.peer_emoji(ref, p.get("时间"))
+    elif action == "对方后台发表情":
+        lib = bot.get_emoji_lib() or bot._emoji_lib or []
+        contact = str(p.get("联系人", p.get("会话", ""))).strip()
+        ref = _resolve_emoji_ref(str(p.get("表情", p.get("图片", ""))).strip(), lib)
+        if not contact:
+            raise ValueError("[对方后台发表情] 缺少联系人（params.联系人），"
+                             "表示要给哪个会话投递后台表情。")
+        bot.send_peer_bg_emoji(contact, ref, p.get("时间"))
     elif action == "发送语音":
         bot.send_voice(_num(p.get("秒数"), 3))
     elif action == "对方语音":
@@ -4301,6 +6242,14 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
     elif action == "对方转账":
         bot.peer_transfer(str(p.get("接收人", p.get("联系人", ""))).strip(),
                           str(p.get("金额", "50.00")), str(p.get("备注", "")))
+    elif action == "打开转账详情":
+        bot.open_transfer_detail()
+    elif action == "接收转账":
+        bot.accept_transfer()
+    elif action == "关闭转账详情":
+        bot.close_transfer_detail()
+    elif action == "手机状态栏":
+        bot.set_phone_scene(str(p.get("模式", "默认")))
     elif action == "转账上屏":
         # 不经过面板/密码，直接上屏橙色转账卡片（等价于旧行为）
         bot._chat_ext("selfTransfer", str(p.get("接收人", p.get("联系人", ""))).strip(),
@@ -4329,8 +6278,8 @@ def main():
     parser.add_argument("--speed", type=float, default=1.0,
                         help="倍速：>1 更快（缩短视频时长），如 2 表示 2 倍速")
     parser.add_argument("--typing-speed", type=float, default=30.0,
-                        help="打字动画倍速：>1 只加快打字（按键节奏/拼音选字/删除回删，如 30 = 打字放 30 倍），"
-                             "已改为单次 API 往返(pressType)实现，且按压高亮有 40ms 可见下限。默认 30.0。")
+                        help="打字动画倍速：>1 只加快打字（按键节奏/拼音选字，如 30 = 打字放 30 倍），"
+                             "不影响退格删字（删字速度固定 20 倍）。默认 30.0。")
     parser.add_argument("--scene", default=None,
                         help="启动时先应用的 scene.json 场景文件（我的资料+会话+朋友圈）")
     parser.add_argument("--intro", action="store_true",
@@ -4356,6 +6305,9 @@ def main():
                         help="自动挑选背景的随机种子（None=真随机）。并发跑批可传任务 id 的 hash，"
                              "使同一条视频背景稳定")
     args = parser.parse_args()
+    # #region agent log
+    _dbg_log("main.py:main", "MAIN_START", {"workflow": args.workflow, "script": args.script, "headless": args.headless, "typing_speed": args.typing_speed})
+    # #endregion
 
     SPEED = max(0.1, float(args.speed))
     TYPE_SPEED = max(0.1, float(args.typing_speed))
@@ -4411,11 +6363,40 @@ def main():
     if not steps:
         print("[错误] 工作流/剧本为空或没有任何有效指令。")
         sys.exit(1)
+    # 套用场景时，先读出场景里的主页会话，作为「兜底补齐联系人」的基底：
+    # 下面 _reconcile_home_contacts 在没有 [编辑主页]/[应用场景] 步骤时会插入一条
+    # [编辑主页]，若从空列表重建就会把场景主页覆盖成只剩几个联系人（丢失头像/历史消息）。
+    _scene_home = None
+    if args.scene:
+        try:
+            _sp = args.scene if os.path.isfile(args.scene) else \
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), args.scene)
+            if os.path.isfile(_sp):
+                with open(_sp, "r", encoding="utf-8") as _fh:
+                    _sd = json.load(_fh)
+                if isinstance(_sd, dict) and isinstance(_sd.get("home"), list):
+                    _scene_home = _sd["home"]
+                    print(f"[场景] 场景主页共 {len(_scene_home)} 个会话，"
+                          f"将作为聊天主页基底。", flush=True)
+        except (OSError, ValueError) as exc:                # noqa: BLE001
+            print(f"[场景] 读取场景主页失败（忽略，按工作流原样运行）：{exc}", flush=True)
     # 运行前兜底：确保 [编辑主页] 覆盖所有 [打开聊天] 引用的联系人，
     # 避免"聊天列表中找不到联系人"（无论工作流来自历史块 / 旧转译 / 陈旧版本都能修复）。
-    steps = _reconcile_home_contacts(steps)
+    steps = _reconcile_home_contacts(steps, base_home=_scene_home)
     # 把历史会话里标记「打开动画」的图片，注入为进入会话后的 [查看图片] 步骤
     steps = _inject_image_autoopen(steps)
+    # 构建「我方表情包库」：离线解析时扫剧本里所有我方发表情，去重（约3张），
+    # 生成 /images/... 路径列表；后面注入前端，让表情面板显示的就是这几张。
+    emoji_libs = _collect_emoji_library(steps)
+    if emoji_libs:
+        print(f"[表情包库] 我方发表情共 {len(emoji_libs)} 张（去重）："
+              + " / ".join(u.rsplit('/', 1)[-1] for u in emoji_libs))
+    # 构建「链接卡片图库」：离线解析时扫剧本里所有链接引用（历史会话/后台/实时）的图片，
+    # 解析成 /images/link/... 真实 URL；后面并入预热预载，避免链接卡片首帧闪空。
+    link_libs = _collect_link_library(steps)
+    if link_libs:
+        print(f"[链接图库] 链接卡片引用共 {len(link_libs)} 张（去重）："
+              + " / ".join(u.rsplit('/', 1)[-1] for u in link_libs))
     print(f"[工作流] 共载入 {len(steps)} 条动作（来源：{src_desc}）。")
 
     bot = WeChatAuto(headless=args.headless)
@@ -4427,6 +6408,9 @@ def main():
     try:
         ensure_frontend_running()
         bot.start()
+        if emoji_libs:
+            bot.set_emoji_lib(emoji_libs)
+            print(f"[表情包库] 已注入前端，共 {len(emoji_libs)} 张。")
         if args.scene:
             scene_path = args.scene if os.path.isfile(args.scene) else \
                 os.path.join(os.path.dirname(os.path.abspath(__file__)), args.scene)
@@ -4445,9 +6429,18 @@ def main():
             if args.scene and os.path.isfile(args.scene):
                 with open(args.scene, "r", encoding="utf-8") as _fh:
                     _warm_urls += _ASSET_URL_RE.findall(_fh.read())
+            # 表情包库里的图：不在步骤参数里（或用短名字引用），需显式预载，避免面板首帧闪图
+            if emoji_libs:
+                _warm_urls += [u for u in emoji_libs if u.startswith("/images/") or u.startswith("http")]
+            # 链接卡片图库里的图：历史会话/后台链接的缩略图也用短名字引用，不在普通步骤参数里，
+            # 需显式预载，避免打开会话时链接卡片缩略图首帧闪空/破图。
+            _warm_urls += link_libs if link_libs else []
             # 候选条微信小表情图集：不在页面 DOM，需显式全部预载解码，避免候选条首帧闪图/卡顿
             _warm_urls += _list_wxemoji_urls()
-            bot.warmup(texts=_warm_texts, urls=list(dict.fromkeys(_warm_urls)))
+            if os.environ.get("WX_SKIP_PREHEAT") == "1":
+                print("[预热] WX_SKIP_PREHEAT=1，跳过静态资源/输入管线预热（调试开关）。")
+            else:
+                bot.warmup(texts=_warm_texts, urls=list(dict.fromkeys(_warm_urls)))
             # 首屏即用户主页：在 reset 前应用首个「编辑主页/应用场景」，让 reset 后的
             # 第一帧直接就是剧本编排好的主页（而非默认参考主页闪一下），从而
             # 保证视频第一帧是主页，并停留约 0.5s 再进入第一个会话。
@@ -4472,7 +6465,10 @@ def main():
             # 相关帧会被下面的 reset_frames() 丢弃，只为了让浏览器端「输入框聚焦+候选刷新+
             # 合成渲染」以及每个会话的历史/头像/图片这条链先热起来——不止第一条消息，
             # 后续每一步第一次碰到的冷加载也一并消除（某时刻像被放慢动作的根源）。
-            bot._prewarm_workflow(steps)
+            if os.environ.get("WX_SKIP_PREHEAT") == "1":
+                print("[预热] WX_SKIP_PREHEAT=1，跳过工作流冷启动链预热（调试开关）。")
+            else:
+                bot._prewarm_workflow(steps)
             bot.reset_frames()
             # 预热+首屏主页均已就绪：不再裁切开头（此前 1.0s 会把主页整段剪掉，导致
             # 视频第一帧落在「切入第一个会话」的转场中途）。设为 0 保留主页约 0.5s。

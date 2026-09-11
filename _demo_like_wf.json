@@ -1,0 +1,140 @@
+{
+ "name": "朋友圈点赞 + 评论（复刻真机动画验证）",
+ "steps": [
+  {
+   "action": "编辑主页",
+   "params": {
+    "数据": [
+     {
+      "name": "文件传输助手",
+      "lastText": "你好",
+      "time": "18:20",
+      "unread": 0,
+      "messages": []
+     }
+    ]
+   }
+  },
+  {
+   "action": "编辑朋友圈",
+   "params": {
+    "数据": [
+     {
+      "author": "小星",
+      "avatar": "/images/avatar/110_158_夏天就要大胆穿__5_不吃饭了__来自小红书网页版_20260831_185134_593.jpg",
+      "text": "两张图。",
+      "images": [
+       "/images/avatar/落日下海风拂面_1_纵鸠_来自小红书网页版_1_20260831_184706_666.jpg",
+       "/images/avatar/枯木_20260903_141720_316.jpg"
+      ],
+      "time": "2分钟前",
+      "likes": [],
+      "comments": []
+     },
+     {
+      "author": "月亮",
+      "avatar": "/images/avatar/学习急救班素材_20260908_155548_722.png",
+      "text": "竖图。",
+      "images": [
+       "/images/avatar/IMG_0491_20260903_144508_035.png"
+      ],
+      "time": "20分钟前",
+      "likes": [],
+      "comments": []
+     },
+     {
+      "author": "铁木君",
+      "avatar": "/images/avatar/枯木_20260903_141720_316.jpg",
+      "text": "九张图凑数。",
+      "images": [
+       "/images/avatar/学习急救班素材_20260908_155548_722.png",
+       "/images/avatar/女友生气怎么哄教学_20260905_155312_388.png",
+       "/images/avatar/聊天技巧图片_20260905_154410_890.png",
+       "/images/avatar/一楼一饭店__1_Sabrina_来自小红书网页版_20260909_185707_580.jpg",
+       "/images/avatar/落日下海风拂面_1_纵鸠_来自小红书网页版_1_20260831_184706_666.jpg",
+       "/images/avatar/IMG_0512_20260901_140118_982.png",
+       "/images/avatar/枯木_20260908_153043_003.jpg",
+       "/images/avatar/健身流汗_20260904_171640_322.jpg",
+       "/images/avatar/狗歪头_20260905_204230_437.jpg"
+      ],
+      "time": "1小时前",
+      "likes": [],
+      "comments": []
+     },
+     {
+      "author": "夜华",
+      "avatar": "/images/avatar/落日下海风拂面_1_纵鸠_来自小红书网页版_1_20260831_184706_666.jpg",
+      "text": "周末爬山去不去？",
+      "images": [],
+      "time": "昨天",
+      "likes": [],
+      "comments": []
+     }
+    ]
+   }
+  },
+  {
+   "action": "切换Tab",
+   "params": {
+    "Tab": "发现"
+   }
+  },
+  {
+   "action": "等待",
+   "params": {
+    "秒数": 0.6
+   }
+  },
+  {
+   "action": "进入朋友圈",
+   "params": {}
+  },
+  {
+   "action": "等待",
+   "params": {
+    "秒数": 0.8
+   }
+  },
+  {
+   "action": "向下滚动",
+   "params": {
+    "像素": 420
+   }
+  },
+  {
+   "action": "点赞",
+   "params": {
+    "序号": 1
+   }
+  },
+  {
+   "action": "等待",
+   "params": {
+    "秒数": 1.0
+   }
+  },
+  {
+   "action": "向下滚动",
+   "params": {
+    "像素": 300
+   }
+  },
+  {
+   "action": "评论",
+   "params": {
+    "内容": "这条朋友圈太赞了，周末一起出来玩！",
+    "序号": 2
+   }
+  },
+  {
+   "action": "等待",
+   "params": {
+    "秒数": 1.2
+   }
+  },
+  {
+   "action": "闪回聊天",
+   "params": {}
+  }
+ ]
+}

@@ -12,14 +12,19 @@
         name: 'd',
         wxid: 'zhaohd',
         avatar: '/images/avatar/IMG_0491_20260903_144508_035.png',
-        bg: '/images/bg/cover.jpg',
+        bg: '/images/peer/peer_cover.jpg',
         signature: '填坑小能手',
-        peerAvatar: '/images/header/yehua.jpg',   // 聊天对方默认头像（可由脚本按联系人设置）
+        peerAvatar: '/images/avatar/2_20260831_184618_874.jpg',   // 聊天对方默认头像（可由脚本按联系人设置）
         chatBg: '',                                // 聊天页消息区背景（与朋友圈封面 bg 不同；空=默认深色）
+        emojiLib: [],                              // 我方表情包库（main.py 离线解析时注入的 /images/... 路径）
     };
 
     /* 朋友圈动态数据（null = 使用前端硬编码的默认动态） */
     let momentsPosts = null;
+
+    /* 对方（朋友圈主人）资料 + 对方朋友圈动态。
+       由「打开个人主页 / 进入对方朋友圈」动作驱动，可被场景/脚本整体替换。 */
+    let peerData = null;
 
     /* ---- 参考图时间轴：按「相对当前时刻」计算，保证录制时出现
        今天(HH:MM) / 昨天(HH:MM) / 上星期日(星期X) 的正确时间标签 ---- */
@@ -47,36 +52,118 @@
 
     /* ---- 持久化默认：参考图数据（注入即生效，无需依赖工作流） ---- */
     const DEFAULT_HOME = [
-        { 'name': '微信支付', 'text': '已支付 ¥11.65', 'avatar': '/images/ref/pay.png',
+        { 'name': '微信支付', 'text': '已支付 ¥11.65', 'avatar': '/images/wxic/icons_wechat_pay.svg',
           'read': false, 'newMsgCount': 9, 'timestamp': _todayAt(18, 22) },
-        { 'name': '梓康群', 'text': '下午看得怎么样', 'avatar': '/images/ref/qun.png',
+        { 'name': '梓康群', 'text': '下午看得怎么样', 'avatar': '/images/avatar/2_20260831_184618_874.jpg',
           'quiet': true, 'read': false, 'timestamp': _todayAt(18, 16) },
-        { 'name': '陆香儿', 'text': '我也吃饭去了', 'avatar': '/images/ref/luxianger.png',
+        { 'name': '陆香儿', 'text': '我也吃饭去了', 'avatar': '/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg',
           'read': false, 'newMsgCount': 1, 'timestamp': _todayAt(18, 16) },
         { 'name': '服务号', 'text': '广东联网售票：已上线！全省客运线路实现 “一…',
-          'avatar': '/images/ref/fuwu.png', 'quiet': true, 'read': false, 'timestamp': _todayAt(17, 29) },
+          'avatar': '/images/avatar/view1_20260831_184619_884.jpg', 'quiet': true, 'read': false, 'timestamp': _todayAt(17, 29) },
         { 'name': '公众号', 'text': '快讯：自动驾驶首次被写入法律',
-          'avatar': '/images/ref/gongzhong.png', 'quiet': true, 'read': false, 'timestamp': _todayAt(10, 57) },
-        { 'name': '微信团队', 'text': '登录操作通知', 'avatar': '/images/ref/weixin_team.png',
+          'avatar': '/images/avatar/御一下_1_涔涔_来自小红书网页版_20260831_184719_470.jpg', 'quiet': true, 'read': false, 'timestamp': _todayAt(10, 57) },
+        { 'name': '微信团队', 'text': '登录操作通知', 'avatar': '/images/wxic/wechat_logo.svg',
           'read': true, 'timestamp': _todayAt(0, 49) },
-        { 'name': '沉默光环', 'text': '拍得', 'avatar': '/images/ref/chenmo.png',
+        { 'name': '沉默光环', 'text': '拍得', 'avatar': '/images/avatar/Jennie头像_1_PP酱v_来自小红书网页版_20260831_185616_327.jpg',
           'read': true, 'timestamp': _dayAt(1, 23, 52) },
         { 'name': 'D', 'text': '给 Cursor 的精准开发提示词（复制即用）# 任…',
           'avatar': '/images/ref/D.png', 'read': true, 'timestamp': _dayAt(1, 22, 28) },
-        { 'name': '妍', 'text': '在吗', 'avatar': '/images/ref/yan.png',
+        { 'name': '妍', 'text': '在吗', 'avatar': '/images/avatar/Dark_高质量女头__1_Dark__来自小红书网页版_20260831_185822_457.jpg',
           'read': true, 'timestamp': _lastSunday() },
     ];
     const DEFAULT_MOMENTS = [{
-        'author': '陆香儿', 'avatar': '/images/ref/luxianger.png',
+        'author': '陆香儿', 'avatar': '/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg',
         'text': '就这么丝滑的下班。',
-        'images': ['/images/ref/lux_video.png'],
+        'images': ['/images/peer/peer_v1.jpg'],
         // 参考图：配图下方的来源标注（视频号 · xxx），buildPost 会渲染成灰色小字
         'source': '视频号 · 小陆AI搜索推广获客',
         'time': '35分钟前', 'likes': [],
         'comments': [{ 'name': '陆香儿', 'text': '没有保持苹果肌扁平的义务。' }],
     }];
 
-    /* 把「HH:MM」之类的时间字符串解析成当天的数值时间戳（供 fmtDate 使用） */
+    /* ---- 对方个人主页 / 对方朋友圈：参考视频「微信进入主页加入朋友圈」的默认数据 ---- */
+    const PEER_DEFAULT = {
+        name: '吴遂卿『餐车集装箱』',
+        wxid: 'LSDH-WSQ',
+        area: '广东 佛山',
+        gender: 0,                                  // 0=女 1=男
+        avatar: '/images/peer/peer_avatar.jpg',
+        signature: '随心随性',
+        cover: '/images/peer/peer_cover.jpg',
+        momentsThumbs: [
+            '/images/peer/peer_m1.jpg', '/images/peer/peer_m2.jpg',
+            '/images/peer/peer_m3.jpg', '/images/peer/peer_m4.jpg',
+            '/images/peer/peer_m5.jpg',
+        ],
+        video: {
+            name: '餐车集装箱厂家蓝色大海',
+            thumbs: [
+                '/images/peer/peer_v1.jpg', '/images/peer/peer_v2.jpg',
+                '/images/peer/peer_v3.jpg', '/images/peer/peer_v4.jpg',
+                '/images/peer/peer_v5.jpg',
+            ],
+        },
+        posts: [
+            { date: '10 6月', images: ['/images/peer/peer_p1.jpg'],
+              text: '偶尔玩下 蛮好😄' },
+            { date: '06 6月', images: ['/images/peer/peer_p2.jpg', '/images/peer/peer_p3.jpg',
+                                      '/images/peer/peer_p4.jpg', '/images/peer/peer_p5.jpg'],
+              text: '今天是很 666⁶⁶⁶ 的一天~\n2026/6-6✨Good luck❤️' },
+            { date: '', images: ['/images/peer/peer_p6.jpg', '/images/peer/peer_p7.jpg',
+                                 '/images/peer/peer_p8.jpg', '/images/peer/peer_p9.jpg'],
+              text: '太香啦~😄😄😄😄😄\n😄\n一下子开了二十来朵' },
+            { date: '04 6月', images: ['/images/peer/peer_p10.jpg'],
+              text: '诚则行稳致远' },
+        ],
+    };
+
+    /* ---- 场景编辑器可选的「女性朋友圈」预设：几套固定人设，一键套用 ---- */
+    const PEER_PRESETS = {
+        '餐车老板娘·吴遂卿': PEER_DEFAULT,
+        '花店店主·林晚晚': {
+            name: '林晚晚',
+            wxid: 'wanwan_flower',
+            area: '浙江 杭州',
+            gender: 0,
+            avatar: '/images/peer/peer_avatar.jpg',
+            signature: '把日子过成诗',
+            cover: '/images/peer/peer_cover.jpg',
+            momentsThumbs: ['/images/peer/peer_m4.jpg', '/images/peer/peer_m5.jpg',
+                            '/images/peer/peer_m3.jpg', '/images/peer/peer_m1.jpg'],
+            video: null,
+            posts: [
+                { date: '12 6月', images: ['/images/peer/peer_p6.jpg', '/images/peer/peer_p7.jpg',
+                                          '/images/peer/peer_p4.jpg', '/images/peer/peer_p5.jpg'],
+                  text: '今天的芍药开得正好🌸' },
+                { date: '08 6月', images: ['/images/peer/peer_p1.jpg'],
+                  text: '店里的团宠，今天又被客人投喂了😆' },
+                { date: '02 6月', images: ['/images/peer/peer_p3.jpg', '/images/peer/peer_p2.jpg'],
+                  text: '新到的一批花器，随手插都好看✨' },
+            ],
+        },
+        '瑜伽教练·苏念': {
+            name: '苏念',
+            wxid: 'sunian_yoga',
+            area: '广东 广州',
+            gender: 0,
+            avatar: '/images/peer/peer_avatar.jpg',
+            signature: '自律给我自由',
+            cover: '/images/peer/peer_cover.jpg',
+            momentsThumbs: ['/images/peer/peer_m5.jpg', '/images/peer/peer_m2.jpg',
+                            '/images/peer/peer_m4.jpg', '/images/peer/peer_m3.jpg'],
+            video: null,
+            posts: [
+                { date: '15 6月', images: ['/images/peer/peer_p8.jpg'],
+                  text: '早课结束，今天的体式稳了很多🧘‍♀️' },
+                { date: '09 6月', images: ['/images/peer/peer_p2.jpg', '/images/peer/peer_p3.jpg',
+                                          '/images/peer/peer_p4.jpg', '/images/peer/peer_p5.jpg'],
+                  text: '生日这天收到好多花，谢谢大家❤️' },
+                { date: '03 6月', images: ['/images/peer/peer_p6.jpg'],
+                  text: '保持热爱，奔赴山海。' },
+            ],
+        },
+    };
+
     /* ---- 时间标注解析：把「时间分隔条」用的时刻字符串换算成时间戳 + 显示文本 ----
        支持：HH:MM[:SS]、昨天 HH:MM、星期X/周X [HH:MM]、M月D日 HH:MM、N分钟/小时/天前、
        纯毫秒时间戳。返回 { ts, text }（text=按标注原样显示），无法识别返回 null。 */
@@ -170,8 +257,31 @@
     }
 
     window.__wxConfig = {
-        get() { return { me }; },
+        get() { return { me, peer: peerData, peerPresets: PEER_PRESETS }; },
         setMe(patch) { Object.assign(me, patch); },
+
+        /* 对方资料：整体替换（null = 回到默认）或局部合并 */
+        getPeer() { return peerData || PEER_DEFAULT; },
+        setPeer(data) {
+            if (data == null) {
+                peerData = null;
+                return;
+            }
+            if (typeof data === 'string') {
+                if (PEER_PRESETS[data]) peerData = JSON.parse(JSON.stringify(PEER_PRESETS[data]));
+                return;
+            }
+            if (typeof data === 'object') {
+                peerData = Object.assign({}, peerData || PEER_DEFAULT, data);
+                if (data.posts) peerData.posts = data.posts;
+                if (data.momentsThumbs) peerData.momentsThumbs = data.momentsThumbs;
+                if (data.video !== undefined) peerData.video = data.video;
+            }
+        },
+        getPeerPresets() { return PEER_PRESETS; },
+        /* 表情包库：main.py 离线解析时注入我方发表情的表情图路径列表（去重）。 */
+        setEmojiLib(lib) { me.emojiLib = Array.isArray(lib) ? lib : []; },
+        getEmojiLib() { return me.emojiLib || []; },
         /* 时间标注解析：把「HH:MM / 昨天 HH:MM」等换算成 { ts, text }，给消息时间分隔条用 */
         parseTimeSpec(timeStr) { return parseTimeSpec(timeStr); },
 
@@ -246,15 +356,15 @@
                     ? (it.members || [it.name || '群成员']).map(m => {
                         // 允许成员直接给对象 { name, avatar }，便于还原群头像九宫格
                         if (m && typeof m === 'object' && m.name) {
-                            return { wxid: 'wxid_' + m.name, headerUrl: m.avatar || '/images/header/header01.png',
+                            return { wxid: 'wxid_' + m.name, headerUrl: m.avatar || '/images/avatar/2_20260831_184618_874.jpg',
                                      nickname: m.name, remark: m.name };
                         }
-                        return find(m) || { wxid: 'wxid_' + m, headerUrl: '/images/header/header01.png', nickname: m, remark: m };
+                        return find(m) || { wxid: 'wxid_' + m, headerUrl: '/images/avatar/2_20260831_184618_874.jpg', nickname: m, remark: m };
                     })
                     : [];
                 const single = find(it.name) || {
                     wxid: 'wxid_' + (it.name || '朋友'),
-                    headerUrl: it.avatar || '/images/header/yehua.jpg',
+                    headerUrl: it.avatar || '/images/avatar/2_20260831_184618_874.jpg',
                     nickname: it.name || '朋友',
                     remark: it.name || '朋友',
                 };
@@ -269,15 +379,31 @@
                     for (const m of it.messages) {
                         const isMe = m.dir === 'me';
                         const text = m.kind === 'text' ? (m.text || '') :
-                            (m.kind === 'image' ? '[图片]' : (m.kind === 'voice' ? '[语音]' : (m.text || '')));
+                            (m.kind === 'image' ? '[图片]' :
+                            (m.kind === 'voice' ? '[语音]' :
+                            (m.kind === 'link' ? '[链接]' :
+                            (m.kind === 'emoji' ? '[表情]' : (m.text || '')))));
                         const entry = {
                             text: text,
                             image: m.kind === 'image' ? (m.image || '') : '',
+                            emoji: m.kind === 'emoji' ? (m.image || '') : '',
                             voice: m.kind === 'voice' ? (parseInt(m.seconds, 10) || 1) : 0,
+                            link: m.kind === 'link' ? (() => {
+                                const _img = (m.image || '').trim();
+                                // 短名（不带 / 或 http）按链接卡片缩略图目录约定补前缀，
+                                // 避免 `src="男生.jpg"` 这类相对路径在前端解析失败（破图）。
+                                const _linkImg = (_img && !_img.startsWith('/') && !/^https?:/i.test(_img))
+                                    ? '/images/link/' + _img : _img;
+                                return {
+                                    title: (m.title || m.text || ''),
+                                    image: _linkImg,
+                                    source: (m.source || '心灵知行'),
+                                };
+                            })() : null,
                             name: isMe ? (me.name || 'd') :
                                 (group ? (m.sender || senderName) : senderName),
-                            headerUrl: isMe ? (me.avatar || '/images/header/header01.png') :
-                                (group ? '/images/header/yehua.jpg' : single.headerUrl),
+                            headerUrl: isMe ? (me.avatar || '/images/avatar/2_20260831_184618_874.jpg') :
+                                (group ? '/images/avatar/2_20260831_184618_874.jpg' : single.headerUrl),
                         };
                         // 消息显式带 time 才生成时间分隔条（标注了时刻 → 强制显示，时间占位）
                         if (m.time != null && String(m.time).trim() !== '') {
@@ -307,7 +433,7 @@
                         text: it.text || it.lastText || '',
                         date: it.timestamp || Date.now(),
                         name: senderName,
-                        headerUrl: group ? '/images/header/yehua.jpg' : single.headerUrl,
+                        headerUrl: group ? '/images/avatar/2_20260831_184618_874.jpg' : single.headerUrl,
                     };
                     for (let k = 0; k < nMsg; k++) msg.push(Object.assign({}, lastMsg));
                 }
@@ -351,6 +477,15 @@
             }
             const okHome = this.setHomeList(Array.isArray(scene.home) ? scene.home : []);
             if (Array.isArray(scene.moments)) momentsPosts = scene.moments;
+            if (scene.peer !== undefined) this.setPeer(scene.peer);
+            else if (Array.isArray(scene.peers) && scene.peers.length) {
+                /* 新格式 scene.peers[]（多人物 × 多方案）：[应用场景] 取第一个人物的当前方案 */
+                const pp = scene.peers[0];
+                const plans = pp && typeof pp.plans === 'object' && !Array.isArray(pp.plans) ? pp.plans : {};
+                const plan = (pp && plans[pp.activePlan]) || Object.values(plans)[0];
+                if (plan) this.setPeer(plan);
+            }
+            if (scene.peerPreset) this.setPeer(scene.peerPreset);
             this.apply();
             return okHome;
         },
@@ -427,6 +562,7 @@
         if (!vm || !vm.$store) return;            // Vue 还未就绪，等 apply() 下一次调用再试
         _defaultsApplied = true;                    // 先置位：setHomeList 内部会回调 apply()，避免递归
         momentsPosts = DEFAULT_MOMENTS;
+        peerData = PEER_DEFAULT;
         vm.$store.state.msgList.baseMsg = [];      // 先清空，避免默认列表残留
         window.__wxConfig.setHomeList(DEFAULT_HOME);
     }

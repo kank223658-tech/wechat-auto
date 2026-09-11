@@ -176,7 +176,116 @@
 #commentBar { bottom: 0; transition: transform .22s cubic-bezier(.25, .46, .45, .94); }
 /* 键盘弹出时：键盘总高由 --kb-cand-h 控制（无候选 278px，出候选 +46px） */
 body.wxkb-open .dialogue-footer { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
-body.wxkb-open #commentBar { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
+/* #commentBar 已改为「定位在 513px 整图键盘上方」的深色细条（bottom:513px，
+   见 moments_exact.css §八），不再随 wxkb-open 顶起 —— 旧 278 联动会叠加出
+   -278px 的错误位移（实测细条从 y743 飘到 y465），故删除。 */
 
 /* 发朋友圈编辑页从状态栏下方开始 */
 #momentCompose { top: 47px !important; }
+
+/* ============================================================
+   转账场景（参考视频《接受转账的画面.mp4》状态栏，量测 592×1280）
+   —— 时间 03:14（画布 x56 y35 字高24）、灵动岛展开（画布 285×44 top18，
+   微信绿标 + 录屏红点）、右侧仅信号(x480)+电池(x517)、内容中心 y≈44。
+   高优先级：压过 chat_exact.css 的 body.wx-chat !important 定位。
+   ============================================================ */
+
+/* 状态栏加高：61px（参考帧导航栏从 y60 起） */
+body.wx-sb-tall #ios-statusbar { height: 61px; }
+body.wx-sb-tall .outter { top: 61px; height: calc(100% - 61px); }
+body.wx-sb-tall .sub-page { top: 61px; }
+body.wx-sb-tall #momentCompose { top: 61px !important; }
+
+/* 时间：03:14 左 x56，与信号/电池同行居中 y44 */
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-time {
+    position: absolute !important;
+    left: 56px !important;
+    top: 33px !important;
+    font-size: 24px !important;
+    line-height: 24px !important;
+    font-weight: 600 !important;
+    letter-spacing: .3px !important;
+    color: #fff !important;
+}
+
+/* 灵动岛展开：285×44，垂直 top18（ref 岛 y18-61）。
+   注意：homepage_exact.css 在主页/聊天把岛 display:none，这里必须恢复显示。 */
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-island {
+    display: block !important;
+    width: 285px !important;
+    height: 44px !important;
+    border-radius: 22px !important;
+    top: 18px !important;
+    transform: translateX(-50%) !important;
+}
+/* 展开态不显示摄像头孔（参考帧看不出） */
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-island::after { display: none !important; }
+
+/* 岛内左侧：微信绿色图标（ref x168-201 → 画布 34×26） */
+#ios-statusbar .sb-island-app {
+    display: none;
+    position: absolute;
+    left: 5px; top: 50%;
+    transform: translateY(-50%);
+}
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-island-app { display: block !important; }
+#ios-statusbar .sb-island-app svg { width: 34px; height: 27px; display: block; }
+
+/* 岛内右侧：录屏红点（ref 红点 x420-437 d17，外圈黑圆 d34） */
+#ios-statusbar .sb-recdot {
+    display: none;
+    position: absolute;
+    right: 5px; top: 50%;
+    transform: translateY(-50%);
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: #060606;
+    align-items: center; justify-content: center;
+}
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-recdot { display: flex !important; }
+#ios-statusbar .sb-recdot i {
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    background: #d43a2c;
+}
+
+/* 右侧重定位：信号 x480（画布），电池 x517；隐藏 5G/WiFi/定位图标 */
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-wifi,
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-cell5g,
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-left-icon { display: none !important; }
+
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-signal {
+    left: 480px !important;
+    top: 34px !important;
+    width: 28px !important;
+    gap: 2.6px !important;
+}
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-signal i {
+    width: 3.4px !important;
+}
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-signal i:nth-child(1) { height: 12px !important; }
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-signal i:nth-child(2) { height: 14px !important; }
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-signal i:nth-child(3) { height: 16px !important; }
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-signal i:nth-child(4) { height: 19px !important; }
+
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-batt-cell {
+    left: 517px !important;
+    top: 34px !important;
+}
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-battery {
+    width: 38px !important;
+    height: 19px !important;
+    border: 1.5px solid rgba(245, 245, 245, .55) !important;
+    border-radius: 6px !important;
+    padding: 2px !important;
+}
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-battery .sb-fill {
+    width: 100% !important;
+    background: #fff !important;
+}
+/* 转账场景电池非低电（压过聊天场景的红条） */
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-battery.sb-batt-low .sb-fill,
+body.wx-sb-tall #ios-statusbar.sb-scene-tf .sb-battery .sb-fill.sb-fill-low {
+    width: 100% !important;
+    background: #fff !important;
+}

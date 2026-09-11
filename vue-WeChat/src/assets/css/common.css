@@ -1,0 +1,252 @@
+/*层级关系
+公共头部：3
+内容：1
+公共底部：3
+搜索栏：2
+全屏页：4
+*/
+
+#app {
+    /*position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;*/
+}
+
+#app.lock {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.outter {
+    /* iOS 推入/推出现在：与子页滑入完全同节奏、同缓动，避免底页和子页各走各的 */
+    transition: transform .34s cubic-bezier(.32, .72, 0, 1), opacity .3s ease;
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 100%;
+    /*overflow: hidden;*/
+    /*bottom: 0;*/
+}
+
+
+/* 真机 push：底页只是轻微左移并缩小做视差（保持不透明），而非整页滑出变暗 */
+.outter.hideLeft {
+    opacity: 1;
+    transform: translate3d(-30%, 0, 0) scale(.95);
+    transition: transform .34s cubic-bezier(.32, .72, 0, 1), opacity .3s ease;
+    overflow: hidden;
+}
+
+body {
+    background: #fbf9fe;
+}
+
+.app-header {
+    /*position: absolute;*/
+    position: relative;
+    transition: 0.3s;
+    width: 100%;
+    z-index: 3;
+    height: 45px;
+    line-height: 45px;
+    font-size: 17px;
+    background: linear-gradient(180deg, #303036, #3c3b40);
+    color: #fff;
+    text-align: center;
+}
+
+.app-header.header-hide {
+    margin-top: -45px;
+}
+
+.app-content {
+    overflow-x: hidden;
+    overflow-y: auto;
+    z-index: 1;
+    /*position: absolute;*/
+    /*left: 0;*/
+    padding-bottom: 49px;
+    width: 100%;
+}
+
+.app-footer {
+    bottom: 0;
+    left: 0 !important;
+    width: 100%;
+    position: fixed;
+    z-index: 3;
+}
+
+.app-footer:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    width: 200%;
+    left: 0px;
+    top: 0;
+    transform: scale(.5);
+    transform-origin: 0 0;
+    -webkit-transform: scale(.5);
+    -webkit-transform-origin: 0 0;
+    background-color: #b7b7b7;
+    height: 1px;
+    z-index: 4;
+}
+
+.new-msg-count {
+    position: absolute;
+    font-style: normal;
+    font-family: PingFang SC, Hiragino Sans GB, Arial, Microsoft YaHei, Helvetica;
+    right: -9px;
+    top: -5px;
+    z-index: 2;
+    padding: 0 4px;
+    width: auto;
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    border-radius: 9px;
+    color: #fff;
+    text-align: center;
+    font-size: 14px;
+    background-color: #f43531;
+}
+
+.new-msg-dot {
+    position: absolute;
+    right: -4px;
+    top: -3px;
+    width: 10px;
+    height: 10px;
+    z-index: 2;
+    border-radius: 50%;
+    color: #ffffff;
+    text-align: center;
+    background-color: red;
+    background-color: #f43531;
+    font-size: 0;
+}
+
+.sub-page {
+    position: absolute;
+    top: 0px;
+    bottom: 0px;
+    background: #eee;
+    height: 100%;
+    width: 100%;
+    /* overflow: hidden; */
+    right: 0;
+    left: 0;
+    z-index: 5;
+    /* iOS push 的「窗帘」阴影：新页面从右滑入时，左缘投出纵深感 */
+    box-shadow: -14px 0 30px rgba(0, 0, 0, .20);
+}
+
+/* ============================================================
+   子页（店内页）push / pop 过渡：与 .outter.hideLeft 完全同节奏、同缓动
+   ------------------------------------------------------------
+   旧实现用 animate.css 的 fadeInRight/fadeOutRight：
+     1) 时长/缓动/属性与底页的 transition 不一致，造成「底图先停住、子页再作为固定界面滑过去」；
+     2) fadeOutRight 会同时把透明度减到 0，真机推送并不淡出。
+   改为纯 transform 的水平滑动（不透出）、统一 .34s cubic-bezier(.32,.72,0,1)，
+   让子页像一张不透明的卡片整体滑出/滑入，真正贴合真机微信。
+   ============================================================ */
+@keyframes wxSlideInRight {
+    from { transform: translate3d(100%, 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+}
+@keyframes wxSlideInLeft {
+    from { transform: translate3d(-100%, 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+}
+@keyframes wxSlideOutLeft {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-100%, 0, 0); }
+}
+@keyframes wxSlideOutRight {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(100%, 0, 0); }
+}
+.wx-slide-in-right  { animation: wxSlideInRight  .34s cubic-bezier(.32, .72, 0, 1) both; }
+.wx-slide-in-left   { animation: wxSlideInLeft   .34s cubic-bezier(.32, .72, 0, 1) both; }
+.wx-slide-out-left  { animation: wxSlideOutLeft  .34s cubic-bezier(.32, .72, 0, 1) both; }
+.wx-slide-out-right { animation: wxSlideOutRight .34s cubic-bezier(.32, .72, 0, 1) both; }
+
+.line-bottom:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    width: 200%;
+    left: 8px;
+    top: 0;
+    transform: scale(.5);
+    transform-origin: 0 0;
+    -webkit-transform: scale(.5);
+    -webkit-transform-origin: 0 0;
+    background-color: #b7b7b7;
+    height: 1px;
+    z-index: 10;
+}
+
+a {
+    cursor: pointer;
+}
+
+a:visited,
+a:hover {
+    color: #000;
+}
+
+.parentheses {}
+
+.parentheses:before {
+    content: "(";
+}
+
+.parentheses:after {
+    content: ")";
+}
+
+.search-open-contact {
+    top: 0;
+}
+
+.search-open-contact .search-open {
+    margin-top: -45px;
+}
+
+.search-open-contact #wx-header {
+    top: -45px !important;
+}
+
+.weui-cell__hd {
+    margin-right: 10px;
+}
+
+.weui-cell__hd img {
+    width: 40px;
+}
+
+.gender {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    margin-left: 4px;
+    margin-top: -5px;
+}
+
+.gender-male {
+    background: url("/images/contact_male.png");
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: 50%;
+}
+
+.gender-female {
+    background: url("/images/contact_female.png");
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: 50%;
+}

@@ -1,0 +1,413 @@
+{
+ "_note": "场景编辑器「对方主页」里的女性人设预设。名字就是脚本里 [编辑对方资料] 的参数，例如：[编辑对方资料] 花店店主·林晚晚。字段：name/wxid/area/gender(0女1男)/avatar/signature/cover/momentsThumbs[]/video{name,thumbs[]}/posts[{date,images[],text}]",
+ "presets": {
+  "餐车老板娘·吴遂卿": {
+   "name": "吴遂卿『餐车集装箱』",
+   "wxid": "LSDH-WSQ",
+   "area": "广东 佛山",
+   "gender": 0,
+   "avatar": "/images/peer/peer_avatar.jpg",
+   "signature": "随心随性",
+   "cover": "/images/peer/peer_cover.jpg",
+   "momentsThumbs": [
+    "/images/peer/peer_m1.jpg",
+    "/images/peer/peer_m2.jpg",
+    "/images/peer/peer_m3.jpg",
+    "/images/peer/peer_m4.jpg",
+    "/images/peer/peer_m5.jpg"
+   ],
+   "video": {
+    "name": "餐车集装箱厂家蓝色大海",
+    "thumbs": [
+     "/images/peer/peer_v1.jpg",
+     "/images/peer/peer_v2.jpg",
+     "/images/peer/peer_v3.jpg",
+     "/images/peer/peer_v4.jpg",
+     "/images/peer/peer_v5.jpg"
+    ]
+   },
+   "posts": [
+    {
+     "date": "10 6月",
+     "images": [
+      "/images/peer/peer_p1.jpg"
+     ],
+     "text": "偶尔玩下 蛮好😄"
+    },
+    {
+     "date": "08 6月",
+     "video": "/videos/_test.mp4",
+     "cover": "/images/peer/peer_v1.jpg",
+     "text": "随手拍的，风有点大。"
+    },
+    {
+     "date": "06 6月",
+     "images": [
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p3.jpg",
+      "/images/peer/peer_p4.jpg",
+      "/images/peer/peer_p5.jpg"
+     ],
+     "text": "今天是很 666⁶⁶⁶ 的一天~\n2026/6-6✨Good luck❤️"
+    },
+    {
+     "date": "",
+     "images": [
+      "/images/peer/peer_p6.jpg",
+      "/images/peer/peer_p7.jpg",
+      "/images/peer/peer_p8.jpg",
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "太香啦~😄😄😄😄😄\n😄\n一下子开了二十来朵"
+    },
+    {
+     "date": "04 6月",
+     "images": [
+      "/images/peer/peer_p10.jpg"
+     ],
+     "text": "诚则行稳致远"
+    },
+    {
+     "date": "02 6月",
+     "images": [
+      "/images/peer/peer_p7.jpg",
+      "/images/peer/peer_p8.jpg"
+     ],
+     "text": "最近在整理店里的角落。"
+    },
+    {
+     "date": "28 5月",
+     "images": [
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "下雨天，适合发呆。"
+    },
+    {
+     "date": "20 5月",
+     "images": [
+      "/images/peer/peer_p10.jpg",
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p3.jpg"
+     ],
+     "text": "老朋友来坐了一下午。"
+    }
+   ]
+  },
+  "花店店主·林晚晚": {
+   "name": "林晚晚",
+   "wxid": "wanwan_flower",
+   "area": "浙江 杭州",
+   "gender": 0,
+   "avatar": "/images/avatar/9_26___高级感头像_1_荔枝_来自小红书网页版_20260902_180717_740.jpg",
+   "signature": "把日子过成诗",
+   "cover": "/images/peer/peer_cover2.jpg",
+   "momentsThumbs": [
+    "/images/peer/peer_m4.jpg",
+    "/images/peer/peer_m5.jpg",
+    "/images/peer/peer_m3.jpg",
+    "/images/peer/peer_m1.jpg",
+    "/images/peer/peer_m2.jpg"
+   ],
+   "video": null,
+   "posts": [
+    {
+     "date": "12 6月",
+     "images": [
+      "/images/peer/peer_p6.jpg",
+      "/images/peer/peer_p7.jpg",
+      "/images/peer/peer_p4.jpg",
+      "/images/peer/peer_p5.jpg"
+     ],
+     "text": "今天的芍药开得正好🌸\n随手插一束就很好看"
+    },
+    {
+     "date": "08 6月",
+     "video": "/videos/_test.mp4",
+     "cover": "/images/peer/peer_v1.jpg",
+     "text": "随手拍的，风有点大。"
+    },
+    {
+     "date": "08 6月",
+     "images": [
+      "/images/peer/peer_p1.jpg"
+     ],
+     "text": "店里的团宠，今天又被客人投喂了😆"
+    },
+    {
+     "date": "02 6月",
+     "images": [
+      "/images/peer/peer_p3.jpg",
+      "/images/peer/peer_p2.jpg"
+     ],
+     "text": "新到的一批花器，越看越喜欢✨"
+    },
+    {
+     "date": "28 5月",
+     "images": [
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "下雨天，店里放了一整天的爵士。"
+    },
+    {
+     "date": "02 6月",
+     "images": [
+      "/images/peer/peer_p7.jpg",
+      "/images/peer/peer_p8.jpg"
+     ],
+     "text": "最近在整理店里的角落。"
+    },
+    {
+     "date": "28 5月",
+     "images": [
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "下雨天，适合发呆。"
+    },
+    {
+     "date": "20 5月",
+     "images": [
+      "/images/peer/peer_p10.jpg",
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p3.jpg"
+     ],
+     "text": "老朋友来坐了一下午。"
+    }
+   ]
+  },
+  "瑜伽教练·苏念": {
+   "name": "苏念",
+   "wxid": "sunian_yoga",
+   "area": "广东 广州",
+   "gender": 0,
+   "avatar": "/images/avatar/WeChat_明媚感女头_1_清妤_来自小红书网页版_20260902_180348_139.jpg",
+   "signature": "自律给我自由",
+   "cover": "/images/peer/peer_cover3.jpg",
+   "momentsThumbs": [
+    "/images/peer/peer_m5.jpg",
+    "/images/peer/peer_m2.jpg",
+    "/images/peer/peer_m4.jpg",
+    "/images/peer/peer_m3.jpg",
+    "/images/peer/peer_m1.jpg"
+   ],
+   "video": null,
+   "posts": [
+    {
+     "date": "15 6月",
+     "images": [
+      "/images/peer/peer_p8.jpg"
+     ],
+     "text": "早课结束，今天的体式稳了很多🧘‍♀️"
+    },
+    {
+     "date": "08 6月",
+     "video": "/videos/_test.mp4",
+     "cover": "/images/peer/peer_v1.jpg",
+     "text": "随手拍的，风有点大。"
+    },
+    {
+     "date": "09 6月",
+     "images": [
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p3.jpg",
+      "/images/peer/peer_p4.jpg",
+      "/images/peer/peer_p5.jpg"
+     ],
+     "text": "生日这天收到好多花，谢谢大家❤️"
+    },
+    {
+     "date": "03 6月",
+     "images": [
+      "/images/peer/peer_p6.jpg"
+     ],
+     "text": "保持热爱，奔赴山海。"
+    },
+    {
+     "date": "02 6月",
+     "images": [
+      "/images/peer/peer_p7.jpg",
+      "/images/peer/peer_p8.jpg"
+     ],
+     "text": "最近在整理店里的角落。"
+    },
+    {
+     "date": "28 5月",
+     "images": [
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "下雨天，适合发呆。"
+    },
+    {
+     "date": "20 5月",
+     "images": [
+      "/images/peer/peer_p10.jpg",
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p3.jpg"
+     ],
+     "text": "老朋友来坐了一下午。"
+    }
+   ]
+  },
+  "咖啡师·周小满": {
+   "name": "周小满",
+   "wxid": "xiaoman_coffee",
+   "area": "上海 徐汇",
+   "gender": 0,
+   "avatar": "/images/avatar/Share___招财好运捧花女生头像_1_捂耳听风__来自小红书网页版_20260902_180759_080.jpg",
+   "signature": "一杯咖啡，一段午后",
+   "cover": "/images/peer/peer_cover2.jpg",
+   "momentsThumbs": [
+    "/images/peer/peer_m3.jpg",
+    "/images/peer/peer_m1.jpg",
+    "/images/peer/peer_m5.jpg",
+    "/images/peer/peer_m2.jpg",
+    "/images/peer/peer_m4.jpg"
+   ],
+   "video": null,
+   "posts": [
+    {
+     "date": "14 6月",
+     "images": [
+      "/images/peer/peer_p3.jpg",
+      "/images/peer/peer_p4.jpg",
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p5.jpg"
+     ],
+     "text": "新豆子到店，手冲了一下午☕\n今天这杯很干净"
+    },
+    {
+     "date": "08 6月",
+     "video": "/videos/_test.mp4",
+     "cover": "/images/peer/peer_v1.jpg",
+     "text": "随手拍的，风有点大。"
+    },
+    {
+     "date": "07 6月",
+     "images": [
+      "/images/peer/peer_p7.jpg"
+     ],
+     "text": "下雨的午后，店里只有我和留声机。"
+    },
+    {
+     "date": "01 6月",
+     "images": [
+      "/images/peer/peer_p9.jpg",
+      "/images/peer/peer_p6.jpg"
+     ],
+     "text": "六月的第一杯，敬夏天🍃"
+    },
+    {
+     "date": "02 6月",
+     "images": [
+      "/images/peer/peer_p7.jpg",
+      "/images/peer/peer_p8.jpg"
+     ],
+     "text": "最近在整理店里的角落。"
+    },
+    {
+     "date": "28 5月",
+     "images": [
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "下雨天，适合发呆。"
+    },
+    {
+     "date": "20 5月",
+     "images": [
+      "/images/peer/peer_p10.jpg",
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p3.jpg"
+     ],
+     "text": "老朋友来坐了一下午。"
+    }
+   ]
+  },
+  "旅行博主·许清欢": {
+   "name": "许清欢",
+   "wxid": "qinghuan_trip",
+   "area": "四川 成都",
+   "gender": 0,
+   "avatar": "/images/avatar/到远方去看旷野的花__1_EB怀特_来自小红书网页版_20260902_180922_337.jpg",
+   "signature": "在路上，就是最好的答案",
+   "cover": "/images/peer/peer_cover.jpg",
+   "momentsThumbs": [
+    "/images/peer/peer_m2.jpg",
+    "/images/peer/peer_m4.jpg",
+    "/images/peer/peer_m1.jpg",
+    "/images/peer/peer_m5.jpg",
+    "/images/peer/peer_m3.jpg"
+   ],
+   "video": {
+    "name": "清欢的旅行日记",
+    "thumbs": [
+     "/images/peer/peer_v2.jpg",
+     "/images/peer/peer_v4.jpg",
+     "/images/peer/peer_v1.jpg",
+     "/images/peer/peer_v5.jpg",
+     "/images/peer/peer_v3.jpg"
+    ]
+   },
+   "posts": [
+    {
+     "date": "16 6月",
+     "images": [
+      "/images/peer/peer_p10.jpg"
+     ],
+     "text": "海边的风把头发吹得乱七八糟🌊\n但心情是真的好"
+    },
+    {
+     "date": "08 6月",
+     "video": "/videos/_test.mp4",
+     "cover": "/images/peer/peer_v1.jpg",
+     "text": "随手拍的，风有点大。"
+    },
+    {
+     "date": "11 6月",
+     "images": [
+      "/images/peer/peer_p1.jpg"
+     ],
+     "text": "路上遇到的小狗，跟我走了半条街🐾"
+    },
+    {
+     "date": "05 6月",
+     "images": [
+      "/images/peer/peer_p8.jpg",
+      "/images/peer/peer_p6.jpg",
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "在山上住了一晚，看到了银河。\n值得。"
+    },
+    {
+     "date": "30 5月",
+     "images": [
+      "/images/peer/peer_p4.jpg"
+     ],
+     "text": "出发。"
+    },
+    {
+     "date": "02 6月",
+     "images": [
+      "/images/peer/peer_p7.jpg",
+      "/images/peer/peer_p8.jpg"
+     ],
+     "text": "最近在整理店里的角落。"
+    },
+    {
+     "date": "28 5月",
+     "images": [
+      "/images/peer/peer_p9.jpg"
+     ],
+     "text": "下雨天，适合发呆。"
+    },
+    {
+     "date": "20 5月",
+     "images": [
+      "/images/peer/peer_p10.jpg",
+      "/images/peer/peer_p2.jpg",
+      "/images/peer/peer_p3.jpg"
+     ],
+     "text": "老朋友来坐了一下午。"
+    }
+   ]
+  }
+ }
+}

@@ -502,21 +502,16 @@
     const WX = window.__WX_WXEMOJI || {};
     const WX_LIST = WX.list || [];
     const WX_WORD = WX.words || {};
-    let _symIdx = 0, _fillIdx = 0, _wxIdx = 0, _decoIdx = 0;   // 模块级轮换游标：跨候选行接着转，避免每行重复同一批
-    /* 装饰取图：轮换「颜文字 / 微信小表情图 / 苹果表情图」三种。游标是模块级，跨候选行接着走，
-       保证每次出现的小表情图/符号不重样，整排也有图片变化（候选条图片更丰富）。 */
-    function pickDeco() {
-        const kind = _decoIdx % 3;
-        _decoIdx++;
-        if (kind === 0) {
-            return { type: 'symbol', text: KAOMOJI_POOL[_symIdx++ % KAOMOJI_POOL.length] };
-        }
-        if (kind === 1 && WX_LIST.length) {
-            const w = WX_LIST[_wxIdx++ % WX_LIST.length];
-            return { type: 'wximg', src: w.src, code: String(w.id || ''), emoji: '' };
-        }
-        const f = EMOJI_FILL[_fillIdx++ % EMOJI_FILL.length];
-        return { type: 'emoji', code: f.code, emoji: f.emoji };
+    /* 装饰取图：轮换「颜文字 / 微信小表情图 / 苹果表情图」三种。
+       用**候选文本内容哈希做种子**生成本行装饰游标（不再用模块级全局游标）。
+       修复：旧实现 pickDeco 推进模块级全局游标，导致「同一批候选文字」无论同步渲染还是
+       引擎异步回填(refreshFromEngine)都会走到不同的装饰位 —— 表现为候选条文字没变、
+       但第 3 个表情独立跳变(😍→🙋)。改为按候选全文确定性播种：同一批文字永远得到同一组装饰，
+       异步回填不再跳变；不同候选行因文本不同自然错开，依旧不重样。 */
+    function _hashSeed(str) {
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return h >>> 0;
     }
     /* 候选条图片预热：键盘/候选首次渲染前，把微信小表情图与常用苹果表情图预解码进浏览器缓存。
        这 71 张微信小表情图不在页面 DOM 里，只有候选条渲染时才会被引用——若不预热，
@@ -532,6 +527,25 @@
         const out = [];
         const pushObj = (o) => { if (out.length < 12) out.push(o); };
         let deco = 0;                 // 本行已插入的装饰数（命中表情 + 补位），上限 3
+        /* 装饰起点由候选文本整体哈希决定：同一批候选 -> 同一组装饰位（异步回填不再跳变），
+           不同候选行因文本不同而错开（依旧不重样）。 */
+        const key = cands.map(c => typeof c === 'object' ? (c.src || c.emoji || c.code || '') : String(c)).join('|');
+        const seed = _hashSeed(key);
+        let symIdx = seed % KAOMOJI_POOL.length;
+        let fillIdx = (seed >>> 2) % EMOJI_FILL.length;
+        let wxIdx = (seed >>> 3) % (WX_LIST.length || 1);
+        let decoIdx = (seed >>> 1) % 3;
+        const nextDeco = () => {
+            const kind = decoIdx % 3;
+            decoIdx++;
+            if (kind === 0) return { type: 'symbol', text: KAOMOJI_POOL[symIdx++ % KAOMOJI_POOL.length] };
+            if (kind === 1 && WX_LIST.length) {
+                const w = WX_LIST[wxIdx++ % WX_LIST.length];
+                return { type: 'wximg', src: w.src, code: String(w.id || ''), emoji: '' };
+            }
+            const f = EMOJI_FILL[fillIdx++ % EMOJI_FILL.length];
+            return { type: 'emoji', code: f.code, emoji: f.emoji };
+        };
         for (let i = 0; i < cands.length; i++) {
             const c = cands[i];
             if (out.length >= 12) break;              // 候选总量上限
@@ -551,14 +565,14 @@
                 /* 未命中文字候选：每隔 3 位、且装饰未达上限时补 1 个。颜文字/微信小表情图/苹果表情图
                    三种轮换，靠**大而多变的装饰池**保证每次出现的花样不重复、整排不重样。
                    微信小表情图以真实 <img> 挂入，候选条图片更丰富。 */
-                pushObj(pickDeco());
+                pushObj(nextDeco());
                 deco++;
             }
         }
         /* 若整排仍是纯文字（无任何表情/符号），才补 1 个颜文字占位兜底（保证有变化但不密集） */
         let hasDeco = out.some((x) => typeof x === 'object');
         if (!hasDeco && out.length < 12) {
-            pushObj({ type: 'symbol', text: KAOMOJI_POOL[_symIdx++ % KAOMOJI_POOL.length] });
+            pushObj({ type: 'symbol', text: KAOMOJI_POOL[symIdx++ % KAOMOJI_POOL.length] });
         }
         return out;
     }
@@ -597,31 +611,34 @@
             const cands = queryPinyin(m[1]);
             if (cands.length) return attachEmoji(cands);      // 组合拼音预选(+表情)
         }
+        /* 联想词太少（删除/无拼音时二元表往往只有两三个后接）→ 用通用兜底词补足，
+           避免候选条只剩两三个字显得空旷。补到至少 8 个文本候选，再交 attachEmoji 加装饰。 */
+        const finish = (arr) => {
+            arr = Array.isArray(arr) ? arr.slice(0, 8) : [];
+            if (arr.length < 8) {
+                const fb = dynamicFallback(context);
+                for (let i = 0; i < fb.length && arr.length < 10; i++) {
+                    if (!arr.includes(fb[i])) arr.push(fb[i]);
+                }
+            }
+            return attachEmoji(arr);
+        };
         if (context) {
             /* 词边界联想：取文本末尾的词，查其二元后接（我们->明天/一起；我->们/在/要；开心->吗/了/的）。 */
             const word = lastWordOf(context);
             if (word) {
                 const nxt = BG[word];
-                if (nxt && Object.keys(nxt).length) {
-                    const arr = Object.keys(nxt).slice(0, 8);
-                    if (arr.length) return attachEmoji(arr);
-                }
+                if (nxt && Object.keys(nxt).length) return finish(Object.keys(nxt));
             }
             /* 次级：末尾单字的二元后接（很->好/多/久；你->好/们/在）。 */
             const lastChar = /[\u4e00-\u9fff]$/.test(context) ? context.slice(-1) : '';
             if (lastChar && lastChar !== word) {
                 const nxt = BG[lastChar];
-                if (nxt && Object.keys(nxt).length) {
-                    const arr = Object.keys(nxt).slice(0, 8);
-                    if (arr.length) return attachEmoji(arr);
-                }
+                if (nxt && Object.keys(nxt).length) return finish(Object.keys(nxt));
             }
             /* 兜底：按旧法对末尾 1~2 字建索引。 */
             const nxt = BG[context.slice(-2)] || BG[context.slice(-1)];
-            if (nxt && Object.keys(nxt).length) {
-                const arr = Object.keys(nxt).slice(0, 8);
-                if (arr.length) return attachEmoji(arr);
-            }
+            if (nxt && Object.keys(nxt).length) return finish(Object.keys(nxt));
         }
         return attachEmoji(dynamicFallback(context));          // 动态兜底(非固定)
     }
@@ -639,6 +656,9 @@
     /* 真 Rime 引擎候选：引擎就绪时用真实候选替换候选条；拼音已变则丢弃过期结果（提交仍走 commitByPhrase 保证文字一致）。 */
     function refreshFromEngine(prefix) {
         const E = window.__rimeEngine;
+        // #region agent log
+        _dbgD('keyboard.js:refreshFromEngine', 'ENGINE_READY', { hasE: !!E, ready: !!(E && E.ready), snap: prefix });
+        // #endregion
         if (!E || !E.ready) return;
         const snap = prefix;
         E.process(prefix).then((txt) => {
@@ -648,8 +668,17 @@
                 const r = JSON.parse(txt);
                 chars = (r.candidates || []).map(c => c.text);
             } catch (e) {}
-            if (chars.length) { _perfMark('★引擎候选回填(相对首键的延迟)'); _showCand(pyBuffer, attachEmoji(_alignHint(chars, pyBuffer))); }
-        }).catch(() => {});
+            // #region agent log
+            _dbgD('keyboard.js:refreshFromEngine', 'ENGINE_RAW', { snap: snap, txtHead: String(txt || '').slice(0, 120), charsLen: chars.length, chars: chars.slice(0, 6), pyNow: pyBuffer });
+            // #endregion
+            if (chars.length) { _perfMark('★引擎候选回填(相对首键的延迟)'); 
+                // #region agent log
+                _dbgD('keyboard.js:refreshFromEngine', 'ASYNC_CAND', {
+                    snap: snap, chars: chars.slice(0, 6), pyNow: pyBuffer, started: Date.now() % 1e5
+                });
+                // #endregion
+                _showCand(pyBuffer, attachEmoji(_alignHint(chars, pyBuffer))); }
+        }).catch((e) => { _dbgD('keyboard.js:refreshFromEngine', 'ENGINE_ERR', { snap: prefix, err: String(e && e.message || e) }); });
     }
     /* ---- 首键 / 打开键盘 性能探针：仅 window.__wxPerf=true 时启用（默认关闭，零开销）----
        定位「键盘打开后前 2 秒打不出字」落到哪一档。只把结果写进 window.__wxPerfLog（不刷 console），
@@ -683,6 +712,9 @@
     function tryImeCompose(el) {
         _perfReset();
         const v = el.value || '';
+        // #region agent log
+        _dbgD('keyboard.js:tryImeCompose', 'KEY_EVT', { valLen: v.length, imeMode: imeMode, hasRime: !!(window.__rimeEngine && window.__rimeEngine.ready), t: Math.round(performance.now()) });
+        // #endregion
         if (imeMode === 'pinyin') {
             const m = /([a-z]+)$/.exec(v);
             if (m) {
@@ -768,15 +800,73 @@
         if (!el) return;
         if (el.isContentEditable) { el.textContent += ch; }
         else { el.value = (el.value || '') + ch; }
+        // #region agent log
+        if (/[\uD800-\uDFFF]/.test(ch) || (typeof ch === 'string' && ch.length > 1)) {
+            _dbgD('keyboard.js:insertChar', 'INSERT', { chHex: Array.from(ch).map(_hex), chLen: ch.length, valueLen: (el.value||'').length });
+        }
+        // #endregion
         el.dispatchEvent(new Event('input', { bubbles: true }));
         syncSendState();
         if (/[\u4e00-\u9fff]/.test(ch)) predictNext(el.value);   // 提交汉字后继续联想(链式)
     }
+    // #region agent log (delete surrogate-pair diagnosis)
+    function _dbgD(loc, msg, data) {
+        // 仅在 agent 调试开启（WX_DEBUG_AGENT=1 注入的 __wxDebugAgent）时才记录，
+        // 生产跑批不攒几千条 __wxDelDebug、也不发 7808 fetch，避免拖慢/看门狗误杀。
+        if (!window.__wxDebugAgent) return;
+        try {
+            (window.__wxDelDebug = window.__wxDelDebug || []).push({ location: loc, message: msg, data: data || {}, t: Date.now() });
+        } catch (e) {}
+        // #region agent log (debug-mode NDJSON bridge)
+        try {
+            fetch('http://127.0.0.1:7808/ingest/0a5e3db5-64c1-4ff6-9da8-2bcd1ad0722e', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '189770' },
+                body: JSON.stringify({ sessionId: '189770', location: loc, message: msg, data: data || {}, timestamp: Date.now() })
+            }).catch(() => {});
+        } catch (e) {}
+        // #endregion
+    }
+    function _hex(u) { return u == null ? '' : u.toString(16); }
+    // 按「字素簇」删除最后一个字符：正确处理代理对(emoji)/变体选择符/ZWJ 组合。
+    // 旧实现 slice(0,-1) 只删一个 UTF-16 码元，会把 emoji 拆成孤立代理 → 文字先变/先消失。
+    function _graphemePop(s) {
+        if (!s) return s;
+        try {
+            if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+                const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+                const parts = Array.from(seg.segment(s));
+                if (parts.length <= 1) return '';
+                return parts.slice(0, -1).map(function (p) { return p.segment; }).join('');
+            }
+        } catch (e) {}
+        const cps = Array.from(s);        // 按码点拆分（正确处理代理对）兜底
+        cps.pop();
+        return cps.join('');
+    }
+    // #endregion
     function deleteLastChar() {
         const el = inputTarget();
         if (!el) return;
-        if (el.isContentEditable) { el.textContent = el.textContent.slice(0, -1); }
-        else { el.value = (el.value || '').slice(0, -1); }
+        const before = el.isContentEditable ? (el.textContent || '') : (el.value || '');
+        const u = before.length ? before.charCodeAt(before.length - 1) : null;       // 最后一个码元
+        const afterSlice = before.slice(0, -1);                                       // 旧逻辑去掉一个码元后（仅用于对比日志）
+        const tail = afterSlice.length ? afterSlice.charCodeAt(afterSlice.length - 1) : null;
+        const isHighSur = (v) => v != null && v >= 0xD800 && v <= 0xDBFF;
+        const isLowSur = (v) => v != null && v >= 0xDC00 && v <= 0xDFFF;
+        const last2 = before.slice(-2);
+        const afterFull = _graphemePop(before);                                        // 按字素簇删（修复后，避免拆孤立代理）
+        // #region agent log
+        _dbgD('keyboard.js:deleteLastChar', 'DEL', {
+            beforeLen: before.length, beforeCp: (function(){ try{return Array.from(before).length;}catch(e){return -1;} })(),
+            lastUnitHex: _hex(u), lastUnitIsLowSur: isLowSur(u),
+            last2units: Array.from(last2).map(_hex),
+            orphanTailHighSur: isHighSur(tail), afterLen: afterSlice.length,
+            fixedAfter: afterFull
+        });
+        // #endregion
+        if (el.isContentEditable) { el.textContent = afterFull; }
+        else { el.value = afterFull; }
         el.dispatchEvent(new Event('input', { bubbles: true }));
         syncSendState();
     }
@@ -1043,6 +1133,12 @@
         const cur = document.createElement('span');
         cur.className = 'wxkb-compose-cursor';
         box.appendChild(cur);
+        // #region agent log
+        _dbgD('keyboard.js:renderComposition', 'OVL', {
+            committedLen: committed.length, py: py, valLen: (el.value || '').length,
+            active: document.activeElement === el, imeMode: imeMode, started: Date.now() % 1e5
+        });
+        // #endregion
         /* 等一帧再校正盒子几何：确保 --chat-grow 已把 textarea 增高后再对齐，避免 1 帧错位。
            几何重读按 ~2 帧节流：40 倍速连打时一帧常有多个按键，不必每键都排一次强制布局。 */
         const now = performance.now();
@@ -1085,10 +1181,10 @@
             syncSendState();
             _showCand('', ensureCandidates(inputTarget() ? inputTarget().value : ''));
             _perfMark('show() 候选渲染');
-            if (g0 && !wasVisible) _animChatSection(g0.closed, g0.open, 220);   // 高度收缩+贴底，单帧一次排版
+            if (g0 && !wasVisible) _animChatSection(g0.closed, g0.open, 180);   // 高度收缩+贴底，单帧一次排版
             if (!wasVisible) {
                 // 键盘显式上滑（不靠 CSS 过渡，保证一定有动画）；结束后交还 CSS 稳态。
-                _animKb(100, 0, 220, () => {
+                _animKb(100, 0, 180, () => {
                     root.style.removeProperty('transform');
                     root.style.removeProperty('transition');
                     root.style.removeProperty('visibility');
@@ -1112,19 +1208,19 @@
             _topHint = null;
             clearComposition();
             setShiftState(0);
-            if (g && wasVisible && !keepSection) _animChatSection(g.open, g.closed, 220);   // 高度恢复+贴底，单帧一次排版
+            if (g && wasVisible && !keepSection) _animChatSection(g.open, g.closed, 180);   // 高度恢复+贴底，单帧一次排版
             if (wasVisible) {
                 // 键盘显式下滑；结束后交还 CSS 稳态(translateY(100%) + visibility:hidden)。
-                _animKb(0, 100, 220, () => {
+                _animKb(0, 100, 180, () => {
                     root.style.removeProperty('transform');
                     root.style.removeProperty('transition');
                     root.style.removeProperty('visibility');
                 });
             }
             /* 候选词延后清空：让候选条随键盘整体下滑（与弹出时候选条随键盘上升对称），
-               等键盘滑出屏幕(过渡仅 .22s)后再 clear，避免收起瞬间候选行突兀消失的拼接感。 */
+               等键盘滑出屏幕(过渡仅 .18s)后再 clear，避免收起瞬间候选行突兀消失的拼接感。 */
             clearTimeout(this._candHideT);
-            this._candHideT = setTimeout(() => this.clearCandidates(), 280);
+            this._candHideT = setTimeout(() => this.clearCandidates(), 235);
         },
 
         /* 设置大小写状态：off / on（单次）/ caps（锁定） */
@@ -1278,7 +1374,7 @@
            高亮与删字切成错位帧 → 观感掉帧。改由这里帧对齐删除，均匀且无 CDP 抖动。
            返回起始墙钟毫秒；删除中 deleteBusy=true；每字视觉时刻写入 window.__delWalls
            （Python 端读完用于音效锚点）。 */
-        deleteHold(n) {
+        deleteHold(n, intervalMs) {
             if (this._delHolding) return 0;
             const el = inputTarget();
             if (!el) return 0;
@@ -1286,16 +1382,38 @@
             const t0 = Date.now();
             window.__delWalls = [];
             let left = Math.max(1, n | 0);
+            /* 每字间隔直接由外部(DELETE_SPEED)给定，与打字速度(TYPE_SPEED)完全解耦：
+               intervalMs 越大删得越慢、越小删得越快；小于一帧(约16.7ms)时在单帧内补删多字，
+               但仍按理想间隔打时间戳(音效锚点均匀)；由浏览器 rAF 帧对齐、无 CDP 抖动。
+               interval=0/缺省 时保留旧行为「每显示帧删 1 字」（供调试脚本用）。 */
+            const interval = Number(intervalMs) || 0;
+            let next = interval > 0 ? (t0 + interval) : t0;
             const tick = () => {
                 if (!this._delHolding) return;
                 if (!this.visible || left <= 0 || inputTarget() !== el) {
                     this._delHolding = false;   /* 删完 / 键盘收起 / 焦点离开 → 停止 */
                     return;
                 }
-                pressFx(keys['backspace'], 45);  /* 退格键帧内续按，观感为长按高亮 */
-                deleteLastChar();
-                window.__delWalls.push(Date.now());
-                left--;
+                const now = Date.now();
+                if (interval > 0 ? (now >= next) : true) {
+                    pressFx(keys['backspace'], interval > 0 ? Math.max(45, interval) : 45);  /* 退格键长按高亮：间隔越大高亮越持久 */
+                    // #region agent log
+                    _dbgD('keyboard.js:deleteHold.tick', 'DELHOLD', { left: left, interval: interval, curLen: (el.value||'').length, curCp: (function(){try{return Array.from(el.value||'').length;}catch(e){return -1;}})() });
+                    // #endregion
+                    if (interval > 0) {
+                        while (left > 0 && next <= now) {   /* 落后多个间隔→一帧补删多字，仍按理想间隔打戳 */
+                            deleteLastChar();
+                            window.__delWalls.push(next);
+                            left--;
+                            next += interval;
+                        }
+                        if (left > 0 && next <= now) next = now + interval;  /* 防长时间卡顿后连续抢删 */
+                    } else {
+                        deleteLastChar();
+                        window.__delWalls.push(now);
+                        left--;
+                    }
+                }
                 requestAnimationFrame(tick);
             };
             requestAnimationFrame(tick);
@@ -1325,19 +1443,21 @@
             ).join('|');
             if (sig === _lastCandSig) return _lastShownN;
             _lastCandSig = sig;
+            // #region agent log
+            _dbgD('keyboard.js:showCandidates', 'CAND', {
+                py: pinyin, chars: sig.slice(0, 160),
+                valLen: (function () { const e = document.querySelector('textarea.chat-txt'); return e ? e.value.length : -1; })(),
+                ovlNow: (function () { const c = document.querySelector('.wxkb-compose-committed'); return c ? c.textContent : ''; })(),
+                started: Date.now() % 1e5
+            });
+            // #endregion
             candList.innerHTML = '';
             candBar.classList.remove('has-cand');
             setCandHeight(0);   /* 候选栏为绝对定位叠放，不再撑高键盘，变量置0 */
-            /* 真机容量：候选条随已敲拼音长度自适应 4~7 个，**绝不超过 7**。
-               - 无组合(联想/兜底) / 只敲 1 个字母（自然状态）→ 最多 7 个；
-               - 拼音越敲越长 → 候选越聚焦越少（L2~6、L3~5、L4 及以上 ~4）。
-               首个（整句/最贴合）候选恒保留；超出容量的由右侧「翻页箭头」暗示（不自动截词义）。 */
-            const L = (typeof pinyin === 'string' ? pinyin.length : 0);
-            let cap;
-            if (L >= 4) cap = 4;
-            else if (L === 3) cap = 5;
-            else if (L === 2) cap = 6;
-            else cap = 7;
+            /* 真机容量：候选条尽量出满 7 个（引擎页大小 10），不再随已敲拼音变长而缩到 4 个。
+               - 拼音越长候选越聚焦，但为保持候选条饱满，上限统一 7；
+               - 首个（整句/最贴合）候选恒保留；超出容量的由右侧「翻页箭头」暗示（不自动截词义）。 */
+            let cap = 7;
             /* 候选条可视宽度（left:0/right:0 铺满整屏，约 viewport-左右 padding） */
             const listW = () => candList.clientWidth
                 || (candList.parentElement ? candList.parentElement.clientWidth : 0);

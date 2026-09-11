@@ -1,0 +1,48 @@
+{
+  "title": "微信 (10)",
+  "me": {
+    "name": "d",
+    "avatar": "/images/avatar/IMG_0491_20260903_144508_035.png",
+    "signature": "填坑小能手",
+    "bg": "/images/avatar/IMG_0491_20260903_144508_035.png"
+  },
+  "home": [],
+  "moments": [
+    {
+      "author": "月亮🌙",
+      "avatar": "/images/avatar/牛泪_20260905_204521_851.jpg",
+      "text": "好平台，给努力的人兑现结果",
+      "images": [
+        "/images/avatar/IMG_0491_20260903_144508_035.png"
+      ],
+      "time": "2小时前",
+      "likes": [],
+      "comments": []
+    },
+    {
+      "author": "铁木君",
+      "avatar": "/images/avatar/部位男头_1_愛野_来自小红书网页版_20260904_201025_756.jpg",
+      "text": "这两天跟一位比我年长一轮的长辈聊天，他说四十多岁第一次出国，去了一趟冰岛，但是回来之后沉闷了两三天。\n\n倒也不是不开心，他说是那种突然意识到自己已经不再年轻的感觉，好像一下子看清了很多以前没想明白的事情，也觉得该换一种活法了。",
+      "images": [
+        "/images/avatar/聊天技巧图片_20260905_154410_890.png"
+      ],
+      "time": "5小时前",
+      "likes": [],
+      "comments": []
+    },
+    {
+      "author": "微盛 AI-小星",
+      "avatar": "/images/avatar/IMG_0512_20260901_140118_982.png",
+      "text": "如何用【大圆+WorkBuddy】做好：\nAI 短视频 | GEO 优化 | 获客转化实战\n现场案例拆解\n9月11日 14:00 周五 | 无锡微盛总部\n峰会明日开启，席位紧张，扫码锁定！",
+      "images": [
+        "/images/avatar/IMG_0491_20260903_144508_035.png"
+      ],
+      "time": "9小时前",
+      "likes": [],
+      "comments": [],
+      "company": "微盛企微管家"
+    }
+  ],
+  "peer": {},
+  "peerNav": false
+}

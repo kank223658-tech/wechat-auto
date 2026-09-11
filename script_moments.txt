@@ -1,0 +1,59 @@
+# ============================================================
+# 朋友圈完整示例剧本
+#   运行：py main.py --script script_moments.txt
+#   录制：py main.py --script script_moments.txt --headless --speed 1.5
+# ------------------------------------------------------------
+# 覆盖：编辑我的主页资料 → 编辑朋友圈动态（文字/图片/视频）→
+#       进入朋友圈 → 上下滑动 → 点开配图 → 播放视频 → 闪回聊天
+#
+# 指令速查（朋友圈相关）：
+#   [编辑我的资料] {JSON}     昵称/头像/朋友圈封面/签名，全局同步
+#   [编辑朋友圈]   {JSON}     重建动态：author/avatar/text/images[]/video/cover/time/likes[]/comments[]
+#   [进入朋友圈]              自动切到「发现」Tab 再进朋友圈
+#   [向下滚动] 400            向下滚 400px（[向上滚动] 同理）
+#   [滚动到] 底部             顶部 / 底部
+#   [点开图片] 1,2            点开第 1 条动态的第 2 张配图（留空=1,1）
+#   [播放视频]                点开朋友圈里第 1 个视频动态（留空参数即可）
+#   [播放视频] /videos/x.mp4  直接播放指定视频
+#   [闪回聊天] 香儿           一帧硬切回聊天界面（剪辑感）；填联系人则直接进该会话
+#   [发朋友圈] 文案 | 图片    真人打字发表一条朋友圈
+# ============================================================
+
+# 1) 编辑「我」的主页资料（头像/昵称/朋友圈封面/签名），主页、通讯录、朋友圈一起变
+[编辑我的资料] {"name":"阿荡","avatar":"/images/peer/peer_avatar.jpg","bg":"/images/peer/peer_cover.jpg","signature":"填坑小能手"}
+[等待] 0.4
+
+# 2) 编辑朋友圈动态
+#    · images[] 多张自动排成九宫格；video 有值时该条渲染成视频动态（封面 + 播放角标）
+#    · 只改动态、不动资料时，直接写数组：[编辑朋友圈] [{"text":"..."}]
+[编辑朋友圈] {"posts":[{"author":"阿荡","avatar":"/images/peer/peer_avatar.jpg","text":"周末的海，风很大。","images":["/images/peer/peer_p1.jpg","/images/peer/peer_p2.jpg","/images/peer/peer_p3.jpg"],"time":"10分钟前","likes":["陆香儿"],"comments":[{"name":"陆香儿","text":"拍得不错"}]},{"author":"阿荡","avatar":"/images/peer/peer_avatar.jpg","text":"随手拍的。","video":"/videos/_test.mp4","cover":"/images/peer/peer_v1.jpg","time":"1小时前","likes":[],"comments":[]},{"author":"阿荡","avatar":"/images/peer/peer_avatar.jpg","text":"今天的晚霞。","images":["/images/peer/peer_p4.jpg","/images/peer/peer_p5.jpg"],"time":"3小时前","likes":[],"comments":[]},{"author":"阿荡","avatar":"/images/peer/peer_avatar.jpg","text":"夜跑打卡。","images":["/images/peer/peer_p6.jpg"],"time":"昨天","likes":[],"comments":[]}]}
+[等待] 0.6
+
+# 3) 进朋友圈（不在「发现」Tab 也会自动切过去）
+[进入朋友圈]
+[等待] 0.8
+
+# 4) 上下滑动：像素为正=向下，负=向上
+[向下滚动] 400
+[等待] 0.5
+[向上滚动] 200
+[等待] 0.5
+
+# 5) 点开配图（全屏大图查看，停留后自动关掉）
+[点开图片] 1,2
+[等待] 0.6
+
+# 6) 看朋友圈视频（留空参数 = 点开当前朋友圈里第 1 个视频动态）
+[播放视频]
+[等待] 0.5
+
+# 7) 闪回聊天：不做滑出转场，一帧切回聊天界面接着录制，观感等同剪辑
+[闪回聊天] 香儿
+[等待] 0.6
+
+# 8) 闪回后继续正常录聊天
+[我方打字] 刚去看了下朋友圈
+[等待] 0.5
+[对方正在输入] 1.0
+[对方发消息] 我看到你发的了
+[等待] 0.8

@@ -1,0 +1,44 @@
+{
+  "name": "朋友圈视频图片验证",
+  "steps": [
+    {
+      "action": "编辑主页",
+      "params": {
+        "数据": [
+          { "name": "文件传输助手", "lastText": "你好", "time": "18:20", "unread": 0, "messages": [] }
+        ]
+      }
+    },
+    {
+      "action": "编辑朋友圈",
+      "params": {
+        "数据": [
+          {
+            "author": "小星",
+            "avatar": "/images/avatar/2_20260831_184618_874.jpg",
+            "company": "微盛企微管家",
+            "text": "随手拍的一段。",
+            "video": { "src": "/videos/_test.mp4", "cover": "/images/avatar/2_20260831_184618_874.jpg" },
+            "time": "5分钟前",
+            "likes": ["月亮"],
+            "comments": [{ "name": "月亮", "text": "不错" }]
+          },
+          {
+            "author": "铁木君",
+            "avatar": "/images/avatar/2_20260831_184618_874.jpg",
+            "text": "今天天气很好，出来走走。",
+            "images": ["/images/avatar/2_20260831_184618_874.jpg"],
+            "time": "1小时前",
+            "likes": [],
+            "comments": []
+          }
+        ]
+      }
+    },
+    { "action": "进入朋友圈", "params": {} },
+    { "action": "向下滚动", "params": { "像素": 240 } },
+    { "action": "播放视频", "params": { "序号": 1, "停留": 3 } },
+    { "action": "点开图片", "params": { "序号": 2, "停留": 1.5 } },
+    { "action": "闪回聊天", "params": {} }
+  ]
+}

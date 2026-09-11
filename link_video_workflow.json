@@ -1,0 +1,42 @@
+{
+  "name": "链接卡片功能演示（历史+后台+实时）",
+  "steps": [
+    {
+      "action": "编辑主页",
+      "params": {
+        "数据": [
+          {
+            "name": "粉丝 剑诀",
+            "messages": [
+              {"dir": "peer", "kind": "text", "text": "诺哥 求个聊天案例解析", "time": "19:30"},
+              {"dir": "me", "kind": "text", "text": "到位", "time": "19:31"},
+              {"dir": "me", "kind": "link", "title": "聊天案例解析（必看） 解决聊天一聊就死的千年难题", "image": "/images/link/男生.jpg", "source": "心灵知行", "time": "19:32"},
+              {"dir": "peer", "kind": "text", "text": "收到 我这就去看", "time": "19:33"}
+            ]
+          },
+          {
+            "name": "粉丝 艾超人",
+            "messages": [
+              {"dir": "peer", "kind": "text", "text": "军师 秘籍给我一份", "time": "19:40"}
+            ]
+          }
+        ]
+      }
+    },
+    {"action": "打开聊天", "params": {"联系人": "粉丝 剑诀"}},
+    {"action": "等待", "params": {"秒数": 0.6}},
+    {"action": "对方后台发消息", "params": {"联系人": "粉丝 艾超人", "内容": "[链接] 聊天案例解析 (必看) | - | 心灵知行"}},
+    {"action": "等待", "params": {"秒数": 0.6}},
+    {"action": "返回主页", "params": {}},
+    {"action": "等待", "params": {"秒数": 0.8}},
+    {"action": "打开聊天", "params": {"联系人": "粉丝 剑诀"}},
+    {"action": "等待", "params": {"秒数": 0.6}},
+    {"action": "我方打字", "params": {"内容": "再给你补一份"}},
+    {"action": "等待", "params": {"秒数": 0.4}},
+    {"action": "我方发链接", "params": {"标题": "男生脱单其实超简单", "图片": "男生.jpg", "来源": "心灵知行"}},
+    {"action": "等待", "params": {"秒数": 0.6}},
+    {"action": "对方发链接", "params": {"标题": "对方分享的一篇公众号文章", "来源": "情感电台"}},
+    {"action": "等待", "params": {"秒数": 0.6}},
+    {"action": "返回主页", "params": {}}
+  ]
+}

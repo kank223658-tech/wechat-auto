@@ -1,0 +1,728 @@
+/* ============================================================
+   朋友圈（我的朋友圈）像素级规格覆盖 —— 600 × 1300 固定画布
+   ------------------------------------------------------------
+   依据参考录屏「参考图片/朋友圈制作视频/朋友圈下滑.mp4」逐帧测量复刻
+   （真机 iPhone 深色模式微信 · 朋友圈）：
+
+     画布       600 × 1300（左上角为原点，单位 px）
+     页面底色   #181818
+     状态栏     0    ~ 83    透明，浮在封面上（由 iphone_frame 绘制）
+     导航栏     83   ~ 149   透明，标题/返回/相机随滚动淡入
+     封面       0    ~ 543   全宽照片；头像压在封面下缘、昵称在头像左侧
+     动态行     padding-left 32 / right 35；头像 64×64，正文列 x=110
+     正文       26px / 行高 34px；昵称 #8b93a6；时间 rgba(255,255,255,.35)
+
+   本文件由 main.py 在其它皮肤之后注入（!important 覆盖），
+   同时被 preview_ui.py 复用，保证「编辑器预览 / 录屏出片」一致。
+   ============================================================ */
+
+/* ============================================================
+   一、页面容器：整页滚动，封面可顶到状态栏后面
+   ============================================================ */
+body.wx-on-moments { background: #181818 !important; }
+/* 朋友圈页里状态栏不再压深底 —— 封面照片要透到状态栏后面 */
+body.wx-on-moments #ios-statusbar { background: transparent !important; }
+
+#moments.sub-page,
+#moments {
+    top: 0 !important;
+    bottom: 0 !important;
+    height: 1300px !important;
+    background: #181818 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-shadow: none !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    /* 导航栏淡入进度（由 moments_extra.js 随滚动写入 0~1） */
+    --nav-a: 0;
+}
+#moments::-webkit-scrollbar { width: 0 !important; height: 0 !important; }
+#moments::after { content: none !important; }
+
+/* ============================================================
+   二、导航栏：sticky 吸附在状态栏下沿，完全透明，内容从下面穿过
+   ------------------------------------------------------------
+   负 margin-bottom 把后面的封面拉回画布顶部（0），
+   这样封面照片可以一直顶到状态栏后面，与真机一致。
+   ============================================================ */
+#moments > #wx-header {
+    position: sticky !important;
+    top: 83px !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 66px !important;
+    margin: 0 0 -66px 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    z-index: 99 !important;
+    line-height: 66px !important;
+    overflow: visible !important;
+    transition: none !important;
+}
+
+/* 标题「朋友圈」：水平居中，26px，白 90% */
+#moments > #wx-header .center {
+    position: static !important;
+    margin: 0 !important;
+    height: 66px !important;
+    text-align: center !important;
+    font-size: 26px !important;
+    line-height: 66px !important;
+    color: rgba(255, 255, 255, .92) !important;
+    font-weight: 500 !important;
+    letter-spacing: .5px;
+    opacity: var(--nav-a, 0);
+}
+#moments > #wx-header .center > span {
+    font-family: inherit !important;
+    font-size: 26px !important;
+    color: rgba(255, 255, 255, .92) !important;
+    font-weight: 500 !important;
+}
+
+/* 返回箭头：真机 iOS 细 chevron（12×24 官方图标），左 26px，垂直居中 */
+#moments > #wx-header .icon-return-arrow {
+    position: absolute !important;
+    left: 26px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 13px !important;
+    height: 26px !important;
+    margin: 0 !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    line-height: 0 !important;
+    cursor: pointer !important;
+    opacity: var(--nav-a, 0);
+    background: rgba(255, 255, 255, .92) !important;
+    -webkit-mask: url('/images/wxic/arrow_left_regular.svg') center / contain no-repeat !important;
+    mask: url('/images/wxic/arrow_left_regular.svg') center / contain no-repeat !important;
+}
+#moments > #wx-header .icon-return-arrow::before,
+#moments > #wx-header .icon-return-arrow::after { content: none !important; }
+#moments > #wx-header .icon-return-arrow > span { display: none !important; }
+
+/* 右上角相机（发朋友圈）：30×24 白色描边相机，右 30px */
+#moments > #wx-header::after {
+    content: '' !important;
+    position: absolute !important;
+    right: 30px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 30px !important;
+    height: 24px !important;
+    opacity: var(--nav-a, 0);
+    background: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 24'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.92' stroke-width='1.7' stroke-linejoin='round'%3E%3Cpath d='M9.4 7.4 10.9 4.8a1.5 1.5 0 0 1 1.3-.75h5.6a1.5 1.5 0 0 1 1.3.75L20.6 7.4H26.4a2.6 2.6 0 0 1 2.6 2.6V20.9a2.6 2.6 0 0 1-2.6 2.6H3.6a2.6 2.6 0 0 1-2.6-2.6V10a2.6 2.6 0 0 1 2.6-2.6Z'/%3E%3Ccircle cx='15' cy='14.9' r='4.4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* ============================================================
+   三、封面（0 ~ 543）
+   ============================================================ */
+#moments .home-pic {
+    position: relative !important;
+    width: 600px !important;
+    height: 540px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #2b2b2b;
+    background-position: center center !important;
+    background-size: cover !important;
+    background-repeat: no-repeat !important;
+    z-index: 1 !important;
+}
+/* 上下轻压暗：保证状态栏时间、封面昵称在亮照片上同样清晰 */
+#moments .home-pic::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none;
+    background: linear-gradient(180deg,
+        rgba(0, 0, 0, .34) 0,
+        rgba(0, 0, 0, .12) 10%,
+        rgba(0, 0, 0, 0) 26%,
+        rgba(0, 0, 0, .22) 88%,
+        rgba(0, 0, 0, .34) 100%) !important;
+}
+
+/* 封面底栏：头像压在封面下缘外 36px，昵称在头像左侧 */
+#moments .home-pic-base {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    z-index: 2 !important;
+}
+#moments .home-pic-base .top-pic {
+    position: absolute !important;
+    right: 36px !important;
+    bottom: -39px !important;
+    left: auto !important;
+    top: auto !important;
+    float: none !important;
+    width: 106px !important;
+    height: 106px !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    border-radius: 7px !important;
+    overflow: hidden !important;
+    transform: none !important;
+    transform-origin: center !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .10), 0 2px 10px rgba(0, 0, 0, .45) !important;
+}
+#moments .home-pic-base .top-pic .top-pic-inner,
+#moments .home-pic-base .top-pic .top-pic-inner img {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 7px !important;
+    object-fit: cover !important;
+    transform: none !important;
+    display: block !important;
+}
+#moments .home-pic-base .top-name {
+    position: absolute !important;
+    right: 154px !important;
+    left: auto !important;
+    top: auto !important;
+    bottom: 19px !important;
+    max-width: 330px !important;
+    font-size: 26px !important;
+    line-height: 34px !important;
+    font-weight: 400 !important;
+    color: #fff !important;
+    text-align: right !important;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, .5);
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+/* ============================================================
+   四、动态行
+   ------------------------------------------------------------
+   头像 64×64（左 32）；正文列 x=110 ~ 565（右留 35）
+   ============================================================ */
+#moments .moments__post {
+    display: flex !important;
+    align-items: flex-start !important;
+    position: relative !important;
+    margin: 0 !important;
+    padding: 21px 35px 21px 32px !important;
+    background: #181818 !important;
+    border: none !important;
+    border-bottom: none !important;
+    font-size: 25px !important;
+    box-sizing: border-box !important;
+}
+#moments .moments__post::before,
+#moments .moments__post::after { content: none !important; }
+/* 封面与第一条动态之间留白（真机约 71px） */
+#moments .home-pic + .moments__post { margin-top: 92px !important; }
+
+#moments .moments__post .weui-cell__hd {
+    flex: 0 0 64px !important;
+    width: 64px !important;
+    min-width: 64px !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    margin: 0 14px 0 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    vertical-align: top !important;
+}
+#moments .moments__post .weui-cell__hd img {
+    width: 64px !important;
+    height: 64px !important;
+    border-radius: 6px !important;
+    display: block !important;
+    object-fit: cover !important;
+    background: #2b2b2b;
+}
+
+#moments .moments__post .weui-cell__bd {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    display: block !important;
+    padding: 0 !important;
+    font-size: 26px !important;
+    color: #ededed !important;
+}
+
+/* 昵称：链接色（深色模式下的灰蓝） */
+#moments .moments__post .title {
+    display: flex !important;
+    align-items: center !important;
+    height: 34px !important;
+    color: #8b93a6 !important;
+    font-size: 25px !important;
+    line-height: 34px !important;
+    font-weight: 400 !important;
+    text-decoration: none !important;
+    overflow: hidden;
+}
+#moments .moments__post .title .wx-name {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    color: inherit !important;
+    font-size: inherit !important;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+/* 企业微信来源的「@公司名」：真机为金色 */
+#moments .moments__post .post-company {
+    flex: 0 0 auto !important;
+    margin-left: 9px !important;
+    font-size: 25px !important;
+    line-height: 34px !important;
+    color: #bc9663 !important;
+    white-space: nowrap;
+}
+/* 企业微信动态右侧的折叠箭头 */
+#moments .moments__post .post-caret {
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+    width: 22px !important;
+    height: 14px !important;
+    background: rgba(255, 255, 255, .5) !important;
+    -webkit-mask: url('/images/wxic/biz_item_more_icon.svg') center / contain no-repeat !important;
+    mask: url('/images/wxic/biz_item_more_icon.svg') center / contain no-repeat !important;
+}
+
+/* 正文 */
+#moments .moments__post .paragraph {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 25px !important;
+    line-height: 34px !important;
+    color: #ededed !important;
+    word-break: break-word;
+    white-space: pre-wrap;
+    overflow: visible;
+}
+#moments .moments__post .paragraph span { color: inherit !important; }
+
+/* 长文折叠 + 「全文 / 收起」（超过 6 行截断，末行补省略号） */
+#moments .moments__post .paragraph-wrap { position: relative; margin-top: 8px !important; }
+#moments .moments__post .paragraph-wrap.is-collapsed .paragraph {
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: var(--fold-lines, 5) !important;
+    overflow: hidden !important;
+}
+#moments .moments__post .paragraphExtender {
+    display: inline-block;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 25px !important;
+    line-height: 34px !important;
+    color: #6d7f9c !important;
+    cursor: pointer;
+}
+
+/* ============================================================
+   五、配图
+   ------------------------------------------------------------
+   真机（微信「朋友圈」）规则（按《朋友圈点赞后评论.mp4》实测校正）：
+     · 多图（≥2 张）方块不是塞满正文列，而是占 ≈ 76% 留出明显余量。
+       本画布正文列宽 455，按 3 列 121×121 + 间距 7×2 = 377 排布
+       （参考视频图块实测 121×121 @x110/x238，间距 7）。
+     · 2 张 / 3 张 / 5~9 张 → 一行三列方格
+     · 4 张 → 田字格 2×2（格子同尺寸，左侧对齐）
+     · 1 张 → 按原图比例，限制在 124×258 内不裁切
+       （参考视频竖单图实测 123×257 @x110）
+              宽高比 2.5~3 按 2.5:1 横向裁切，> 3 铺满九宫格宽按 3:1 裁切
+   ⚠ 之前每行只挤得下 2 张，是因为 wechat_modern.css 给 .thumbnail 加了
+     margin-right/bottom:6px（同名 !important 且选择器更长），此处已一并修正。
+   ============================================================ */
+#moments .moments__post .thumbnails {
+    display: grid !important;
+    grid-template-columns: repeat(3, 121px) !important;
+    gap: 7px !important;
+    justify-content: start !important;
+    align-content: start !important;
+    width: auto !important;
+    margin: 15px 0 0 0 !important;
+    padding: 0 !important;
+}
+/* 四张：三个变两个 → 田字格 */
+#moments .moments__post .thumbnails.thumb-4 {
+    grid-template-columns: repeat(2, 121px) !important;
+}
+#moments .moments__post .thumbnail {
+    position: relative !important;
+    width: 121px !important;
+    height: 121px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #262626 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+}
+#moments .moments__post .thumbnail a { display: block !important; width: 100% !important; height: 100% !important; }
+#moments .moments__post .thumbnail img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;      /* 真机多图：正方形居中裁切 */
+    display: block !important;
+    border-radius: 4px !important;
+}
+#moments .moments__post .thumbnail figcaption { display: none !important; }
+
+/* 单图：按原始比例显示，限制在 124×258 的框内，不裁切（参考视频竖单图 123×257） */
+#moments .moments__post .thumbnails.thumb-1 {
+    display: block !important;
+    width: auto !important;
+}
+#moments .moments__post .thumbnails.thumb-1 .thumbnail {
+    width: auto !important;
+    height: auto !important;
+    max-width: 124px !important;
+    max-height: 258px !important;
+    display: inline-block !important;
+    background: #262626 !important;
+}
+#moments .moments__post .thumbnails.thumb-1 .thumbnail img {
+    width: auto !important;
+    height: auto !important;
+    max-width: 124px !important;
+    max-height: 258px !important;
+    object-fit: contain !important;
+}
+/* 单图·宽图（宽高比 2.5 ~ 3）：宽度不变，高度按 2.5:1 横向裁切 */
+#moments .moments__post .thumbnails.thumb-1.thumb-wide .thumbnail,
+#moments .moments__post .thumbnails.thumb-1.thumb-wide .thumbnail img {
+    width: 200px !important;
+    height: 80px !important;
+    max-height: 80px !important;
+    object-fit: cover !important;
+}
+/* 单图·超宽图（宽高比 > 3）：铺满九宫格宽（377 = 3×121+2×7），高度按 3:1 裁切 */
+#moments .moments__post .thumbnails.thumb-1.thumb-ultrawide .thumbnail,
+#moments .moments__post .thumbnails.thumb-1.thumb-ultrawide .thumbnail img {
+    width: 377px !important;
+    max-width: 377px !important;
+    height: 126px !important;
+    max-height: 126px !important;
+    object-fit: cover !important;
+}
+
+/* 视频动态缩略图（后续做视频打开用，这里先按图片规格呈现） */
+#moments .moments__post .thumbnail.video-thumb .wmp-play {
+    position: absolute !important;
+    left: 50% !important; top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 54px !important; height: 54px !important;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .45) url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center 52% / 26px no-repeat;
+    pointer-events: none;
+}
+
+/* ============================================================
+   六、时间条 + 右下「···」
+   ============================================================ */
+#moments .moments__post .toolbar {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    margin: 11px 0 0 0 !important;
+    height: 32px !important;
+    min-height: 32px !important;
+}
+#moments .moments__post .timestamp {
+    margin: 0 !important;
+    font-size: 20px !important;
+    line-height: 32px !important;
+    color: rgba(255, 255, 255, .35) !important;
+}
+/* 真机：右下角一颗深灰圆角胶囊，内含两个点（参考视频实测 48×31、内部 #252528、点 5px） */
+#moments .moments__post .actionToggle {
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 48px !important;
+    height: 31px !important;
+    margin: 0 !important;
+    border-radius: 8px !important;
+    background: #252528 !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    text-indent: -9999px !important;
+    overflow: hidden !important;
+    display: block !important;
+    cursor: pointer !important;
+}
+#moments .moments__post .actionToggle::before,
+#moments .moments__post .actionToggle::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    width: 5px !important;
+    height: 5px !important;
+    margin-top: -2.5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .62) !important;
+}
+#moments .moments__post .actionToggle::before { left: 14px !important; }
+#moments .moments__post .actionToggle::after { right: 14px !important; }
+
+/* 「赞 / 评论」浮层菜单（深色两格，复刻参考视频《朋友圈点赞后评论.mp4》：
+   面板实测 ~272×57、右缘 x503（距「···」胶囊 ~13px）、垂直居中锚定胶囊、
+   图标 ~22px、文字 ~22px、弹出 ≤120ms 快速缩放+淡入；命中「赞/评论」后 ~90ms 快速淡出） */
+#moments .moments__post .action-menu,
+#moments .moments__post .actionMenu {
+    display: none !important;
+    position: absolute !important;
+    top: 50% !important;
+    right: 63px !important;
+    width: 272px !important;
+    height: 57px !important;
+    padding: 0 !important;
+    transform: translateY(-50%) scale(.6);
+    transform-origin: 100% 50% !important;
+    background: #555555 !important;
+    border-radius: 8px !important;
+    z-index: 6 !important;
+    align-items: stretch !important;
+    white-space: nowrap;
+    overflow: hidden !important;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, .5) !important;
+}
+#moments .moments__post .actionMenu.open {
+    display: flex !important;
+    animation: actionMenuPop .12s cubic-bezier(.25, .9, .35, 1.05) both;
+}
+/* 收起：命中「赞 / 评论」后快速淡出（.closing 由 hideMenuFast 挂 95ms） */
+#moments .moments__post .actionMenu.closing {
+    display: flex !important;
+    animation: actionMenuFade .09s linear both;
+}
+@keyframes actionMenuPop {
+    from { transform: translateY(-50%) scale(.6); opacity: 0; }
+    to   { transform: translateY(-50%) scale(1); opacity: 1; }
+}
+@keyframes actionMenuFade {
+    from { transform: translateY(-50%) scale(1); opacity: 1; }
+    to   { transform: translateY(-50%) scale(.86); opacity: 0; }
+}
+#moments .moments__post .actionMenu .actionBtn {
+    flex: 1 1 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    height: 100% !important;
+    color: #ededed !important;
+    font-size: 22px !important;
+    cursor: pointer;
+}
+/* 两格之间的细分隔线（真机弹窗 [♥赞 | 💬评论]） */
+#moments .moments__post .actionMenu .actionBtn + .actionBtn {
+    border-left: 1px solid rgba(255, 255, 255, .14);
+}
+/* 弹窗图标：显式尺寸裁剪（mask 心形/气泡 22×22，参考视频实测 ~22-26），
+   尺寸补在 ::before 上（mask 链路在 wx_icons.css，这里只定大小） */
+#moments .moments__post .actionMenu .icon-96::before,
+#moments .moments__post .actionMenu .icon-3::before {
+    display: block !important;
+    width: 22px !important;
+    height: 22px !important;
+}
+#moments .moments__post .actionMenu .actionBtn .icon { color: #ededed !important; }
+#moments .moments__post .actionMenu .actionBtn span { font-size: 22px !important; color: #ededed !important; }
+#moments .moments__post .btn-like.liked .icon { color: #6d8ab5 !important; }
+
+/* ============================================================
+   七、点赞 / 评论条（深色面板）
+   ------------------------------------------------------------
+   真机：点赞与评论同在一个深灰条里（蓝心 + 蓝名 + 白色评论正文）。
+   .moment-meta 是两者的统一容器；.moment-meta-pop 只在「点赞/评论
+   发送」动态出现时挂（renderPosts 初始渲染不带，避免整页回放动画）。
+   ============================================================ */
+#moments .moments__post .moment-meta {
+    margin: 22px 0 0 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    background: #1d1d1d !important;
+    border-radius: 4px !important;
+    padding: 9px 10px !important;
+}
+#moments .moments__post .moment-meta.moment-meta-pop {
+    animation: momentMetaPop .22s cubic-bezier(.25, .75, .3, 1) both;
+}
+@keyframes momentMetaPop {
+    from { transform: scale(.94); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+/* 容器接管底色后，liketext 自身退化为纯排版 */
+#moments .moments__post .moment-meta .liketext {
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* 全局 liketext（初始渲染、不在 meta 容器内时）：外观与 moment-meta 容器同款
+   （参考视频：面板 bg #1d1d1d、内边距 ~9-10、行高 36、距正文 22） */
+#moments .moments__post .liketext {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    margin: 22px 0 0 0 !important;
+    padding: 9px 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    line-height: 36px !important;
+    background: #1d1d1d !important;
+    border-radius: 4px !important;
+}
+/* 点赞心形：显式尺寸裁剪（mask 链路在 wx_icons.css，这里补 18×18 ——
+   参考 ~18-20，之前继承 14×14 偏小） */
+#moments .moments__post .liketext .icon.icon-96::before {
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
+}
+/* 点赞心形与点赞名字都用真机的蓝（参考视频 rgb(109,138,181) 一档） */
+#moments .moments__post .liketext .icon { color: #6d8ab5 !important; }
+#moments .moments__post .liketext .nickname { color: #8b93a6 !important; font-size: 24px !important; line-height: 36px !important; }
+#moments .moments__post .comment-entry {
+    margin: 17px 0 0 0 !important;
+    padding: 0 !important;
+    font-size: 24px !important;
+    line-height: 36px !important;
+    color: #ededed !important;
+}
+#moments .moments__post .comment-entry + .comment-entry { margin-top: 8px !important; }
+#moments .moments__post .comment-entry b { color: #8b93a6 !important; font-weight: 400 !important; }
+#moments .moments__post .post-source {
+    margin: 8px 0 0 0 !important;
+    font-size: 22px !important;
+    color: rgba(255, 255, 255, .35) !important;
+}
+
+/* ============================================================
+   八、底部评论输入条（复刻参考视频 t=12.5：键盘上方的深色细条）
+   ------------------------------------------------------------
+   参考视频：无微信式大输入条，只有一条 ~34-40px 高的深色细输入条
+   悬浮在键盘（候选栏）上方 —— 左侧为输入文字（拼音尾迹），右缘一枚
+   圆角发送按钮 ~76×34（右缘 x570）；全程无微信绿。本条固定定位在
+   513px 整图键盘正上方（bottom:513px），.in/.out 滑入滑出。
+   ============================================================ */
+#commentBar {
+    position: fixed !important;
+    left: 0 !important; right: 0 !important; bottom: 513px !important;
+    height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 16px 0 20px !important;
+    background: #2a2a2a !important;
+    z-index: 2147483000 !important;
+}
+#commentBar input {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #ededed !important;
+    font-size: 24px !important;
+    outline: none !important;
+    caret-color: #07c160 !important;
+}
+#commentBar input::placeholder { color: rgba(255, 255, 255, .35) !important; }
+#commentBar .comment-send {
+    flex: 0 0 auto !important;
+    margin-left: 12px !important;
+    width: 76px !important;
+    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    background: #3a3a3a !important;
+    color: rgba(255, 255, 255, .45) !important;
+    font-size: 24px !important;
+    cursor: pointer;
+}
+/* 输入非空：发送键点亮（深灰加亮 + 白字，全程无微信绿 —— 参考视频一致） */
+#commentBar .comment-send.on {
+    background: #4a4a4a !important;
+    color: #ffffff !important;
+}
+
+/* ============================================================
+   九、发表文字页（深色）
+   ============================================================ */
+#momentCompose { background: #181818 !important; }
+#momentCompose .mc-top {
+    height: 83px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 26px !important;
+    background: #1f1f1f !important;
+    color: #ededed !important;
+    font-size: 26px !important;
+}
+#momentCompose .mc-top b { font-size: 28px !important; font-weight: 500 !important; color: #ededed !important; }
+#momentCompose .mc-cancel { color: rgba(255, 255, 255, .55) !important; }
+#momentCompose .mc-send { color: #7d90a9 !important; }
+#momentCompose .mc-send.mc-disabled { color: rgba(255, 255, 255, .25) !important; }
+#momentCompose .mc-body { padding: 24px 26px !important; }
+#momentCompose textarea {
+    width: 100% !important;
+    min-height: 220px !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    color: #ededed !important;
+    font-size: 26px !important;
+    line-height: 34px !important;
+    resize: none !important;
+}
+#momentCompose textarea::placeholder { color: rgba(255, 255, 255, .25) !important; }
+
+/* ============================================================
+   九、图片查看器（PhotoSwipe）开关速度
+   ------------------------------------------------------------
+   默认「点开 / 退出」动作是 333ms（photoSwipe.css 里的 CSS 过渡），
+   录到成片里显得拖沓。这里压到 ~120ms：只是变快，曲线和手感不变。
+   ⚠ 两处必须成对改：
+     · 过渡时长（下面三条）
+     · 动画结束后由 .pswp--animated-in 关掉过渡，
+       否则后续拖动/双指缩放会拖着 120ms 的尾巴。
+   ============================================================ */
+.pswp__zoom-wrap { transition: transform 120ms cubic-bezier(.4, 0, .22, 1) !important; }
+.pswp__bg { transition: opacity 120ms cubic-bezier(.4, 0, .22, 1) !important; }
+.pswp--animate_opacity { transition: opacity 120ms cubic-bezier(.4, 0, .22, 1) !important; }
+.pswp--animated-in .pswp__bg,
+.pswp--animated-in .pswp__zoom-wrap { transition: none !important; }
+/* 顶部工具条/关闭键的淡入淡出：250ms → 100ms */
+.pswp__top-bar,
+.pswp__caption,
+.pswp__button--arrow--left,
+.pswp__button--arrow--right { transition-duration: 100ms !important; }
+/* 大图淡入（缩略图占位 → 原图）也快一点 */
+.pswp__img,
+.pswp__img--placeholder { transition-duration: 100ms !important; }
+
+/* 关闭残影兜底（配合 moments_extra.js closeImage / openImage）：
+   pswp 的收尾（隐藏根节点）挂在其 setTimeout/rAF 回调上，录屏负载下会迟到
+   0.2~0.4s，期间缩放占位图以「最终缩略图变换」残留叠加在九宫格上 —— 成片里
+   表现为关图后格子裁切错误、下次滚动开始瞬间才消失（像闪一下/淡入淡出）。
+   JS 在点击关闭的瞬间给根节点加 pswp--wx-closing，让 zoom-wrap 随关闭动画
+   120ms 淡出：此后无论 destroy 何时执行都不再有像素可画。下次开图前由 JS
+   摘掉该类。
+   注意：必须写在上面 .pswp--animated-in 那条之后 —— 同特异性 + !important
+   下后写的胜出，才能保证关闭期的过渡不被「transition: none」压掉。 */
+.pswp--wx-closing .pswp__zoom-wrap {
+    opacity: 0 !important;
+    transition: transform 120ms cubic-bezier(.4, 0, .22, 1),
+                opacity 120ms cubic-bezier(.4, 0, .22, 1) !important;
+}

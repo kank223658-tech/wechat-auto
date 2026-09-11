@@ -1,0 +1,268 @@
+/* ============================================================
+   联系人设置页 + 拉黑动画（main.py 注入）
+   ------------------------------------------------------------
+   复刻参考视频「拉黑界面，实现拉黑的功能.mp4」（592x1280 → 画布 600x1300，
+   所有数值来自逐帧像素量测 _diff_block.py / _diff_block2.py）：
+
+   设置页：页面底 #111111，单元格 #181818，行高 86px，字 23px #e3e3e3；
+     分组（与参考视频逐帧核对）：
+       [编辑备注 | 设置权限] / [把他(她)推荐给朋友] / [设为星标朋友]
+       [加入黑名单 | 投诉] / [删除联系人(红)]
+     组间空隙 10px；导航标题 26px #ececec。
+   iOS 开关：关=深灰轨 78x44，开=微信绿 #07c160，滑块 38px 白圆。
+   确认弹窗：底部整体面板（上圆角 14px，#262626/97%），
+     文案两行 18px 居中 + 确定(红 24px, 高70) + 深色分隔条 24px + 取消(白 24px, 高74)，
+     取消下方保留安全区填充直落屏幕底。
+   加载 Toast：屏幕中央 200x205 圆角方块（#383838/95%）+ 54px 旋转圆环 + 21px「正在加载」。
+
+   层级：设置页 2620（叠在对方资料页 2600 之上），弹窗 2630，Toast 2640。
+   ============================================================ */
+
+/* ---------- 设置页容器 ---------- */
+.wx-block-page {
+    position: fixed;
+    inset: 0;
+    z-index: 2620;                 /* 对方资料页 2600 / 对方朋友圈 2610 之上 */
+    background: #111111;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .34s cubic-bezier(.32, .72, 0, 1),
+                visibility 0s linear .34s;
+    will-change: transform;
+    visibility: hidden;
+    font-family: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+.wx-block-page.open {
+    transform: translateX(0);
+    transition: transform .34s cubic-bezier(.32, .72, 0, 1),
+                visibility 0s linear 0s;
+    visibility: visible;
+}
+
+/* ---------- 顶部导航（参考帧：标题中心 y≈119，组首 y≈148） ---------- */
+.wxb-nav {
+    flex: 0 0 auto;
+    height: 73px;
+    margin-top: 75px;
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    position: relative;
+    background: #111111;
+}
+.wxb-back {
+    width: 24px;
+    height: 24px;
+    display: inline-block;
+    cursor: pointer;
+}
+.wxb-back::before {
+    content: "";
+    display: block;
+    width: 16px;
+    height: 16px;
+    border-left: 2.4px solid #fff;
+    border-bottom: 2.4px solid #fff;
+    transform: rotate(45deg) translate(3px, -3px);
+    border-radius: 1px;
+}
+.wxb-title {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 26px;
+    font-weight: 500;
+    color: #ececec;
+}
+
+/* ---------- 分组单元格（行高 86 / 字 23，参考帧逐行量得） ---------- */
+.wxb-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    background: #111111;
+}
+.wxb-group {
+    background: #181818;
+    margin-bottom: 10px;
+}
+.wxb-cell {
+    height: 86px;
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    position: relative;
+    box-sizing: border-box;
+}
+.wxb-cell + .wxb-cell::before {
+    content: "";
+    position: absolute;
+    left: 25px;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: #000;
+    transform: scaleY(.5);
+}
+.wxb-cell-title {
+    font-size: 23px;
+    color: #e3e3e3;
+    white-space: nowrap;
+}
+.wxb-cell-arrow {
+    margin-left: auto;
+    width: 12px;
+    height: 12px;
+    border-top: 2.2px solid #5a5a5a;
+    border-right: 2.2px solid #5a5a5a;
+    transform: rotate(45deg);
+    flex: 0 0 auto;
+}
+/* 红字行：删除联系人 */
+.wxb-cell.danger {
+    justify-content: center;
+    padding: 0;
+}
+.wxb-cell.danger .wxb-cell-title {
+    color: #fa5151;
+}
+
+/* ---------- iOS 开关（星标 / 黑名单）：轨 78x44，滑块 38 ---------- */
+.wxb-switch {
+    margin-left: auto;
+    width: 78px;
+    height: 44px;
+    border-radius: 22px;
+    background: #2c2c2e;
+    position: relative;
+    flex: 0 0 auto;
+    cursor: pointer;
+    transition: background .25s ease;
+}
+.wxb-switch::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .35);
+    transition: transform .25s cubic-bezier(.32, .72, 0, 1);
+}
+.wxb-switch.on {
+    background: #07c160;
+}
+.wxb-switch.on::after {
+    transform: translateX(34px);
+}
+.wxb-switch.animating {
+    pointer-events: none;
+}
+
+/* ---------- 确认弹窗（底部整体面板：文案+确定 | 分隔条 | 取消+安全区） ---------- */
+.wxb-sheet-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 2630;
+    background: rgba(0, 0, 0, .55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .28s ease;
+}
+.wxb-sheet-mask.on {
+    opacity: 1;
+    pointer-events: auto;
+}
+.wxb-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(38, 38, 38, .97);
+    border-radius: 14px 14px 0 0;
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.32, .72, 0, 1);
+    will-change: transform;
+}
+.wxb-sheet-mask.on .wxb-sheet {
+    transform: translateY(0);
+}
+.wxb-sheet-msg {
+    padding: 36px 40px 24px;
+    text-align: center;
+    font-size: 19px;
+    line-height: 26px;
+    color: #8d8d8d; /* 参考帧实测文案为灰色（p90≈#8d8d8d），不是白色 */
+}
+.wxb-sheet-btn {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #dedede; /* 参考帧实测取消按钮为 #dedede */
+    cursor: pointer;
+}
+.wxb-sheet-btn.confirm {
+    color: #fa5151;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+}
+/* 参考视频：确定与取消之间是一条 24px 的深色分隔条（两卡之间的缝） */
+.wxb-sheet-gap {
+    height: 24px;
+    background: #1a1a1a;
+}
+.wxb-sheet-btn.cancel {
+    height: 74px;
+}
+/* 取消下方安全区：面板色一直铺到屏幕底（参考帧 y1220/1260 处仍为面板色） */
+.wxb-sheet-safe {
+    height: 73px;
+}
+
+/* ---------- 正在加载 Toast：200x205，#383838，圆环 54，字 21 ---------- */
+.wxb-toast {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 2640;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 205px;
+    border-radius: 12px;
+    background: rgba(56, 56, 56, .95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease;
+}
+.wxb-toast.on {
+    opacity: 1;
+}
+.wxb-toast .wxb-spinner {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, .25);
+    border-top-color: #fff;
+    animation: wxb-spin .8s linear infinite;
+}
+.wxb-toast .wxb-toast-text {
+    font-size: 21px;
+    color: #fff;
+}
+@keyframes wxb-spin {
+    to { transform: rotate(360deg); }
+}

@@ -1,0 +1,11 @@
+[luna_pinyin] nihao -> {"head":"","body":"ni hao","tail":"","state":1,"page":0,"isLastPage":false,"highlighted":0,"candidates":[{"text":"你好"},{"text":"🙂️"},{"text":"妳好"},{"text":"逆號"},{"text":"你"},{"text":"🫵🏻"},{"text":"擬"},{"text":"尼"},{"text":"泥"},{"text":"呢"}]}
+
+[luna_pinyin_simp] ERR Page.evaluate: TypeError: Cannot destructure property 'dict' of 'fe[a]' as it is undefined.
+    at worker.onmessage (http://127.0.0.1:8793/my-worker.js:149:23)
+
+[luna_pinyin_fluency] nihao -> {"head":"","body":"ni hao","tail":"","state":1,"page":0,"isLastPage":false,"highlighted":0,"candidates":[{"text":"你好"},{"text":"🙂️"},{"text":"妳好"},{"text":"逆號"},{"text":"你"},{"text":"🫵🏻"},{"text":"擬"},{"text":"尼"},{"text":"泥"},{"text":"呢"}]}
+
+[double_pinyin] nihao -> {"head":"","body":"ni ha o","tail":"","state":1,"page":0,"isLastPage":false,"highlighted":0,"candidates":[{"text":"你哈偶"},{"text":"你"},{"text":"擬"},{"text":"尼"},{"text":"泥"},{"text":"呢"},{"text":"妳"},{"text":"妮"},{"text":"膩"},{"text":"逆"}]}
+
+[select test] ERR Page.evaluate: TypeError: Cannot destructure property 'dict' of 'fe[a]' as it is undefined.
+    at worker.onmessage (http://127.0.0.1:8793/my-worker.js:149:23)

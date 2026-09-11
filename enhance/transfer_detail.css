@@ -1,0 +1,260 @@
+/* ============================================================
+   转账详情页（收款）—— 参考视频《接受转账的画面.mp4》像素级复刻
+   ------------------------------------------------------------
+   量测基准：参考帧 592×1280，画布 600×1300（×1.0135）。
+   结构（参考 f0100 / f0180 / f0160）：
+   · 全屏覆盖层（含状态栏之下），bg #181818，右滑推入/退出 400ms；
+   · 待收款态：蓝色时钟 + 「待你收款」+ 大金额 + 分隔线 +
+     「转账时间」行 + 绿色「收款」按钮 + 退还 footer；
+   · 点「收款」→「正在加载」toast（约 0.9s）→ 单帧切到已收款态：
+     绿色对勾圆 + 「你已收款，资金已存入零钱」+ 金额 + 「零钱余额」链接 +
+     转账/收款时间两行 + 零钱通推广行（转入按钮）+ 底部「账单详情」。
+   ============================================================ */
+
+/* 裁剪容器：把详情层的合成范围限制在手机屏内（防合成器表面膨胀） */
+#wxTfClip {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 999981;
+}
+#wxTfClip #wxTfDetail { pointer-events: auto; }
+
+#wxTfDetail {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    background: #181818;
+    z-index: 999983;
+    transform: translateX(100%);
+    transition: transform .4s cubic-bezier(.32, .72, .35, 1);
+    will-change: transform;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+                 "HarmonyOS Sans SC", "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    color: #e2e2e2;
+}
+#wxTfDetail.open { transform: translateX(0); }
+
+/* 聊天页视差左移 30%（iOS push）
+   will-change: transform：把两个视差元素提升为独立合成层（预渲染一次，
+   之后纯变换）。headless 软件渲染下若不提升，动画期间分块重栅格化会
+   留下旧位置的陈旧瓦片——录屏出现「卡片三重影」鬼影。 */
+body.wx-tfd-open #wx-header,
+body.wx-tfd-open .dialogue-section { transform: translate3d(-30%, 0, 0); }
+#wx-header, .dialogue-section {
+    transition: transform .4s cubic-bezier(.32, .72, .35, 1);
+    will-change: transform;
+}
+body.wx-tfd-close #wx-header,
+body.wx-tfd-close .dialogue-section { transform: translate3d(0, 0, 0); }
+/* 覆盖 chat_exact.css 的 `body.wx-chat .dialogue-section { transition: height .22s … }`：
+   其 transition 属性表里没有 transform（且注入更晚），会把视差位移的过渡整个
+   顶掉，聊天层瞬跳不合滑。这里用更高特异性把 transform 过渡加回属性表，
+   同时保留 height 过渡不影响键盘开合动画。 */
+body.wx-chat .dialogue .dialogue-section,
+html body.wx-chat .dialogue #wx-header {
+    transition: transform .4s cubic-bezier(.32, .72, .35, 1),
+                height .22s cubic-bezier(.25, .46, .45, .94);
+    will-change: transform;
+}
+
+/* ---------- 返回箭头（ref y101-125 x26-38） ---------- */
+#wxTfDetail .tfd-back {
+    position: absolute;
+    left: 26px; top: 128px;
+    width: 18px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+}
+#wxTfDetail .tfd-back svg { width: 15px; height: 26px; display: block; }
+
+/* ---------- 状态图标位（时钟/对勾，ref x257-332 y226-300） ---------- */
+#wxTfDetail .tfd-clock,
+#wxTfDetail .tfd-check {
+    position: absolute;
+    left: 50%; top: 229px;
+    width: 77px; height: 77px;
+    margin-left: -38.5px;
+}
+#wxTfDetail .tfd-clock svg { width: 77px; height: 77px; display: block; }
+#wxTfDetail.done .tfd-clock { display: none; }
+#wxTfDetail .tfd-check {
+    background: #06b756;
+    border-radius: 50%;
+    display: none;
+    align-items: center; justify-content: center;
+}
+#wxTfDetail .tfd-check svg { width: 40px; height: 40px; display: block; }
+#wxTfDetail.done .tfd-check { display: flex; }
+
+/* ---------- 待你收款 / 你已收款（ref y361-382） ---------- */
+#wxTfDetail .tfd-line1 {
+    position: absolute;
+    left: 0; right: 0; top: 364px;
+    text-align: center;
+    font-size: 24px; line-height: 27px;
+    color: #d1d1d1;
+    letter-spacing: .5px;
+}
+#wxTfDetail .tfd-line1 .l-done { display: none; color: #eaeaea; }
+#wxTfDetail.done .tfd-line1 .l-wait { display: none; }
+#wxTfDetail.done .tfd-line1 .l-done { display: inline; }
+
+/* ---------- 大金额（ref y424-476 x209-377） ---------- */
+#wxTfDetail .tfd-amount {
+    position: absolute;
+    left: 0; right: 0; top: 424px;
+    text-align: center;
+    color: #f5f5f5;
+    font-weight: 500;
+    line-height: 60px;
+    white-space: nowrap;
+}
+#wxTfDetail .tfd-amount .rmb {
+    font-size: 42px; font-weight: 500;
+    margin-right: 13px;
+    vertical-align: 2px;
+}
+#wxTfDetail .tfd-amount .amt { font-size: 71px; letter-spacing: .5px; }
+
+/* ---------- 「零钱余额」链接（已收款态，ref y519-537） ---------- */
+#wxTfDetail .tfd-balance {
+    position: absolute;
+    left: 0; right: 0; top: 526px;
+    text-align: center;
+    font-size: 23px; line-height: 26px;
+    color: #576b95;
+    display: none;
+}
+#wxTfDetail.done .tfd-balance { display: block; }
+
+/* ---------- 分隔线（ref y545 / y577 / y701 / y843） ---------- */
+#wxTfDetail .tfd-hr {
+    position: absolute;
+    left: 40px; right: 40px;
+    height: 1px;
+    background: #2a2a2a;
+}
+#wxTfDetail .tfd-hr-1 { top: 553px; }
+#wxTfDetail .tfd-hr-2 { top: 585px; display: none; }
+#wxTfDetail .tfd-hr-3 { top: 711px; display: none; }
+#wxTfDetail .tfd-hr-4 { top: 855px; display: none; }
+#wxTfDetail.done .tfd-hr-1 { display: none; }
+#wxTfDetail.done .tfd-hr-2,
+#wxTfDetail.done .tfd-hr-3,
+#wxTfDetail.done .tfd-hr-4 { display: block; }
+
+/* ---------- 信息行（ref 行1 y573-591；已收款行1 y617-635 行2 y654-672） ---------- */
+#wxTfDetail .tfd-rows { position: absolute; left: 0; right: 0; top: 578px; }
+#wxTfDetail .tfd-row {
+    height: 37px; line-height: 37px;
+    margin: 0 52px 0 50px;
+    font-size: 22px;
+    display: flex; justify-content: space-between;
+}
+#wxTfDetail .tfd-row .k { color: #7a7a7a; }
+#wxTfDetail .tfd-row .v { color: #9c9c9c; letter-spacing: .3px; }
+#wxTfDetail .tfd-row-recv { display: none; }
+#wxTfDetail.done .tfd-rows { top: 623px; }
+#wxTfDetail.done .tfd-row-recv { display: flex; }
+
+/* ---------- 收款按钮（ref x157-432 y997-1068） ---------- */
+#wxTfDetail .tfd-accept {
+    position: absolute;
+    left: 159px; top: 1011px;
+    width: 280px; height: 73px;
+    border: none; border-radius: 10px;
+    background: #06b756;
+    color: #fff; font-size: 26px; font-weight: 500;
+    letter-spacing: 2px;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0;
+}
+#wxTfDetail .tfd-accept:active { filter: brightness(.92); }
+#wxTfDetail.done .tfd-accept { display: none; }
+
+/* ---------- 退还 footer（ref y1108-1126） ---------- */
+#wxTfDetail .tfd-foot {
+    position: absolute;
+    left: 0; right: 0; top: 1122px;
+    text-align: center;
+    font-size: 20px; line-height: 24px;
+    color: #7a7a7a;
+    letter-spacing: .3px;
+}
+#wxTfDetail .tfd-foot .blue { color: #576b95; }
+#wxTfDetail .tfd-foot .f-done { display: none; }
+#wxTfDetail.done .tfd-foot { top: 1170px; }
+#wxTfDetail.done .tfd-foot .f-wait { display: none; }
+#wxTfDetail.done .tfd-foot .f-done {
+    display: inline;
+    color: #576b95;
+    font-size: 23px;
+}
+
+/* ---------- 零钱通推广行（已收款态，ref y731-802） ---------- */
+#wxTfDetail .tfd-licaitong {
+    position: absolute;
+    left: 0; right: 0; top: 741px;
+    height: 90px;
+    display: none;
+    align-items: center;
+}
+#wxTfDetail.done .tfd-licaitong { display: flex; }
+#wxTfDetail .tfd-lct-icon {
+    width: 88px; height: 88px;
+    margin-left: 39px;
+    border-radius: 50%;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex: none;
+}
+#wxTfDetail .tfd-lct-icon svg { width: 50px; height: 50px; display: block; }
+#wxTfDetail .tfd-lct-body { margin-left: 26px; flex: 1; min-width: 0; }
+#wxTfDetail .tfd-lct-body .l1 {
+    font-size: 20px; line-height: 26px; color: #8a8a8a;
+}
+#wxTfDetail .tfd-lct-body .l2 {
+    font-size: 24px; line-height: 32px; color: #e2e2e2;
+    margin-top: 4px;
+}
+#wxTfDetail .tfd-lct-btn {
+    flex: none;
+    margin-right: 41px;
+    width: 78px; height: 49px;
+    border: none; border-radius: 8px;
+    background: #18a759;
+    color: #fff; font-size: 23px; font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* ---------- 「正在加载」toast（ref f0160：约192px 方块居中） ---------- */
+#wxTfDetail .tfd-toast {
+    position: absolute;
+    left: 50%; top: 517px;
+    width: 192px; height: 192px;
+    margin-left: -96px;
+    border-radius: 16px;
+    background: #3e3e3e;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    z-index: 5;
+}
+#wxTfDetail.loading .tfd-toast { display: flex; }
+#wxTfDetail .tfd-toast .spin {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: 5px solid rgba(255, 255, 255, .22);
+    border-top-color: #fff;
+    animation: tfdSpin .9s linear infinite;
+}
+#wxTfDetail .tfd-toast .tx {
+    margin-top: 18px;
+    font-size: 22px; color: #fff;
+    letter-spacing: 1px;
+}
+@keyframes tfdSpin { to { transform: rotate(360deg); } }

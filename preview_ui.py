@@ -34,6 +34,7 @@ CSS_ORDER = (
     "harmony_font.css", "keyboard.css", "iphone_frame.css",
     "weui_tokens.css", "wechat_modern.css", "human_actions.css",
     "transfer_ui.css", "homepage_exact.css", "chat_exact.css", "wx_icons.css",
+    "moments_exact.css", "discover_exact.css",
 )
 JS_ORDER = (
     "config.js", "chat_extra.js", "moments_extra.js", "iphone_frame.js",

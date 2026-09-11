@@ -1,0 +1,28 @@
+{
+  "name": "现代深色微信样式演示",
+  "steps": [
+    { "action": "等待", "params": { "秒数": 2.0 } },
+    { "action": "打开聊天", "params": { "联系人": "孙权" } },
+    { "action": "对方正在输入", "params": { "秒数": 1.5 } },
+    { "action": "对方发消息", "params": { "内容": "今天心情真不错呀" } },
+    { "action": "我方打字", "params": { "内容": "哈哈，同感" } },
+    { "action": "等待", "params": { "秒数": 1.0 } },
+    { "action": "对方正在输入", "params": { "秒数": 1.2 } },
+    { "action": "对方发消息", "params": { "内容": "改天一起喝一杯？" } },
+    { "action": "发送图片", "params": { "图片": "/images/album/baiqian/baiqian01.jpeg" } },
+    { "action": "等待", "params": { "秒数": 0.8 } },
+    { "action": "查看图片", "params": { "图片": "/images/album/baiqian/baiqian01.jpeg" } },
+    { "action": "返回主页", "params": {} },
+    { "action": "切换Tab", "params": { "Tab": "通讯录" } },
+    { "action": "等待", "params": { "秒数": 1.6 } },
+    { "action": "切换Tab", "params": { "Tab": "发现" } },
+    { "action": "等待", "params": { "秒数": 1.6 } },
+    { "action": "进入朋友圈", "params": {} },
+    { "action": "向下滚动", "params": { "像素": 320 } },
+    { "action": "等待", "params": { "秒数": 1.2 } },
+    { "action": "点赞", "params": {} },
+    { "action": "返回主页", "params": {} },
+    { "action": "切换Tab", "params": { "Tab": "我" } },
+    { "action": "等待", "params": { "秒数": 1.8 } }
+  ]
+}

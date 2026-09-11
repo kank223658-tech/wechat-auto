@@ -18,7 +18,10 @@
     sb.innerHTML =
         '<span class="sb-time">9:41</span>' +
         '<span class="sb-left-icon"></span>' +
-        '<span class="sb-island"></span>' +
+        '<span class="sb-island">' +
+        '  <span class="sb-island-app"></span>' +
+        '  <span class="sb-recdot"><i></i></span>' +
+        '</span>' +
         '<span class="sb-right">' +
         '  <span class="sb-signal">' +
         '    <i style="height:5px"></i><i style="height:7px"></i>' +
@@ -71,6 +74,13 @@
     const batteryFill = sb.querySelector('.sb-fill');
     const batteryTxt = sb.querySelector('.sb-battery-txt');
 
+    /* ---- 转账场景（灵动岛展开：微信绿标 + 录屏红点，时间 03:14） ---- */
+    const WECHAT_GREEN_SVG = '<svg viewBox="0 0 36 30" fill="none" aria-hidden="true">' +
+        '<path d="M13.2 1.5c-6.6 0-11.9 4.3-11.9 9.6 0 3 1.7 5.6 4.3 7.4l-1.1 3.4 3.9-2.1c1.5.4 3.1.7 4.8.7h.8a8.6 8.6 0 0 1-.4-2.6c0-5 4.9-9 10.9-9h.7c-1-4.2-5.8-7.4-12-7.4z" fill="#1ec862"/>' +
+        '<path d="M34.8 18.2c0-4.4-4.5-8-9.9-8s-9.9 3.6-9.9 8 4.5 8 9.9 8c1.4 0 2.7-.2 3.9-.6l3.3 1.8-.9-2.9a7.6 7.6 0 0 0 3.6-6.3z" fill="#1ec862"/>' +
+        '<circle cx="7.6" cy="8.6" r="1.2" fill="#0b3d1e"/><circle cx="18.8" cy="8.6" r="1.2" fill="#0b3d1e"/>' +
+        '<circle cx="22" cy="16.4" r="1" fill="#0b3d1e"/><circle cx="29.8" cy="16.4" r="1" fill="#0b3d1e"/></svg>';
+
     /* ---- 对外 API（由 Playwright 调用） ---- */
     window.__wxPhoneFrame = {
         visible: true,
@@ -107,6 +117,25 @@
         /* 保留充电状态标记（不影响白色图标外观，仅作状态记录） */
         setCharging(on) {
             this.charging = !!on;
+        },
+
+        /* 场景切换：
+           'transfer' —— 参考视频《接受转账的画面》：时间 03:14、灵动岛展开
+                         （微信绿标 + 录屏红点）、右侧仅信号+电池（无 5G/WiFi）、
+                         状态栏加高 61px、满电白电池、隐藏左侧定位图标；
+           'default'  —— 恢复默认（时间 18:36、常规灵动岛）。 */
+        setScene(mode) {
+            const tf = mode === 'transfer';
+            sb.classList.toggle('sb-scene-tf', tf);
+            document.body.classList.toggle('wx-sb-tall', tf);
+            timeEl.textContent = tf ? '03:14' : '18:36';
+            sb.querySelector('.sb-island-app').innerHTML = tf ? WECHAT_GREEN_SVG : '';
+            if (tf) {
+                this.setBattery(100);
+                this.setBatteryLow(false);
+                this.setLeftIcon('');
+            }
+            return true;
         },
 
         /* 显示整个仿真层 */

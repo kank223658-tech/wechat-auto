@@ -65,56 +65,52 @@
         clear: both; text-align: center; font-size: 12px;
         color: #b2b2b2; margin: 12px 0 2px;
       }
-      /* ---- 微信转账卡片气泡（对齐参考图片3：橙色底 + 左侧转账图标 + 白字大金额 + 「你发起了一笔转账」标题 + 左下「转账」角标） ---- */
-      .row .text.msg-transfer, .row.self .text.msg-transfer {
-        background: #e08a2c !important; color: #fff !important;
-        padding: 12px 14px 14px; min-width: 184px; max-width: 72%;
-        border-radius: 8px; box-shadow: none !important;
+      /* ---- 微信转账卡片气泡（1:1 对齐参考图：橙底 #df8d37 + 白色圆圈转账图标贴图 + 大金额 + 标题 + 左下「转账」角标；收发双方同一样式） ----
+         注意：带 body.wx-chat + .text.text 双类提高特异度，否则会被
+         chat_exact.css 的 body.wx-chat .dialogue-section .row.self .text 绿底规则压掉 */
+      .row .text.msg-transfer, .row.self .text.msg-transfer,
+      body.wx-chat .dialogue-section .row .text.text.msg-transfer,
+      body.wx-chat .dialogue-section .row.self .text.text.msg-transfer {
+        background: #df8d37 !important; color: #fff !important;
+        padding: 13px 16px 12px 14px; min-width: 356px; max-width: 72%;
+        border-radius: 12px; box-shadow: none !important;
         position: relative;
+        display: flex !important; flex-direction: column !important;
+        align-items: flex-start !important;
       }
-      /* 主区：图标 + 金额/标题 横向 */
+      /* 主区：左侧圆圈图标贴图 + 右侧 金额/标题 */
       .msg-transfer .tf-main {
-        display: flex; align-items: center; gap: 11px;
-        margin-bottom: 10px;
+        display: flex; align-items: center; gap: 12px;
       }
-      /* 左侧转账图标：白描边交换箭头 + 半透明圆角底 */
+      /* 左侧转账图标：参考图原样抠出的白色圆圈 + 双向箭头透明 PNG */
       .msg-transfer .tf-icon {
-        flex: 0 0 30px; width: 30px; height: 30px; border-radius: 8px;
-        background: rgba(255, 255, 255, .22);
-        display: flex; align-items: center; justify-content: center;
+        flex: 0 0 62px; width: 62px; height: 62px; display: block;
       }
-      .msg-transfer .tf-icon svg { width: 22px; height: 22px; display: block; }
+      .msg-transfer .tf-icon img, .msg-transfer .tf-icon svg { width: 62px; height: 62px; display: block; }
       .msg-transfer .tf-body { flex: 1; min-width: 0; }
       .msg-transfer .tf-amount {
-        display: flex; align-items: baseline; gap: 3px;
-        color: #fff; font-size: 32px; font-weight: 700;
-        line-height: 1.1;
+        display: flex; align-items: baseline;
+        color: #fff; font-size: 23px; font-weight: 600;
+        line-height: 1.15;
       }
-      .msg-transfer .tf-amount .rmb { font-size: 22px; font-weight: 600; }
+      .msg-transfer .tf-amount .rmb { font-size: 23px; font-weight: 600; }
       .msg-transfer .tf-title {
-        color: rgba(255, 255, 255, .95); font-size: 15px; font-weight: 500;
-        letter-spacing: .3px; line-height: 1.5; margin-top: 3px;
+        color: rgba(255, 255, 255, .96); font-size: 17px; font-weight: 400;
+        line-height: 1.35; margin-top: 5px;
       }
-      .msg-transfer .tf-header {
-        color: rgba(255, 255, 255, .92); font-size: 13px; line-height: 1.4;
-      }
-      .msg-transfer .tf-header b { font-weight: 600; color: #fff; }
-      .msg-transfer .tf-note {
-        color: rgba(255, 255, 255, .85); font-size: 12px; line-height: 1.4; margin-top: 2px;
-      }
-      .msg-transfer .tf-note:empty { display: none; }
-      /* 左下角「转账」小标签：图片3 卡片底部有独立角标 */
+      /* 左下角「转账」角标：纵向 flex 的第二行，天然排在图标下方 */
       .msg-transfer .tf-badge {
-        position: absolute; left: 14px; bottom: 8px;
-        font-size: 12px; color: rgba(255, 255, 255, .75);
-        letter-spacing: .3px;
+        display: block;
+        margin-top: 14px;
+        font-size: 15px; color: rgba(255, 255, 255, .78);
+        letter-spacing: .5px; line-height: 1.2;
       }
-      /* 我方转账卡片气泡尖角指向右侧（橙色） */
+      /* 我方/对方转账卡片气泡尖角（同款橙色，双方样式一致） */
       .row.self .text.msg-transfer:before {
-        border-left-color: #e08a2c !important;
+        border-left-color: #df8d37 !important;
       }
       .row .text.msg-transfer:before {
-        border-right-color: #e08a2c !important;
+        border-right-color: #df8d37 !important;
       }
 
       /* ============================================================
@@ -143,6 +139,11 @@
       }
       .dialogue-section .row:not(.self) { justify-content: flex-start; }
       .dialogue-section .row.self { justify-content: flex-end; }
+      /* 真机微信：转账卡/图片/表情包这类高内容，头像与内容顶部对齐（不垂直居中）；
+         文字等普通消息行保持居中不变。行高由最高元素决定，此改动不影响行距与滚动。 */
+      .dialogue-section .row:has(.text.msg-transfer),
+      .dialogue-section .row:has(.text.msg-image),
+      .dialogue-section .row:has(.text.msg-emoji) { align-items: flex-start !important; }
       .dialogue-section .row .header {
         width: 40px !important; height: 40px !important;
         border-radius: 4px !important;
@@ -254,43 +255,56 @@
          真实微信点键盘笑脸后：键盘收起 → 表情面板从底部替换键盘位置滑入。
          面板深色底，顶部分类tab居中，下方“添加的单个表情”小标题 + 4列×3行网格。 */
       .wx-emoji-panel {
-        position: fixed; left: 0; right: 0; bottom: 0; z-index: 999982;
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 99990;
         background: #1c1c1e;
         border-radius: 12px 12px 0 0;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, .3);
         padding: 10px 24px 66px;
         transform: translateY(100%);
-        /* 与键盘/输入栏同款 0.22s + easeOutQuad，保证「面板滑入 + 输入栏上移」逐帧贴合。
-           （对齐参考视频：整个底部换肤一起弹出，锐利不拖尾。） */
-        transition: transform .22s cubic-bezier(.25, .46, .45, .94);
+        /* 面板滑入提速：末段不再拖沓。
+           旧 .22s + easeOutQuad(.25,.46,.45,.94) 是强 ease-out，末段强烈减速——
+           「先冲到 85% 再慢吞吞爬到顶」，正是底部瞬时穿透 + 拖沓的根源。
+           改用 0.13s + easeOutQuint(.23,1,.32,1)：整个上行收敛到约 3 帧@30fps，
+           末尾干脆落定（帧分布 61%/28%/10%/1%，不再有 1% 帧）。 */
+        transition: transform .13s cubic-bezier(.23, 1, .32, 1);
         will-change: transform;
       }
       .wx-emoji-panel.open { transform: translateY(0); }
+      /* 注：已移除表情面板「消息区压暗遮罩」(wx-emoji-mask)——真实微信打开表情面板不压暗消息区。
+         输入栏仍随面板上移贴顶、消息区同步收缩让位，联动均保留。 */
       /* 表情面板打开态：输入栏【不收起、仅上移】到面板顶（真机行为）。
          --emoji-h 为 JS 实测的面板高度；面板比键盘(513px)高，故输入栏还要再上移一截。
-         与 wxkb-open 相同的联动：输入栏顶边=面板顶，消息区同步收缩让出空间。 */
-      body.wx-emoji-open .dialogue-footer {
+         与 wxkb-open 相同的联动：输入栏顶边=面板顶，消息区同步收缩让出空间。
+         ★ 选择器用 body.wx-chat.wx-emoji-open（0,3,1）而非 body.wx-emoji-open（0,2,1）：
+           基础站姿规则 body.wx-chat .dialogue-footer/.dialogue-section 也是 (0,2,1)，
+           两者同特异性时由「注入顺序」决定胜负——build_page 里本规则晚、赢(479px 正常)，
+           但 main.py 真实流程里 chat_exact.css 晚、赢，导致表情面板打开时消息区不收缩
+           (100% 1019px 不动)、文字被面板盖住。加 .wx-chat 抬高一档，无论顺序都必胜。 */
+      body.wx-chat.wx-emoji-open .dialogue-footer {
         transform: translateY(calc(-1 * var(--emoji-h, 583px))) !important;
         height: calc(var(--chat-bar-base) + var(--chat-grow, 0px)) !important;
       }
-      body.wx-emoji-open .component-dialogue-bar-person {
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person {
         height: calc(var(--chat-bar-base) + var(--chat-grow, 0px)) !important;
       }
-      body.wx-emoji-open .component-dialogue-bar-person .icon-dialogue-voice,
-      body.wx-emoji-open .component-dialogue-bar-person .icon-dialogue-jianpan,
-      body.wx-emoji-open .component-dialogue-bar-person .expression,
-      body.wx-emoji-open .component-dialogue-bar-person .more {
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .icon-dialogue-voice,
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .icon-dialogue-jianpan,
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .expression,
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .more {
         top: calc(22px + var(--chat-grow, 0px)) !important;
       }
-      /* 消息区高度：同序 552 - (面板高 - 键盘高513)，让最后一条消息仍在输入栏之上 */
-      body.wx-emoji-open .dialogue-section {
-        height: calc(var(--chat-sec-base) - var(--chat-grow, 0px) - (var(--emoji-h, 583px) - 513px)) !important;
+      /* 消息区高度：消息区底边 = 输入栏顶边（真机：面板打开时消息区压缩、最后一条贴输入栏，不穿透面板）。
+         旧式为 552 - (面板高-键盘513)，会把消息区底伸到输入栏/面板里，文字「透出来」。
+         改为百分百相对 .dialogue 容器：容器高 - 顶部偏移(71) - 输入栏高(bar-base+grow) - 面板高(emoji-h)，
+         即消息区底正好落在输入栏顶，最新消息滚动到底即贴输入栏。 */
+      body.wx-chat.wx-emoji-open .dialogue-section {
+        height: calc(100% - 71px - var(--chat-grow, 0px) - var(--emoji-h, 583px) - var(--chat-bar-base, 86px)) !important;
       }
-      body.wx-emoji-open .component-dialogue-bar-person .chat-way { top: 12px !important; }
-      body.wx-emoji-open .component-dialogue-bar-person .chat-say { top: 12px !important; }
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .chat-way { top: 12px !important; }
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .chat-say { top: 12px !important; }
       /* 表情面板打开时，输入栏右侧「笑脸键」换成「键盘键」（再点一下回到键盘；对齐参考视频）。
          用的就是你提供的键盘图标原图 kb_circle.png（已不再自己画，手绘 kb_circle.svg 已删除）。 */
-      body.wx-emoji-open .component-dialogue-bar-person .expression {
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .expression {
         background: url('/images/chatbar/kb_circle.png') center / contain no-repeat !important;
       }
       /* 顶部分类 tab：搜索 / 笑脸 / 爱心(选中) / 手势。参考视频为【左对齐、均匀分布】：
@@ -336,12 +350,8 @@
       .wx-emoji-panel .ep-cell.ep-add span {
         font-size: 30px; line-height: 1; color: rgba(255, 255, 255, .55); font-weight: 300;
       }
-      /* 选中高亮：参考真机点选后绿色浅底 + 边框 */
-      .wx-emoji-panel .ep-cell.ep-picked {
-        background: rgba(217, 246, 230, .22);
-        box-shadow: inset 0 0 0 2px rgba(7, 193, 96, .9);
-        border-radius: 10px;
-      }
+      /* 选中状态：不显示高亮框（去掉绿色选中框/浅底，保持干净） */
+      .wx-emoji-panel .ep-cell.ep-picked { }
       /* ---- 底部弹出面板：深色模式统一（微信深色：金融/表情面板跟随深色） ---- */
       .wx-pop-mask .wx-sheet { background: #1c1c1e !important; color: #fff !important; }
       .wx-pop-mask .wx-sheet .sheet-title { color: #fff !important; }
@@ -357,8 +367,10 @@
         background: transparent !important; padding: 4px !important; box-shadow: none !important;
       }
       .dialogue-section .row .text.msg-transfer,
-      .dialogue-section .row.self .text.msg-transfer {
-        background: #f5a623 !important; color: #fff !important;
+      .dialogue-section .row.self .text.msg-transfer,
+      body.wx-chat .dialogue-section .row .text.text.msg-transfer,
+      body.wx-chat .dialogue-section .row.self .text.text.msg-transfer {
+        background: #df8d37 !important; color: #fff !important;
       }
 
       /* ============================================================
@@ -370,7 +382,7 @@
       }
       .row.self .text.msg-emoji:before,
       .row .text.msg-emoji:before { display: none !important; }
-      .row .text.msg-emoji img { width: 78px; height: 78px; object-fit: contain; display: block; }
+      .row .text.msg-emoji img { width: 128px; height: 128px; object-fit: contain; display: block; }
     `;
     document.head.appendChild(css);
 
@@ -535,37 +547,97 @@
             '</span><span class="voice-dur">' + secs + '"</span></p>';
     }
 
-    /* 转账卡片：金额 + 备注。isSelf 控制气泡在左还是右（对齐图片3：标题+金额+「转账」角标） */
-    function transferCard(isSelf, recipient, amount, note) {
-        const who = String(recipient == null || recipient === '' ? (isSelf ? '对方' : '我') : recipient);
-        const amt = String(amount == null || amount === '' ? '50.00' : amount);
-        const nt = String(note == null ? '' : note);
-        const title = isSelf ? '你发起了一笔转账' : '对方发来一笔转账';
-        const icon = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l4 4-4 4"/><path d="M19 9H8"/><path d="M9 19l-4-4 4-4"/><path d="M5 15h11"/></svg>';
+    /* 转账卡片内层 HTML（供 dialogue.vue 的 store 渲染 v-html 使用）。
+       ★ 返回的是 <p class="text msg-transfer"> 的【内层】，不含外层 p——
+         v-html 会替换元素内部内容。结构与 DOM 版 transferCard 完全一致；
+         金额字号规则一致（>6 位缩小）；文字经 HTML 转义防注入。 */
+    function _escHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function transferCardInner(t) {
+        const o = t || {};
+        const amt = String(o.amount == null || o.amount === '' ? '1.00' : o.amount);
+        const title = String(o.title == null ? '' : o.title);
+        const amtFs = amt.length > 6 ? '17px' : '23px';
+        return '<span class="tf-main">' +
+            '<img class="tf-icon" src="/images/transfer/tf_icon.png" alt="">' +
+            '<span class="tf-body">' +
+                '<span class="tf-amount"><span class="rmb">¥</span>' +
+                '<span class="amt" style="font-size:' + amtFs + '">' + _escHtml(amt) + '</span></span>' +
+                '<span class="tf-title">' + _escHtml(title) + '</span>' +
+            '</span>' +
+            '</span>' +
+            '<span class="tf-badge">转账</span>';
+    }
+
+    /* 转账卡片：1:1 复刻参考图（橙底 + 白色圆圈转账图标贴图，收发双方同一样式）。
+       卡片文字每次可定制：
+       · amount —— 第一行 ¥ 后的金额大字；
+       · note   —— 第二行文字（「转账说明」），不传则用默认标题；
+       · title  —— 可选第 5 参，显式覆盖第二行文字（优先级高于 note）。
+       isSelf 只决定气泡在左还是右，以及默认文案（我方「你发起了一笔转账」/ 对方「对方发来一笔转账」）。 */
+    function transferCard(isSelf, recipient, amount, note, title) {
+        const amt = String(amount == null || amount === '' ? '1.00' : amount);
+        const nt = String(note == null ? '' : note).trim();
+        const tt = String(title == null ? '' : title).trim();
+        const subtitle = tt || nt || (isSelf ? '你发起了一笔转账' : '对方发来一笔转账');
         const html = '<p class="text msg-transfer">' +
             '<span class="tf-main">' +
-                '<span class="tf-icon">' + icon + '</span>' +
+                '<img class="tf-icon" src="/images/transfer/tf_icon.png" alt="">' +
                 '<span class="tf-body">' +
                     '<span class="tf-amount"><span class="rmb">¥</span><span class="amt"></span></span>' +
-                    '<span class="tf-title">' + title + '</span>' +
+                    '<span class="tf-title"></span>' +
                 '</span>' +
             '</span>' +
-            '<span class="tf-header">转账给<b></b></span>' +
-            '<span class="tf-note"></span>' +
             '<span class="tf-badge">转账</span>' +
             '</p>';
         const row = appendRow(isSelf, html);
         if (!row) return false;
-        const b = row.querySelector('.tf-header b');
-        if (b) b.textContent = who;
+        const t = row.querySelector('.tf-title');
+        if (t) t.textContent = subtitle;
         const a = row.querySelector('.tf-amount .amt');
         if (a) {
             a.textContent = amt;
-            a.style.fontSize = String(amt).length > 6 ? '22px' : '30px';
+            a.style.fontSize = String(amt).length > 6 ? '17px' : '23px';
         }
-        const n = row.querySelector('.tf-note');
-        if (n) n.textContent = nt;
         return true;
+    }
+
+    /* ------------------------------------------------------------
+       链接卡片气泡（微信公众号文章 / 分享链接）
+       ------------------------------------------------------------
+       布局对齐参考图（微信链接样式.jpg）：
+         · 卡片统一深灰底 #2c2c2c（无论己方/对方，都不发绿，1:1 复刻参考图）；
+         · 标题在左上（可自动换行，字多时撑高卡片）；
+         · 方形缩略图在右侧、垂直居中（宽高等比，等宽等高的方图）；
+         · 来源名（如「心灵知行」）在左下，前带一个小盒子图标，可脚本替换。
+       标题/来源用 textContent 回填，杜绝脚本内容注入 HTML。
+       ---- */
+    function linkCard(isSelf, title, img, source, time) {
+        const t = String(title == null ? '' : title).trim();
+        const s = String(source == null || source === '' ? '心灵知行' : source);
+        const icon = '<svg class="lk-ico" viewBox="0 0 24 24" width="22" height="22" fill="none"' +
+            ' stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/></svg>';
+        const imgHtml = img
+            ? '<span class="lk-img"><img src="' + img + '" alt=""></span>'
+            : '<span class="lk-img lk-img-empty"></span>';
+        const html = '<p class="text msg-link">' +
+            '<span class="lk-inner">' +
+                '<span class="lk-title"></span>' +
+                '<span class="lk-source">' + icon + '<span class="lk-name"></span></span>' +
+            '</span>' +
+            imgHtml +
+            '</p>';
+        const row = appendRow(isSelf, html, null, time);
+        if (!row) return null;
+        const titleEl = row.querySelector('.lk-title');
+        if (titleEl) titleEl.textContent = t;
+        const nameEl = row.querySelector('.lk-name');
+        if (nameEl) nameEl.textContent = s;
+        return row;
     }
 
     /* ============================================================
@@ -628,34 +700,97 @@
        顶部分类tab + “添加的单个表情”标题 + 4×3网格（第一格为虚线收藏格）。
        params.url：要自动选中并上屏的表情图（脚本驱动）。缺省时不自动选中，
        由用户点选任意一格（键盘打开开关场景），点哪张上屏哪张并收起。
-       时序（脚本）：收起键盘 → 面板滑入(0.3s) → 停 0.7s → 高亮选中格 → 0.2s → 收起 → 上屏。 */
+       时序（脚本）：收起键盘 → 面板滑入(0.3s) → 停 0.7s → 高亮选中格 → 0.2s → 收起 → 上屏。
+
+       ★ 表情包库：网格「添加的单个表情」改用 main.py 离线解析时注入的
+       __wxConfig.getEmojiLib()（我方发表情的表情图，去重后约 3 张），
+       并把这些图【随机放进格子位置】（用户要求：随机几个位置放我的表情包）。
+       未注入时回退到默认表情图列表。 */
+    const _EMOJI_DEFAULTS = [
+        '/images/avatar/赵本山表情包_20260903_193137_046.jpg',
+        '/images/avatar/鸟都不鸟你表情包_20260904_171833_132.jpg',
+        '/images/avatar/毁灭吧_我麻了_表情包_20260905_175020_589.jpg',
+        '/images/avatar/好的表情包_20260905_175144_812.jpg',
+        '/images/avatar/认可表情包_20260905_175240_649.jpg',
+        '/images/avatar/哭泣猫咪_20260905_175009_399.jpg',
+        '/images/avatar/狗歪头_20260905_204230_437.jpg',
+        '/images/avatar/吃惊_20260905_204410_412.jpg',
+        '/images/avatar/牛泪_20260905_204521_851.jpg',
+        '/images/avatar/害羞猫咪_20260905_205157_951.jpg',
+        '/images/avatar/女生好困了_20260905_205054_216.png',
+    ];
     function _emojiDecorList() {
-        /* 网格「添加的单个表情」：用的是导入的梗图表情包（对齐参考视频里的贴纸），
-           而不是微信小表情 / Unicode emoji（那是"发笑脸"，不是表情包图）。
-           来源：/images/avatar/ 下的表情包与表情梗图。 */
-        return [
-            '/images/avatar/赵本山表情包_20260903_193137_046.jpg',
-            '/images/avatar/鸟都不鸟你表情包_20260904_171833_132.jpg',
-            '/images/avatar/毁灭吧_我麻了_表情包_20260905_175020_589.jpg',
-            '/images/avatar/好的表情包_20260905_175144_812.jpg',
-            '/images/avatar/认可表情包_20260905_175240_649.jpg',
-            '/images/avatar/哭泣猫咪_20260905_175009_399.jpg',
-            '/images/avatar/狗歪头_20260905_204230_437.jpg',
-            '/images/avatar/吃惊_20260905_204410_412.jpg',
-            '/images/avatar/牛泪_20260905_204521_851.jpg',
-            '/images/avatar/害羞猫咪_20260905_205157_951.jpg',
-            '/images/avatar/女生好困了_20260905_205054_216.png',
-        ];
+        /* 优先用「我方表情包库」（main.py 注入）；没有则回退到默认表情图。 */
+        const lib = (window.__wxConfig && window.__wxConfig.getEmojiLib)
+            ? window.__wxConfig.getEmojiLib() : [];
+        return (lib && lib.length) ? lib.slice() : _EMOJI_DEFAULTS.slice();
+    }
+    function _shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+        return a;
+    }
+    /* 消息区贴底跟随：在 durMs 内逐帧把 scrollTop 钉到「内容底 − 可视高」。
+       —— 键盘/面板弹起时消息区高度收缩，内容铺满则最新消息贴着输入栏上移（文字上推）；
+          收起时高度恢复，内容贴底下落。内容不铺满（scrollHeight<=clientHeight）时锚顶不动
+          （真机：消息少时停留在顶部，不随键盘移）。 */
+    function _pinSectionBottom(durMs) {
+        const sec = document.querySelector('.dialogue-section');
+        if (!sec) return;
+        const t0 = performance.now();
+        const step = (t) => {
+            const max = sec.scrollHeight - sec.clientHeight;
+            if (max > 0) sec.scrollTop = max;
+            if (performance.now() - t0 < (durMs || 280)) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
     }
     function emojiSheet(opts, onPick) {
         const url = (opts && opts.url) || '';
         const autoPick = !!(opts && opts.url);   // 有 url 即脚本自动选中；无 url 则可点选
-        const deco = _emojiDecorList();
-        // 网格 12 格：0=虚线收藏格，1..11 放表情图。autoPick 时目标 url 放 index 2。
+        const SLOTS = 11;                        // 网格 1..11 放表情（0 为虚线收藏格）
+        /* 表情填充：我的表情包库去重后，每张【随机放进一个格子】（用户要求：随机几个位置
+           放我的表情包）；剩余格子用默认表情图补满（去重），让面板保持饱满且不重复。 */
+        let pool = _emojiDecorList();
+        if (autoPick && url && pool.indexOf(url) < 0) pool = [url].concat(pool);
+        const mine = [];
+        for (const u of pool) if (mine.indexOf(u) < 0) mine.push(u);
+        const positions = _shuffle(Array.from({ length: SLOTS }, (_, i) => i));
+        const cellSrc = new Array(SLOTS).fill('');
+        const used = new Set();
+        let posIdx = 0;
+        // 1) 我的表情包先放（随机格子）
+        for (const u of mine.slice(0, SLOTS)) {
+            cellSrc[positions[posIdx++]] = u;
+            used.add(u);
+        }
+        // 2) 剩余格子用默认表情图补满（跳过已用，避免重复）
+        const defOrder = _shuffle(_EMOJI_DEFAULTS.slice());
+        let dIdx = 0;
+        for (let i = 0; i < SLOTS; i++) {
+            if (cellSrc[i]) continue;
+            let src = defOrder[dIdx % defOrder.length];
+            let guard = 0;
+            while (used.has(src) && guard < defOrder.length) {
+                dIdx++; src = defOrder[dIdx % defOrder.length]; guard++;
+            }
+            cellSrc[i] = src;
+            used.add(src);
+            dIdx++;
+        }
+        // 目标 url：保证在当前面板里能找到对应格（便于自动高亮）
+        let pickIdx = -1;
+        if (autoPick) {
+            pickIdx = cellSrc.indexOf(url);
+            if (pickIdx < 0) { pickIdx = positions[0]; cellSrc[pickIdx] = url; }
+        }
+        // 网格 12 格：index 0 = 虚线收藏格，1..11 放表情图。
         let cells = '<div class="ep-cell ep-add" data-idx="0"><span>+</span></div>';
-        for (let i = 1; i < 12; i++) {
-            const src = (autoPick && i === 2) ? url : deco[(i - 1) % deco.length];
-            cells += '<div class="ep-cell" data-idx="' + i + '"><img src="' + src + '"></div>';
+        for (let i = 0; i < SLOTS; i++) {
+            cells += '<div class="ep-cell" data-idx="' + (i + 1) + '"><img src="' + cellSrc[i] + '"></div>';
         }
         const body =
             '<div class="ep-tabs">' +
@@ -683,37 +818,121 @@
             if (window.__wxKeyboard && window.__wxKeyboard.hide) window.__wxKeyboard.hide({ keepSection: true });
         } catch (e) { /* 忽略 */ }
         document.body.classList.add('wx-emoji-open');
-        requestAnimationFrame(() => { requestAnimationFrame(() => panel.classList.add('open')); });
+        // 同帧起步：先强制 reflow 提交 translateY(100%) 起始态，再立刻加 open，
+        // 让面板滑入与键盘下滑同一帧开始，交叉才均匀（双 rAF 会让面板晚 ~一帧）。
+        void panel.offsetHeight;
+        panel.classList.add('open');
+        // 消息区随面板上移的「文字上推」：内容铺满时逐帧贴底，最新消息贴着输入栏上移；
+        // 内容未铺满时锚顶不动（真机行为）。面板收起时同样用到 _pinSectionBottom 让文字下落。
+        _pinSectionBottom(280);
 
         const close = (cb) => {
             document.body.classList.remove('wx-emoji-open');
             panel.classList.remove('open');
+            // 面板收起，消息区高度恢复：内容贴底跟随下落（文字「落下」）。内容不铺满则锚顶。
+            _pinSectionBottom(300);
             setTimeout(() => { if (panel.parentNode) panel.parentNode.removeChild(panel); }, 360);
-            setTimeout(cb, 160);
+            if (cb) setTimeout(cb, 160);
         };
 
         if (autoPick) {
-            const pick = panel.querySelector('.ep-cell[data-idx="2"]');
+            const pick = panel.querySelector('.ep-cell[data-idx="' + (pickIdx + 1) + '"]');
             setTimeout(() => {
                 if (pick) pick.classList.add('ep-picked');
-                setTimeout(() => { close(() => { if (onPick) onPick(url); }); }, 200);
+                setTimeout(() => {
+                    // 真实微信：点选表情包 → 表情立即上屏，随后面板才收起。
+                    // 先 onPick(url) 上屏，再 close() 收起面板（不再等收起完成才上屏）。
+                    if (onPick) onPick(url);
+                    close();
+                }, 200);
             }, 700);
         } else {
-            // 可点选：点任一非收藏格 → 高亮 → 上屏该图并收起
+            // 可点选：点任一非收藏格 → 上屏该图并收起
             panel.querySelectorAll('.ep-cell:not(.ep-add)').forEach((c) => {
                 c.addEventListener('click', () => {
                     const src = c.querySelector('img') && c.querySelector('img').src;
-                    close(() => { if (onPick) onPick(src); });
+                    // 真实微信：点选即上屏，随后收回面板
+                    if (onPick) onPick(src);
+                    close();
                 });
             });
         }
     }
+    /* 消息写入 store（Vue 渲染）的通用入口。
+       ★ 为什么不直接 appendRow：appendRow 直插 DOM 的气泡不进 store，
+         离开聊天页再回来时 Vue 按 store 重画消息区，气泡就会「消失」。
+       fields：消息字段，结构与后台消息（main.py _bgMsgEntry）和 dialogue.vue
+       的渲染分支一致：image / emoji / voice / link{title,image,source} /
+       transfer{amount,title} / system / text。text 字段同时供主页会话预览
+       显示（如 '[图片]'/'[转账]'/'[表情]'）。
+       time：时间标注（如 "18:22"），换算成 date + timeText + forceTime，
+       由 dialogue.vue 的 showTime 在该消息前强制显示时间分隔条。
+       onFresh(freshRow)：渲染完成后回调，参数是「刚上屏」的行元素（可能为
+       null），供发送中动画 / 图片尺寸回填等后处理。
+       沿用 pushMsgToStore 的「新行移到消息区末尾」修正：Vue 渲染的新行会插到
+       最后一条 Vue 行之后、却落在既有直插气泡之前，这里把刚上屏的行
+       appendChild 到最末，保证时序与真实发送一致。
+       返回 entry（真值）；store 不可用返回 null（调用方退回 appendRow 兜底）。 */
+    function pushStoreEntry(isSelf, fields, time, onFresh) {
+        try {
+            const app = document.getElementById('app');
+            const vm = app && app.__vue__;
+            if (!vm || !vm.$store || !vm.$route) return null;
+            const state = vm.$store.state;
+            const list = (state.msgList && state.msgList.baseMsg) || [];
+            const mid = vm.$route.query && vm.$route.query.mid;
+            const cur = list.find((it) => String(it.mid) === String(mid));
+            if (!cur || !Array.isArray(cur.msg)) return null;
+            /* 记录推送前已有的气泡行，渲染后据此定位「刚上屏」的那一行 */
+            const sec = document.querySelector('.dialogue-section');
+            const before = new Set(sec ? Array.from(sec.querySelectorAll('.row')) : []);
+            const cfg = (window.__wxConfig && window.__wxConfig.get()) || null;
+            const entry = Object.assign({
+                name: isSelf ? (cfg && cfg.me && cfg.me.name) || 'd'
+                             : (cur.user && cur.user[0] && cur.user[0].nickname) || '对方',
+                headerUrl: isSelf ? meAvatar() : peerAvatar(),
+                date: Date.now(),
+            }, fields);
+            if (time) {
+                const parsed = (window.__wxConfig && window.__wxConfig.parseTimeSpec)
+                    ? window.__wxConfig.parseTimeSpec(time) : null;
+                if (parsed) { entry.date = parsed.ts; entry.timeText = parsed.text; }
+                else entry.timeText = time;
+                entry.forceTime = true;
+            }
+            cur.msg.push(entry);
+            if (vm.$forceUpdate) vm.$forceUpdate();
+            if (vm.$nextTick) vm.$nextTick(() => {
+                const s = document.querySelector('.dialogue-section');
+                let fresh = null;
+                if (s) {
+                    const rows = Array.from(s.querySelectorAll('.row'));
+                    for (let i = rows.length - 1; i >= 0; i--) {
+                        if (!before.has(rows[i])) { fresh = rows[i]; break; }
+                    }
+                    if (fresh) s.appendChild(fresh);   // 无直插气泡时为原地 no-op
+                }
+                if (onFresh) { try { onFresh(fresh); } catch (e) { /* 后处理失败不影响上屏 */ } }
+                scrollBottom();
+            });
+            return entry;
+        } catch (e) { return null; }
+    }
+
+    /* 表情消息入 store（薄封装，保持旧调用点兼容） */
+    function pushEmojiToStore(isSelf, url, time) {
+        return !!pushStoreEntry(isSelf, { text: '[表情]', emoji: url }, time);
+    }
+
     /* 键盘「笑脸」键 / 输入栏右侧笑脸：打开可点选的表情面板（停在原地，点哪张发哪张）。 */
     window.__wxEmojiPanel = {
         open: function () {
-            // 点选一张表情包：收起面板后把该图作为我方消息上屏（真实微信点表情包即发送）
+            // 点选一张表情包：点选即上屏、随后收起面板（真实微信点表情包即发送）
             emojiSheet({}, function (src) {
-                if (src) appendRow(true, '<p class="text msg-emoji"><img src="' + src + '"></p>');
+                if (!src) return;
+                if (!pushEmojiToStore(true, src)) {
+                    appendRow(true, '<p class="text msg-emoji"><img src="' + src + '"></p>');
+                }
             });
         },
         close: function () {
@@ -727,14 +946,11 @@
         },
     };
     /* 输入栏右侧「笑脸」键：点一下收起键盘、表情面板滑入；再点一下收起面板、键盘滑回。
-       （对齐参考视频：面板打开时该键回到键盘。用事件委托，兼容 Vue 重建 DOM。） */
-    document.addEventListener('click', (ev) => {
+       （对齐参考视频：面板打开时该键回到键盘。用事件委托，兼容 Vue 重建 DOM。）
+       图标切换是即时的（CSS .wx-emoji-open 直接把背景换成键盘图），无变暗/缩放动画。 */
+    document.addEventListener('pointerdown', (ev) => {
         const ex = ev.target && ev.target.closest && ev.target.closest('.component-dialogue-bar-person .expression');
         if (!ex || !window.__wxEmojiPanel) return;
-        /* 切换图标（笑脸↔键盘）时给一个快速回弹脉冲，让「笑脸→键盘」不是生硬一跳 */
-        ex.classList.remove('expr-switch');
-        void ex.offsetWidth;                     // 强制 reflow，保证动画每次都从头播
-        ex.classList.add('expr-switch');
         if (window.__wxEmojiPanel.visible()) {
             window.__wxEmojiPanel.close();
             try { if (window.__wxKeyboard && window.__wxKeyboard.show) window.__wxKeyboard.show(); } catch (e) { /* 忽略 */ }
@@ -748,7 +964,8 @@
        ------------------------------------------------------------
        .chat-txt 已改为 <textarea>（dialogue.vue）。当文字换行到多行时，
        盒子随内容长高；输入工具栏/消息区随之联动（--chat-grow 驱动
-       chat_exact.css），发送清空后自动回落。仅键盘展开（wxkb-open）生效。
+       chat_exact.css），发送清空后自动回落。键盘展开（wxkb-open）与
+       表情面板打开（wx-emoji-open）两种展开态都生效。
        ============================================================ */
     const _GROW_BASE = 61;        // 必须与 --chat-box-base 一致
     const _GROW_LN_H = 38;        // 必须与 --chat-ln-h 一致
@@ -759,9 +976,14 @@
         const ta = document.querySelector('.dialogue .chat-txt');
         return (ta && ta.tagName === 'TEXTAREA') ? ta : null;
     };
-    const _wxChatKbOpen = () =>
+    /* 输入栏「展开态」判定：键盘展开(wxkb-open) 或 表情面板打开(wx-emoji-open)。
+       两种展开态下输入栏都随 --chat-grow 增高（wx-emoji-open 与 wxkb-open 的 CSS 均引用
+       --chat-grow），故 --chat-grow 都须保留/重算。否则键盘→表情面板切换时 wxkb-open
+       被移除、grow 被误清 0，多行输入框坍缩截断。 */
+    const _chatBarExpanded = () =>
         document.body.classList.contains('wx-chat') &&
-        document.body.classList.contains('wxkb-open');
+        (document.body.classList.contains('wxkb-open') ||
+         document.body.classList.contains('wx-emoji-open'));
 
     const _resetChatGrow = () => _growDoc().style.setProperty('--chat-grow', '0px');
 
@@ -784,7 +1006,7 @@
 
     /* 按内容高度重算 --chat-grow：切到 auto 量内容 → 算行数 → 交回 CSS calc 接管。 */
     const _recalcChatGrow = () => {
-        if (!_wxChatKbOpen()) { _resetChatGrow(); return; }
+        if (!_chatBarExpanded()) { _resetChatGrow(); return; }
         const ta = _chatGrowInput();
         if (!ta) { _resetChatGrow(); return; }
         ta.style.setProperty('height', 'auto', 'important');   // 释放固定高再量内容
@@ -820,7 +1042,7 @@
                 setTimeout(_recalcChatGrow, 0);
             }
         }, true);
-        /* 键盘开/关（wxkb-open）时重置或触发 */
+        /* 键盘/表情面板开、关（wxkb-open / wx-emoji-open）时重置或触发，避免切换时 grow 被清空 */
         if (window.MutationObserver) {
             const obs = new MutationObserver(_recalcChatGrow);
             obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -941,20 +1163,48 @@ window.__wxChatExt = {
            （复刻参考图：顶部返回/勾选、中间待发图、底部 编辑/原图/发送），
            预览页自动播放「发送」按压后，以「发送中」占位（半透明缩略图 +
            旋转进度圈）上屏，0.65s 后定格为完整图片。 */
-        /* 直接上屏图片气泡（带发送中转圈动画），供预览页点发送后调用 */
+        /* 直接上屏图片气泡（带发送中转圈动画），供预览页点发送后调用。
+           ★ 入 store（Vue 渲染）保证「切页面再回来」图片不消失；
+             渲染完成后在刚上屏的行上补「发送中」动画（半透明 + 转圈，0.65s 定格），
+             尺寸由 imageDisplaySize 按面积恒定规则内联回填。 */
         selfImage(url, time) {
-            // 预览页未注入时，退回旧「直接上屏」逻辑，避免报错
+            const pushWithAnim = () => {
+                const entry = pushStoreEntry(true, { text: '[图片]', image: url }, time, (fresh) => {
+                    const p = fresh && fresh.querySelector('.text.msg-image');
+                    if (!p) return;
+                    p.classList.add('msg-sending');
+                    const ring = document.createElement('span');
+                    ring.className = 'sending-ring';
+                    ring.innerHTML = '<span class="ring-inner"></span>';
+                    p.appendChild(ring);
+                    imageDisplaySize(url, (real) => {
+                        p.style.width = real.w + 'px';
+                        p.style.height = real.h + 'px';
+                    });
+                    setTimeout(() => {
+                        p.classList.remove('msg-sending');
+                        const r = p.querySelector('.sending-ring');
+                        if (r) r.remove();
+                    }, 650);
+                });
+                if (!entry) pushImageBubbleImage(url, time);   // store 不可用退回 DOM 直插
+            };
+            // 预览页未注入时，直接「入 store + 动画」上屏，不再退回旧 DOM 直插
             if (!window.__wxSendImage) {
-                return pushImageBubbleImage(url, time);
+                pushWithAnim();
+                return true;
             }
-            const doScreen = () => pushImageBubbleImage(url, time);   // 发送后上屏
             // 先收起手机键盘（若展开，避免与预览页重叠）
             try { if (window.__wxKeyboard && window.__wxKeyboard.hide) window.__wxKeyboard.hide(); } catch (e) { /* 忽略 */ }
             // 直接打开图片预览页（内部含「闪黑 → 预览图浮现 → 自动发送」）
-            return window.__wxSendImage.open(url, doScreen);
+            return window.__wxSendImage.open(url, pushWithAnim);
         },
-        /* 对方发图：按比例预设宽高后直接以 pop-in 入场（从左侧弹出） */
+        /* 对方发图：入 store；尺寸由 fitImageBubble 在渲染后回填（面积恒定规则） */
         peerImage(url, time) {
+            if (pushStoreEntry(false, { text: '[图片]', image: url }, time, (fresh) => {
+                const p = fresh && fresh.querySelector('.text.msg-image');
+                if (p) fitImageBubble(p);
+            })) return true;
             const row = appendRow(false, '', {
                 size: imageDisplaySize(url, (real) => {
                     const p = row && row.querySelector('.text.msg-image');
@@ -965,27 +1215,70 @@ window.__wxChatExt = {
             return !!row;
         },
 
-        /* ---- 我方 / 对方 语音消息 ---- */
-        selfVoice(secs) { return !!appendRow(true, voiceHtml(secs, true)); },
-        peerVoice(secs) { return !!appendRow(false, voiceHtml(secs, false)); },
+        /* ---- 我方 / 对方 语音消息（入 store，dialogue.vue voiceBars 渲染，波形规则一致）---- */
+        selfVoice(secs) {
+            return !!pushStoreEntry(true, { voice: secs }) || !!appendRow(true, voiceHtml(secs, true));
+        },
+        peerVoice(secs) {
+            return !!pushStoreEntry(false, { voice: secs }) || !!appendRow(false, voiceHtml(secs, false));
+        },
 
         /* ---- 我方 / 对方 表情贴纸 ----
-           我方发表情：底部表情面板滑出 → 点选 → 收起 → 贴纸气泡 pop-in。
-           脚本链路：面板自动高亮该 url 所在格 → 收起 → 用该 url 上屏。 */
-        selfEmoji(url) {
+           我方发表情：底部表情面板滑出 → 点选 → 表情包上屏(pop-in) → 面板收起。
+           脚本链路：面板自动高亮该 url 所在格 → 表情先上屏 → 再收起面板。
+           time：时间标注（如 "18:22"），给出时该表情消息前显示一条时间分隔条。 */
+        selfEmoji(url, time) {
             if (!url) return false;
             emojiSheet({ url: url }, function () {
-                appendRow(true, '<p class="text msg-emoji"><img src="' + url + '"></p>');
+                /* 入 store（Vue 渲染）保证「切页面再回来」表情不消失；store 不可用才退回 DOM 直插 */
+                if (!pushEmojiToStore(true, url, time)) {
+                    appendRow(true, '<p class="text msg-emoji"><img src="' + url + '"></p>', null, time);
+                }
             });
             return true;
         },
-        peerEmoji(url) {
+        peerEmoji(url, time) {
             if (!url) return false;
-            return !!appendRow(false, '<p class="text msg-emoji"><img src="' + url + '"></p>');
+            if (pushEmojiToStore(false, url, time)) return true;
+            return !!appendRow(false, '<p class="text msg-emoji"><img src="' + url + '"></p>', null, time);
         },
 
-        /* 撤回：删除最后一条消息并显示系统提示 */
+        /* ---- 我方 / 对方 链接卡片（公众号文章 / 分享链接）----
+           入 store（dialogue.vue msg-link 分支渲染，结构与 DOM 版一致），
+           保证切画面回来不消失；store 不可用退回 DOM 直插。 */
+        selfLink(title, img, source, time) {
+            const t = String(title == null ? '' : title).trim();
+            const s = String(source == null || source === '' ? '心灵知行' : source);
+            if (t && pushStoreEntry(true, { text: '[链接]', link: { title: t, image: img || '', source: s } }, time)) return true;
+            return !!linkCard(true, title, img, source, time);
+        },
+        peerLink(title, img, source, time) {
+            const t = String(title == null ? '' : title).trim();
+            const s = String(source == null || source === '' ? '心灵知行' : source);
+            if (t && pushStoreEntry(false, { text: '[链接]', link: { title: t, image: img || '', source: s } }, time)) return true;
+            return !!linkCard(false, title, img, source, time);
+        },
+
+        /* 撤回：删除最后一条消息并显示系统提示。
+           ★ store 路径：弹出最后一条消息条目 + 写入 system 提示条目，两者都持久化
+             （切页面回来撤回状态不回退）。store 不可用退回旧 DOM 直删。 */
         withdraw(isSelf) {
+            try {
+                const app = document.getElementById('app');
+                const vm = app && app.__vue__;
+                const mid = vm.$route.query.mid;
+                const cur = vm.$store.state.msgList.baseMsg.find((it) => String(it.mid) === String(mid));
+                if (cur && Array.isArray(cur.msg) && cur.msg.length) {
+                    cur.msg.pop();
+                    cur.msg.push({
+                        system: isSelf ? '你撤回了一条消息' : '对方撤回了一条消息',
+                        date: Date.now(),
+                    });
+                    if (vm.$forceUpdate) vm.$forceUpdate();
+                    if (vm.$nextTick) vm.$nextTick(() => scrollBottom());
+                    return true;
+                }
+            } catch (e) { /* store 不可用，走 DOM 兜底 */ }
             const sec = document.querySelector('.dialogue-section');
             if (!sec) return false;
             const rows = sec.querySelectorAll('.row');
@@ -999,8 +1292,11 @@ window.__wxChatExt = {
             return true;
         },
 
-        /* 转发：显示“转发：内容” */
-        forward(text) { return !!appendRow(true, '<p class="text">转发：' + text + '</p>'); },
+        /* 转发：显示“转发：内容”（入 store，{{item.text}} 渲染天然防注入） */
+        forward(text) {
+            if (pushStoreEntry(true, { text: '转发：' + String(text == null ? '' : text) })) return true;
+            return !!appendRow(true, '<p class="text">转发：' + text + '</p>');
+        },
 
         /* @成员：把 @昵称 填进输入框（不发送，可配合“我方打字”） */
         mention(name) {
@@ -1012,8 +1308,9 @@ window.__wxChatExt = {
             return true;
         },
 
-        /* 自定义系统提示（如 群公告 / 时间分隔） */
+        /* 自定义系统提示（如 群公告 / 时间分隔）—— 入 store 持久化 */
         system(text) {
+            if (pushStoreEntry(true, { system: String(text == null ? '' : text) })) return true;
             const sec = document.querySelector('.dialogue-section');
             if (!sec) return false;
             const tip = document.createElement('div');
@@ -1024,13 +1321,27 @@ window.__wxChatExt = {
             return true;
         },
 
-        /* ---- 转账 ---- */
-        selfTransfer(recipient, amount, note) {
+        /* ---- 转账（note/title 均可每次自定义卡片上的文字；title 优先级更高）----
+           入 store：dialogue.vue 的 msg-transfer 分支用 transferCardInner 渲染
+           （结构/配色/金额字号与 DOM 版完全一致），切画面回来卡片仍在；
+           主页会话预览显示「[转账]」。store 不可用退回 DOM 直插。 */
+        selfTransfer(recipient, amount, note, title) {
             const who = String(recipient == null || recipient === '' ? '对方' : recipient);
             const amt = String(amount == null || amount === '' ? '1.00' : amount);
             const nt = String(note == null ? '' : note);
-            return transferCard(true, who, amt, nt);
+            const subtitle = String(title == null ? '' : title).trim() || nt.trim() || '你发起了一笔转账';
+            if (pushStoreEntry(true, { text: '[转账]', transfer: { amount: amt, title: subtitle } })) return true;
+            return transferCard(true, who, amt, nt, title);
         },
-        peerTransfer(recipient, amount, note) { return transferCard(false, recipient, amount, note); },
+        peerTransfer(recipient, amount, note, title) {
+            const amt = String(amount == null || amount === '' ? '1.00' : amount);
+            const subtitle = String(title == null ? '' : title).trim()
+                || String(note == null ? '' : note).trim() || '对方发来一笔转账';
+            if (pushStoreEntry(false, { text: '[转账]', transfer: { amount: amt, title: subtitle } })) return true;
+            return transferCard(false, recipient, amount, note, title);
+        },
+
+        /* 供 dialogue.vue store 渲染转账卡片（返回 <p class="text msg-transfer"> 的内层） */
+        transferCardHtml(t) { return transferCardInner(t); },
     };
 })();

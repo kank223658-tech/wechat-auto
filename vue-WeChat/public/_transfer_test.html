@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin:0; background:#181818; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { width:600px; padding:20px; box-sizing:border-box; }
+  .row { display:flex; align-items:center; margin-bottom:24px; }
+  .row.self { justify-content:flex-end; }
+  /* 真机微信：转账/图片/表情包头像与内容顶部对齐 */
+  .row:has(.msg-transfer), .row:has(.msg-image), .row:has(.msg-emoji) { align-items:flex-start; }
+  .row .text.msg-image { background:transparent !important; padding:4px !important; }
+  .row .text.msg-image img { width:180px; height:240px; object-fit:cover; border-radius:6px; display:block; }
+  .row .text.msg-emoji { background:transparent !important; padding:0 !important; }
+  .row .text.msg-emoji img { width:128px; height:128px; object-fit:contain; display:block; }
+  .row .header { width:44px; height:44px; border-radius:5px; background:#3a3a3c; margin:0 10px; flex:0 0 44px; }
+  .row .text { background:#2c2c2e; color:#fff; padding:10px 14px; border-radius:8px; position:relative; margin:0; }
+
+  /* ==== 从 chat_extra.js 同步的转账卡片样式 ==== */
+  .row .text.msg-transfer, .row.self .text.msg-transfer {
+    background: #df8d37 !important; color: #fff !important;
+    padding: 13px 16px 10px 14px; min-width: 356px; max-width: 72%;
+    border-radius: 12px; box-shadow: none !important;
+    position: relative;
+  }
+  .msg-transfer .tf-main { display: flex; align-items: center; gap: 12px; }
+  .msg-transfer .tf-icon { flex: 0 0 62px; width: 62px; height: 62px; display: block; }
+  .msg-transfer .tf-icon img, .msg-transfer .tf-icon svg { width: 62px; height: 62px; display: block; }
+  .msg-transfer .tf-body { flex: 1; min-width: 0; }
+  .msg-transfer .tf-amount { display: flex; align-items: baseline; color: #fff; font-size: 23px; font-weight: 600; line-height: 1.15; }
+  .msg-transfer .tf-amount .rmb { font-size: 23px; font-weight: 600; }
+  .msg-transfer .tf-title { color: rgba(255,255,255,.96); font-size: 17px; font-weight: 400; line-height: 1.35; margin-top: 5px; }
+  .msg-transfer .tf-badge { display: block; margin-top: 16px; font-size: 15px; color: rgba(255,255,255,.78); letter-spacing: .5px; line-height: 1.2; }
+</style>
+</head>
+<body style="height:auto">
+<div class="wrap" style="padding-bottom:40px">
+  <!-- 普通文字消息（应保持居中，不受影响） -->
+  <div class="row">
+    <div class="header"></div>
+    <p class="text">你好呀，吃了吗</p>
+  </div>
+  <!-- 对方发图片：头像应与图片顶部对齐 -->
+  <div class="row">
+    <div class="header"></div>
+    <p class="text msg-image"><img src="/images/bg/%E6%9A%97%E8%89%B2%E5%A3%81%E7%BA%B8_1_Cat_%E6%9D%A5%E8%87%AA%E5%B0%8F%E7%BA%A2%E4%B9%A6%E7%BD%91%E9%A1%B5%E7%89%88.jpg" alt=""></p>
+  </div>
+  <!-- 我发表情包：头像应与表情顶部对齐 -->
+  <div class="row self">
+    <p class="text msg-emoji"><img src="/images/bg/%E6%9A%97%E8%89%B2%E5%A3%81%E7%BA%B8_1_Cat_%E6%9D%A5%E8%87%AA%E5%B0%8F%E7%BA%A2%E4%B9%A6%E7%BD%91%E9%A1%B5%E7%89%88.jpg" alt=""></p>
+    <div class="header"></div>
+  </div>
+  <div class="row">
+    <div class="header"></div>
+    <p class="text msg-transfer">
+      <span class="tf-main">
+        <img class="tf-icon" src="/images/transfer/tf_icon.png" alt="">
+        <span class="tf-body">
+          <span class="tf-amount"><span class="rmb">¥</span><span class="amt">520.00</span></span>
+          <span class="tf-title">你发起了一笔转账</span>
+        </span>
+      </span>
+      <span class="tf-badge">转账</span>
+    </p>
+  </div>
+  <div class="row self">
+    <p class="text msg-transfer">
+      <span class="tf-main">
+        <img class="tf-icon" src="/images/transfer/tf_icon.png" alt="">
+        <span class="tf-body">
+          <span class="tf-amount"><span class="rmb">¥</span><span class="amt">1.00</span></span>
+          <span class="tf-title">给明天买杯咖啡</span>
+        </span>
+      </span>
+      <span class="tf-badge">转账</span>
+    </p>
+    <div class="header"></div>
+  </div>
+</div>
+</body>
+</html>

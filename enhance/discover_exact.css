@@ -1,0 +1,310 @@
+/* ============================================================
+   发现页像素级复刻（main.py 注入，参考图：参考图片/朋友圈制作视频/发现页面.jpg）
+   ------------------------------------------------------------
+   参考图为 1179×2556（iPhone 3x，逻辑 393×852）；本画布 600×1300，
+   换算系数 = 600/393 ≈ 1.5267。仅作用于「发现」Tab：
+   由 explore.vue 的 activated/deactivated 切换 body.wx-on-explore。
+   进入朋友圈子页时 body 同时带 wx-on-moments，状态栏交还
+   moments_exact.css 控制（封面透出）。
+   关键规格（逻辑px → 画布px）：
+   - 状态栏高 54 → 82；导航高 44 → 67；页面底色 #111；单元格 #191919
+   - 行高 55 → 84；组间距 → 16；分隔线 #2f2f2f 左缩进 86
+   - 图标 37px（左距 24）、文字 26px #ededed（间距 24）、箭头距右 27
+   - 底部 Tab 高 90(含底部安全区) → 138；图标 43px；标签 17px 白/绿
+   - 状态栏胶囊「送货中 21:07送达」：360×57 @ (100,16)
+   ============================================================ */
+
+/* ---- 页面底色 ---- */
+body.wx-on-explore { background: #111 !important; }
+body.wx-on-explore .app-content { background: #111 !important; }
+body.wx-on-explore #explore { background: #111; min-height: 1013px; }
+
+/* ---- 状态栏：加高、纯 #111，隐藏时间文字/灵动岛（时间在胶囊里） ---- */
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar {
+    height: 82px !important;
+    background: #111 !important;
+    padding: 0 27px 0 30px !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-island,
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-time,
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-wifi,
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-cell5g,
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-battery-txt { display: none !important; }
+
+/* 状态栏右侧：参考图为 2×4 点阵信号 + 圆角电池（无 WiFi/5G/百分比）。
+   flex 布局高度塌陷会把信号压进胶囊底下，改为绝对定位（600 画布系）：
+   信号 x490..518、电池 x527..567，垂直中心 y≈44。 */
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-right {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: none !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-wifi,
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-cell5g { display: none !important; }
+
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal {
+    display: flex !important;
+    position: absolute !important;
+    left: auto !important;  /* 压过 homepage_exact.css 的 left:430px */
+    right: 82px !important;
+    top: 45.5px !important;
+    transform: translateY(-50%) !important;
+    align-items: flex-end !important;
+    gap: 2.7px !important;
+    width: 28px !important;
+    height: 17px !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i {
+    flex: none !important;
+    width: 5px !important;
+    background: transparent !important;
+    border-radius: 1.5px !important;
+    position: relative !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(1) { height: 12px !important; }
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(2) { height: 13.5px !important; }
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(3) { height: 16.5px !important; }
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(-n+3)::before,
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(-n+3)::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 5px !important;
+    background: #fff !important;
+    border-radius: 1.5px !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(-n+3)::before { top: 0 !important; }
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(-n+3)::after { bottom: 0 !important; }
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(4) {
+    height: 18px !important;
+    background: rgba(255,255,255,0.35) !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(4)::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 5px !important;
+    background: rgba(255,255,255,0.35) !important;
+    border-radius: 1.5px !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-signal i:nth-child(4)::after {
+    content: none !important;
+}
+
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-batt-cell {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    position: absolute !important;
+    right: 33px !important;
+    top: 45.5px !important;
+    transform: translateY(-50%) !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-battery {
+    width: 40px !important;
+    height: 17px !important;
+    border: 1.5px solid rgba(255,255,255,0.42) !important;
+    border-radius: 5px !important;
+    padding: 1.5px !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-battery::after {
+    width: 3.5px !important;
+    height: 6.5px !important;
+    right: -4.5px !important;
+    background: rgba(255,255,255,0.42) !important;
+}
+body.wx-on-explore:not(.wx-on-moments) #ios-statusbar .sb-battery .sb-fill {
+    width: 9px !important;
+    border-radius: 4px !important;
+}
+
+/* ---- 外卖胶囊（送货中 21:07送达），仅发现页显示 ----
+   模板内的原件恒隐藏（#app 有 contain:paint 形成层叠上下文，会被不透明
+   状态栏盖住）；实际显示 explore.vue activated() 克隆到 body 下的
+   #wx-delivery-pill-clone。 */
+#wx-delivery-pill,
+#explore #wx-delivery-pill { display: none !important; }
+body.wx-on-explore:not(.wx-on-moments) > #wx-delivery-pill-clone {
+    display: flex;
+    position: fixed;
+    z-index: 2147483647;
+    left: 97px;
+    top: 17.5px;
+    width: 385px;
+    height: 55px;
+    box-sizing: border-box;
+    background: #000;
+    border-radius: 27.5px;
+    box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.12);
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px 0 17.5px;
+    pointer-events: none;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                 "PingFang SC", "HarmonyOS Sans SC", "Helvetica Neue", sans-serif;
+}
+#wx-delivery-pill-clone .dp-left { display: flex; align-items: center; min-width: 0; }
+#wx-delivery-pill-clone .dp-emoji {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 33px;
+    height: 33px;
+    margin-right: 6px;
+    flex: none;
+}
+#wx-delivery-pill-clone .dp-emoji img { display: block; width: 100%; height: 100%; }
+#wx-delivery-pill-clone .dp-txt { color: #fff; font-size: 18px; font-weight: 500; letter-spacing: .3px; }
+#wx-delivery-pill-clone .dp-right { display: flex; align-items: baseline; }
+#wx-delivery-pill-clone .dp-right b { color: #f7b500; font-size: 18px; font-weight: 700; letter-spacing: 0; }
+#wx-delivery-pill-clone .dp-right i { color: #c8c8c8; font-size: 16px; font-style: normal; font-weight: 400; margin-left: 1px; }
+
+/* ---- 顶部导航：高 67、纯 #111、白字标题、无加号/无描边 ---- */
+body.wx-on-explore .outter { top: 82px !important; height: calc(100% - 82px) !important; }
+body.wx-on-explore .app-header {
+    background: #111 !important;
+    border-bottom: none !important;
+    height: 67px !important;
+    line-height: 67px !important;
+}
+body.wx-on-explore .app-header::after { display: none !important; }
+body.wx-on-explore .app-header .center { font-size: 25px !important; font-weight: 500 !important; }
+body.wx-on-explore #wx-header { background: #111 !important; border-bottom: none !important; }
+body.wx-on-explore #wx-header .center,
+body.wx-on-explore #wx-header .center span { color: #fff !important; font-size: 25px !important; font-weight: 500 !important; }
+body.wx-on-explore #wx-header .other { display: none !important; }
+
+/* ============================================================
+   发现列表：6 组 10 行
+   ============================================================ */
+#explore .disc-groups { padding-top: 4px; }
+#explore .disc-group { margin-top: 16px; }
+#explore .disc-group:first-child { margin-top: 0; }
+
+#explore .disc-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 84px;
+    box-sizing: border-box;
+    padding: 0 23.4px 0 24px;
+    background: #191919;
+    cursor: pointer;
+}
+/* 组内分隔线：1px #2f2f2f，左缩进至文字（86px），通到右缘 */
+#explore .disc-cell + .disc-cell::before {
+    content: "";
+    position: absolute;
+    left: 86px;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: #2f2f2f;
+}
+/* 图标为参考图原样裁剪（含 #191919 背景，与行底色无缝）：
+   裁剪区 100×100(3x) → 50.9 画布px，左缘在 3x x=34 → 距左 17.3px */
+#explore .disc-ic { flex: none; width: 50.9px; height: 50.9px; margin-left: -6.7px; }
+#explore .disc-ic img { display: block; width: 100%; height: 100%; }
+#explore .disc-label {
+    margin-left: 18.3px;
+    font-size: 26px;
+    line-height: 1;
+    color: #ededed;
+    font-weight: 400;
+    letter-spacing: .5px;
+}
+/* 箭头：参考图裁剪 40×60(3x) → 20.4×30.5，右缘距行右 23.4px */
+#explore .disc-arrow { margin-left: auto; flex: none; width: 20.4px; height: 30.5px; }
+#explore .disc-arrow img { display: block; width: 100%; height: 100%; }
+
+/* ============================================================
+   底部 Tab（仅发现页态）：高 138、#1b1b1b、白图标白标签、
+   「发现」为绿底白针指南针
+   ============================================================ */
+body.wx-on-explore #wx-nav nav {
+    height: 138px !important;
+    padding-top: 14px !important;
+    padding-bottom: 0 !important;
+    box-sizing: border-box;
+    background: #1b1b1b !important;
+    border-top: 1px solid #2e2e30 !important;
+}
+body.wx-on-explore #wx-nav nav dl { color: #fff !important; }
+body.wx-on-explore #wx-nav nav dd {
+    color: #fff !important;
+    font-size: 17px !important;
+    margin-top: 8px !important;
+    line-height: 1 !important;
+}
+body.wx-on-explore #wx-nav nav dt,
+body.wx-on-explore #wx-nav nav dl.router-link-active dt {
+    width: 43px !important;
+    height: 43px !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    position: relative;
+    background: none !important;
+    background-image: none !important;
+}
+/* Tab 图标：参考图整块裁剪（含 #1b1b1b 背景，与 nav 底色无缝）。
+   dt 为 43×43 定位锚点，::before 按裁剪尺寸绝对居中显示。
+   参考图图标中心距 nav 顶 36.1px ≈ dt 中心 35.5px，无需额外偏移；
+   微信块因含上凸徽标，整体上移 7.6px 使气泡对齐参考位置。 */
+body.wx-on-explore #wx-nav nav dt::before {
+    content: "";
+    display: block !important;   /* 压过 homepage_exact.css 的 display:none !important */
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-color: transparent;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+}
+body.wx-on-explore #wx-nav nav dt.icon-wechat::before {
+    /* 未选中态：白描边气泡+红「··」，裁自《选中通讯录.jfif》(150×94 @3x)
+       气泡本体中心在图内 (26.7%, 61.2%)，需右移 17.9px 上移 5.3px 才落到 dt 中心 */
+    width: 76.3px;
+    height: 47.8px;
+    transform: translate(calc(-50% + 15.5px), calc(-50% - 5.3px));
+    background-image: url("/images/disc/tab_wechat.png");
+}
+body.wx-on-explore #wx-nav nav dt.icon-contact::before {
+    width: 51.9px;
+    height: 44.8px;
+    background-image: url("/images/disc/tab_contact.png");
+}
+/* 「发现」：绿底白针指南针，参考图整块裁剪 */
+body.wx-on-explore #wx-nav nav dt.icon-find::before {
+    width: 47.8px;
+    height: 48.3px;
+    background-image: url("/images/disc/tab_find.png");
+}
+body.wx-on-explore #wx-nav nav dt.icon-find::after { display: none !important; }
+body.wx-on-explore #wx-nav nav dt.icon-me::before {
+    width: 42.7px;
+    height: 44.8px;
+    background-image: url("/images/disc/tab_me.png");
+}
+/* 「发现」标签绿色（压过 wechat_modern 的 #07c160） */
+body.wx-on-explore #wx-nav nav dl.router-link-active dt,
+body.wx-on-explore #wx-nav nav dl.router-link-active dd { color: #08bf62 !important; }
+/* 发现 Tab 自带的旧版小红点：参考图没有，多重隐藏 */
+body.wx-on-explore #wx-nav nav .new-msg-dot,
+body.wx-on-explore #wx-nav nav dl.router-link-active .new-msg-dot {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+/* 微信 Tab 未读徽标「42」已随 tab_wechat.png 一并裁剪，DOM 徽标隐藏 */
+body.wx-on-explore #wx-nav nav .new-msg-count { display: none !important; }
+/* 压过 homepage_exact.css 的「···」覆盖，显示真实数字 */
+body.wx-on-explore #wx-nav nav .new-msg-count::before { content: none !important; display: none !important; }

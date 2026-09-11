@@ -1,0 +1,18 @@
+{
+  "name": "接受转账动画验证（对齐参考视频）",
+  "steps": [
+    { "action": "编辑主页", "params": { "数据": [
+      { "name": "小星", "lastText": "帮我收一下", "time": "03:14", "unread": 1, "messages": [] }
+    ] } },
+    { "action": "打开聊天", "params": { "联系人": "小星" } },
+    { "action": "手机状态栏", "params": { "模式": "转账" } },
+    { "action": "对方转账", "params": { "接收人": "小星", "金额": "1.00", "备注": "请收款" } },
+    { "action": "等待", "params": { "秒数": 1.2 } },
+    { "action": "打开转账详情", "params": {} },
+    { "action": "等待", "params": { "秒数": 3.0 } },
+    { "action": "接收转账", "params": {} },
+    { "action": "等待", "params": { "秒数": 2.2 } },
+    { "action": "关闭转账详情", "params": {} },
+    { "action": "等待", "params": { "秒数": 1.5 } }
+  ]
+}

@@ -1,0 +1,619 @@
+/* ============================================================
+   对方个人主页 / 对方朋友圈 样式（main.py 注入）
+   ------------------------------------------------------------
+   复刻参考视频「微信进入主页加入朋友圈.mp4」（592x1280 → 画布 600x1300，
+   数值来自逐帧像素量测 _peer_diff.py / _peer_measure_ref*.py）：
+
+   资料页：深色 #181818，页面底 #111111；
+     返回箭头中心 y≈113，头像 97px @ (25,190)，昵称 29px，微信号/地区 21px；
+     组内分隔线左缩进 40px，组间分隔线整宽；底部两张 84px 高的操作卡
+     （#1c1c1e，上方留 12px 空隙）。
+   朋友圈：封面高 537px，昵称 30px 落在封面下沿上方，
+     头像 108px 右下压出封面 27px，签名右对齐；
+     动态 = 「日期 | 图片 | 文字」三段横排，日期 34px。
+   ============================================================ */
+
+/* ---------- 公共：覆盖层与转场 ---------- */
+.wx-peer-page {
+    position: fixed;
+    inset: 0;
+    z-index: 2600;                 /* 高于聊天页，低于转账/键盘弹层 */
+    background: #111111;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    /* 关闭时：先滑出（.34s），滑完再置 hidden。若立刻 hidden，滑出过程不绘制，
+       观感就是「闪一下」直接换页（iOS 推出转场会丢帧）。 */
+    transition: transform .34s cubic-bezier(.32, .72, 0, 1),
+                visibility 0s linear .34s;
+    will-change: transform;
+    visibility: hidden;
+    font-family: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+.wx-peer-page.open {
+    transform: translateX(0);
+    /* 打开时：立即可见（不延迟），再做滑入 */
+    transition: transform .34s cubic-bezier(.32, .72, 0, 1),
+                visibility 0s linear 0s;
+    visibility: visible;
+}
+/* 朋友圈叠上来时，资料页左移让位（iOS 推入视差） */
+.wx-peer-page.open.leaving {
+    transform: translateX(-28%);
+}
+#wxPeerMoments { z-index: 2610; }
+/* 底层压暗层（iOS 推入时旧页变暗） */
+.wx-peer-dim {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .34s cubic-bezier(.32, .72, 0, 1);
+}
+.wx-peer-dim.on { opacity: .2; }
+/* 底层页面（vue 根）在推入时左移，形成「新页推着旧页走」的视差。
+   transition 必须挂在基础 #app 上：若只写在 .wx-peer-pushing 上，类一移除
+   就没有过渡属性，#app 会瞬间跳回原位（返回时的另一处闪帧）。 */
+#app { transition: transform .34s cubic-bezier(.32, .72, 0, 1); }
+#app.wx-peer-pushing {
+    transform: translateX(-28%);
+}
+/* 覆盖层打开时禁止底层滚动 */
+body.wx-peer-open { overflow: hidden; }
+
+/* ---------- 个人资料页 ---------- */
+.wpp-nav {
+    flex: 0 0 auto;
+    height: 78px;
+    margin-top: 75px;              /* 让出 iOS 状态栏 */
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    position: relative;
+    background: #181818;
+}
+.wpp-back {
+    width: 22px;
+    height: 22px;
+    display: inline-block;
+    cursor: pointer;
+}
+.wpp-back::before {
+    content: "";
+    display: block;
+    width: 15px;
+    height: 15px;
+    border-left: 2.4px solid #fff;
+    border-bottom: 2.4px solid #fff;
+    transform: rotate(45deg) translate(3px, -3px);
+    border-radius: 1px;
+}
+.wpp-more {
+    position: absolute;
+    right: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 7px;
+}
+.wpp-more i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    display: block;
+}
+
+/* 滚动区：高度随内容，内容不足时下方露出页面底色 #111111 */
+.wpp-scroll {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    background: #181818;
+}
+
+/* 头像 + 名字 + 微信号 + 地区 */
+.wpp-head {
+    display: flex;
+    align-items: flex-start;
+    padding: 37px 25px 48px;      /* 下留白 48px：量测参考帧「地区」底→「朋友资料」顶 */
+}
+.wpp-avatar {
+    width: 97px;
+    height: 97px;
+    border-radius: 12px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: #2c2c2e;
+}
+.wpp-meta { margin-left: 24px; margin-top: -3px; min-width: 0; }
+.wpp-name {
+    display: flex;
+    align-items: center;
+    font-size: 29px;
+    line-height: 36px;
+    font-weight: 400;
+    color: #fff;
+}
+.wpp-name-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wpp-gender {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    margin-left: 10px;
+    border-radius: 4px;
+    position: relative;
+    display: inline-block;
+}
+.wpp-gender.female { background: #f76d9c; }
+.wpp-gender.male { background: #4d8fe0; }
+.wpp-gender::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 3.6px;
+    height: 9px;
+    background: #fff;
+    border-radius: 2px;
+    transform: translate(-50%, -50%);
+}
+.wpp-gender::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 9px;
+    height: 3.6px;
+    background: #fff;
+    border-radius: 2px;
+    transform: translate(-50%, -50%);
+}
+.wpp-wxid,
+.wpp-area {
+    font-size: 21px;
+    line-height: 33px;
+    color: #8e8e93;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wpp-wxid { margin-top: 9px; }
+
+/* 分组与分隔线：组内分隔线左缩进 40px，组间整宽 */
+.wpp-group { background: transparent; position: relative; }
+.wpp-cell {
+    display: flex;
+    align-items: center;
+    padding: 0 25px;
+    position: relative;
+}
+.wpp-cell-main { flex: 1 1 auto; padding: 24px 0 16px; min-width: 0; }
+.wpp-cell-title {
+    font-size: 22px;
+    line-height: 30px;
+    color: #fff;
+}
+.wpp-cell-desc {
+    font-size: 21px;
+    line-height: 31px;
+    color: #8e8e93;
+    margin-top: 6px;
+    max-width: 525px;
+}
+.wpp-title-fixed {
+    flex: 0 0 auto;
+    width: 119px;
+}
+.wpp-arrow {
+    flex: 0 0 auto;
+    width: 11px;
+    height: 11px;
+    margin-left: 12px;
+    border-top: 1.8px solid #5a5a5c;
+    border-right: 1.8px solid #5a5a5c;
+    transform: rotate(45deg);
+}
+
+/* 朋友资料：顶部 1px 内缩分隔线（x=40 起） */
+.wpp-friend-cell::before {
+    content: "";
+    position: absolute;
+    left: 40px;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: #1f1f1f;
+}
+
+/* 朋友圈缩略图行：顶部整宽分隔线 */
+.wpp-moments-cell { cursor: pointer; padding: 37px 25px 21px; align-items: flex-start; }
+.wpp-moments-cell::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: #1f1f1f;
+}
+.wpp-moments-cell .wpp-title-fixed { padding-top: 0; }
+.wpp-thumbs {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+}
+.wpp-thumbs img {
+    width: 74px;
+    height: 74px;
+    border-radius: 5px;
+    object-fit: cover;
+    background: #2c2c2e;
+    flex: 0 0 auto;
+}
+
+/* 视频号：标题与账号名同一行，缩略图在下方；顶部内缩线，底部整宽线 */
+.wpp-video-cell { align-items: flex-start; padding: 25px 25px 25px; }
+.wpp-video-cell::before {
+    content: "";
+    position: absolute;
+    left: 40px;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: #1f1f1f;
+}
+.wpp-video-cell::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: #1f1f1f;
+}
+.wpp-video { flex: 1 1 auto; min-width: 0; }
+.wpp-video-name {
+    font-size: 22px;
+    line-height: 30px;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 16px;
+}
+
+/* 底部两个操作：整块卡片，上方留 12px 空隙，两块之间 1px 分隔线 */
+.wpp-actions {
+    margin-top: 12px;
+    background: #1c1c1e;
+    position: relative;
+}
+.wpp-action {
+    height: 86px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #1c1c1e;
+    font-size: 25px;
+    color: #fff;
+    cursor: pointer;
+    position: relative;
+}
+.wpp-action + .wpp-action { height: 85px; }
+.wpp-action + .wpp-action::before,
+.wpp-action:last-child::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #1f1f1f;
+}
+.wpp-action + .wpp-action::before { top: 0; }
+.wpp-action:last-child::after { bottom: 0; }
+.wpp-ic { width: 26px; height: 26px; display: inline-block; position: relative; }
+.wpp-ic-msg::before {
+    content: "";
+    position: absolute;
+    inset: 2px 0 5px 0;
+    border: 1.9px solid #fff;
+    border-radius: 50%;
+}
+.wpp-ic-msg::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    bottom: 0;
+    width: 8px;
+    height: 8px;
+    background: #1c1c1e;
+    border-left: 1.9px solid #fff;
+    border-bottom: 1.9px solid #fff;
+    transform: skewX(-24deg);
+}
+/* 音视频通话：听筒 + 右上小摄像头（参考视频里的微信图标） */
+.wpp-ic-call::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 3.6c.7-.3 1.5 0 1.9.7l1.3 2.2c.3.6.2 1.3-.2 1.7l-1 1c-.3.3-.4.8-.2 1.2.9 1.8 2.3 3.2 4.1 4.1.4.2.9.1 1.2-.2l1-1c.4-.4 1.1-.5 1.7-.2l2.2 1.3c.7.4 1 1.2.7 1.9-.6 1.5-2.1 2.5-3.7 2.3C11.8 18.9 5.1 12.2 4.4 6.1 4.2 4.9 5 3.9 6.2 3.6z'/%3E%3Crect x='15.2' y='3.4' width='6.2' height='5.2' rx='1.2'/%3E%3C/svg%3E");
+}
+
+/* ---------- 对方朋友圈 ---------- */
+.wpm-scroll {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    background: #181818;
+    padding-bottom: 60px;
+}
+.wpm-cover {
+    position: relative;
+    width: 100%;
+    height: 537px;
+    overflow: visible;             /* 头像下沿压出封面底边（与参考一致） */
+    background: #101010;
+}
+.wpm-cover-img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 537px;
+    object-fit: cover;
+    display: block;
+}
+.wpm-back {
+    position: absolute;
+    left: 25px;
+    top: 95px;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    z-index: 3;
+}
+.wpm-back::before {
+    content: "";
+    display: block;
+    width: 15px;
+    height: 15px;
+    border-left: 2.4px solid #fff;
+    border-bottom: 2.4px solid #fff;
+    transform: rotate(45deg) translate(3px, -3px);
+    border-radius: 1px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, .4);
+}
+.wpm-cover-bottom {
+    position: absolute;
+    left: 25px;
+    right: 25px;
+    top: 466px;                    /* 头像上沿（封面 537 → 压出 37px） */
+    height: 108px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    z-index: 2;
+}
+.wpm-name {
+    flex: 1 1 auto;
+    font-size: 30px;
+    line-height: 34px;
+    color: #fff;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, .6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 34px;           /* 名字基线落在封面下沿上方 */
+}
+.wpm-avatar {
+    flex: 0 0 auto;
+    width: 108px;
+    height: 108px;
+    border-radius: 14px;
+    object-fit: cover;
+    background: #2c2c2e;
+    box-shadow: 0 1px 7px rgba(0, 0, 0, .45);
+}
+.wpm-signature {
+    text-align: right;
+    font-size: 21px;
+    line-height: 29px;
+    color: #8e8e93;
+    padding: 49px 25px 0;          /* 让出压出封面的头像高度，签名落在参考帧位置 */
+}
+
+/* 动态列表：日期 | 图片 | 文字 三段横排 */
+.wpm-list { padding: 67px 25px 0; }
+.wpm-post {
+    display: flex;
+    align-items: flex-start;
+}
+.wpm-post + .wpm-post { margin-top: 38px; }
+.wpm-date {
+    flex: 0 0 auto;
+    width: 102px;
+    display: flex;
+    align-items: baseline;
+    color: #fff;
+    padding-top: 7px;
+    white-space: nowrap;
+}
+.wpm-date b {
+    font-size: 34px;
+    font-weight: 400;
+    line-height: 1;
+}
+.wpm-date span {
+    font-size: 17px;
+    margin-left: 4px;
+}
+.wpm-imgs {
+    flex: 0 0 auto;
+    width: 131px;
+    display: grid;
+    gap: 2px;
+    align-content: start;
+    padding-top: 8px;              /* 参考帧里图片比文字略低 */
+}
+.wpm-imgs img {
+    width: 100%;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 3px;
+    background: #2c2c2e;
+    display: block;
+}
+/* 单图：按原始比例，最大高度略高 */
+.wpm-imgs-1 { grid-template-columns: 1fr; width: 131px; }
+.wpm-imgs-1 img {
+    width: 131px;
+    height: auto;
+    max-height: 175px;
+}
+/* 两图：并排 */
+.wpm-imgs-2 { grid-template-columns: repeat(2, 1fr); }
+.wpm-imgs-2 img { height: 64px; }
+/* 三图：左一大（跨两行）+ 右两张 */
+.wpm-imgs-3 { grid-template-columns: repeat(2, 1fr); grid-template-rows: 64px 64px; }
+.wpm-imgs-3 img:first-child { grid-row: span 2; height: 130px; }
+/* 四图：2x2 */
+.wpm-imgs-4 { grid-template-columns: repeat(2, 1fr); }
+/* 五图以上：三列，控制在与两列同宽内 */
+.wpm-imgs-5, .wpm-imgs-6, .wpm-imgs-7, .wpm-imgs-8, .wpm-imgs-9 {
+    grid-template-columns: repeat(3, 1fr);
+}
+.wpm-imgs-5 img, .wpm-imgs-6 img, .wpm-imgs-7 img,
+.wpm-imgs-8 img, .wpm-imgs-9 img { height: 42px; }
+.wpm-imgs-empty { display: none; }
+
+.wpm-texts {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 13px;
+    padding-top: 2px;
+}
+.wpm-texts p {
+    font-size: 26px;
+    line-height: 38px;
+    color: #fff;
+    margin: 0;
+    word-break: break-word;
+}
+
+/* 视频动态：封面 + 居中播放角标（点击走 __wxVideo 全屏播放） */
+.wpm-imgs-video { width: 131px; }
+.wpm-imgs-video .wpm-video-wrap {
+    position: relative;
+    width: 131px;
+    height: 175px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: #2c2c2e;
+    cursor: pointer;
+}
+.wpm-imgs-video .wpm-video-cover {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.wpm-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 46px;
+    height: 46px;
+    margin: -23px 0 0 -23px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .4);
+    border: 2px solid rgba(255, 255, 255, .92);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .45);
+}
+.wpm-play::before {
+    content: "";
+    position: absolute;
+    left: 56%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 9px 0 9px 15px;
+    border-color: transparent transparent transparent #fff;
+    transform: translate(-50%, -50%);
+}
+
+/* 「闪回聊天」硬切：瞬时隐藏覆盖层，不做滑出转场（观感 = 视频剪辑切镜）。
+   只临时挂在 body 上，执行完立刻移除，不影响正常返回的转场动画。 */
+body.wx-peer-nocut .wx-peer-page,
+body.wx-peer-nocut .wx-peer-dim,
+body.wx-peer-nocut #app,
+body.wx-peer-nocut #wxVideoPlayer,
+body.wx-peer-nocut #imageViewer {
+    transition: none !important;
+}
+
+/* 「闪回聊天」可选的闪白：切镜瞬间叠一帧白，剪辑感更强（默认不出现） */
+#wxCutFlash {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .1s ease;
+}
+#wxCutFlash.on { opacity: .9; }
+
+/* 动态的点赞 / 评论区块（真机深色样式：稍亮一档的圆角卡片 + 浅灰文字）。
+   posts[].likes = [名字...]；posts[].comments = [{name, text}...]，都可留空。 */
+.wpm-social {
+    margin-top: 10px;
+    background: #1e1f23;
+    border-radius: 6px;
+    padding: 10px 14px;
+}
+.wpm-likes {
+    display: flex;
+    align-items: baseline;
+    font-size: 23px;
+    line-height: 34px;
+    color: #b6b8bd;
+    word-break: break-word;
+}
+.wpm-like-ic {
+    flex: 0 0 auto;
+    font-style: normal;
+    font-size: 24px;
+    color: #9aa0aa;
+    margin-right: 10px;
+}
+.wpm-social-div {
+    height: 1px;
+    background: #34363b;
+    margin: 8px 0;
+}
+.wpm-cmt {
+    font-size: 23px;
+    line-height: 34px;
+    color: #d4d6da;
+    word-break: break-word;
+}
+.wpm-cmt-name {
+    color: #8b9cb5;
+}

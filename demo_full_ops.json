@@ -1,0 +1,119 @@
+{
+  "name": "全功能演示：聊天/图片/语音/转账/群聊/朋友圈",
+  "steps": [
+    {
+      "action": "编辑主页",
+      "params": {
+        "数据": [
+          {
+            "name": "陆香儿",
+            "avatar": "/images/ref/luxianger.png",
+            "unread": 2,
+            "quiet": false,
+            "messages": [
+              { "dir": "peer", "kind": "text", "text": "在吗，晚上一起吃饭？", "time": "18:20" },
+              { "dir": "me", "kind": "text", "text": "好呀，哪家？", "time": "18:21" },
+              { "dir": "peer", "kind": "image", "image": "/images/album/baiqian/baiqian01.jpeg", "time": "18:22" }
+            ]
+          },
+          {
+            "name": "妍",
+            "avatar": "/images/ref/yan.png",
+            "unread": 1,
+            "quiet": false,
+            "messages": [
+              { "dir": "peer", "kind": "text", "text": "周末的电影票买好了", "time": "20:10" }
+            ]
+          },
+          {
+            "name": "收购万达讨论群",
+            "type": "group",
+            "group": "收购万达讨论群",
+            "members": ["阿荡", "夜华"],
+            "avatar": "/images/ref/qun.png",
+            "quiet": true,
+            "messages": [
+              { "dir": "peer", "sender": "夜华", "kind": "text", "text": "今晚八点开会", "time": "19:58" },
+              { "dir": "me", "kind": "text", "text": "收到", "time": "20:00" }
+            ]
+          },
+          {
+            "name": "微信支付",
+            "avatar": "/images/ref/pay.png",
+            "text": "已支付¥11.65",
+            "read": true,
+            "newMsgCount": 9
+          }
+        ]
+      }
+    },
+    { "action": "修改昵称", "params": { "昵称": "阿荡" } },
+    { "action": "设置头像", "params": { "图片": "/images/ref/stitch.png" } },
+    { "action": "设置背景", "params": { "图片": "/images/bg/cover.jpg" } },
+    {
+      "action": "编辑朋友圈",
+      "params": {
+        "数据": [
+          {
+            "author": "陆香儿",
+            "avatar": "/images/ref/luxianger.png",
+            "text": "就这么丝滑的下班。",
+            "images": ["/images/ref/lux_video.png"],
+            "time": "35分钟前",
+            "likes": ["妍"],
+            "comments": [{ "name": "妍", "text": "羡慕住了" }]
+          },
+          {
+            "author": "妍",
+            "avatar": "/images/ref/yan.png",
+            "text": "周末万达看电影，有人一起吗？",
+            "images": ["/images/album/baiqian/baiqian02.jpeg"],
+            "time": "1小时前",
+            "likes": [],
+            "comments": []
+          }
+        ]
+      }
+    },
+    { "action": "返回主页", "params": {} },
+    { "action": "等待", "params": { "秒数": 1.5 } },
+    { "action": "打开聊天", "params": { "联系人": "陆香儿" } },
+    { "action": "等待", "params": { "秒数": 1 } },
+    { "action": "我方打字", "params": { "内容": "在吗，晚上一起吃饭？" } },
+    { "action": "对方正在输入", "params": { "秒数": 1.5 } },
+    { "action": "对方发消息", "params": { "内容": "好呀，那还去老地方那家川菜馆吧", "头像": "/images/ref/luxianger.png" } },
+    { "action": "查看图片", "params": { "图片": "/images/album/baiqian/baiqian01.jpeg", "停留": "1.5" } },
+    { "action": "发送图片", "params": { "图片": "/images/album/baiqian/baiqian01.jpeg" } },
+    { "action": "对方发图片", "params": { "图片": "/images/album/guanyu/guanyu01.jpeg" } },
+    { "action": "发送语音", "params": { "秒数": "3" } },
+    { "action": "对方语音", "params": { "秒数": "2" } },
+    { "action": "对方发消息", "params": { "内容": "这家最近换厨师了，味道好像没以前好" } },
+    { "action": "转账", "params": { "接收人": "陆香儿", "金额": "50.00", "备注": "晚饭钱" } },
+    { "action": "对方转账", "params": { "接收人": "阿荡", "金额": "88.88", "备注": "上次报销" } },
+    { "action": "我方打字", "params": { "内容": "哈哈哈 那家我请" } },
+    { "action": "对方发消息", "params": { "内容": "那我就不客气啦", "头像": "/images/ref/luxianger.png" } },
+    { "action": "撤回我的消息", "params": {} },
+    { "action": "对方撤回消息", "params": {} },
+    { "action": "打字不发", "params": { "内容": "这条先不发送，看看草稿效果" } },
+    { "action": "删除文字", "params": { "数量": "全部" } },
+    { "action": "返回主页", "params": {} },
+    { "action": "打开聊天", "params": { "联系人": "收购万达讨论群" } },
+    { "action": "@成员", "params": { "昵称": "夜华" } },
+    { "action": "我方打字", "params": { "内容": "收到，晚上八点会议室见" } },
+    { "action": "对方发消息", "params": { "内容": "好的，我这就去订会议室", "头像": "/images/ref/qun.png" } },
+    { "action": "返回主页", "params": {} },
+    { "action": "切换Tab", "params": { "Tab": "通讯录" } },
+    { "action": "等待", "params": { "秒数": 1 } },
+    { "action": "切换Tab", "params": { "Tab": "发现" } },
+    { "action": "等待", "params": { "秒数": 1 } },
+    { "action": "进入朋友圈", "params": {} },
+    { "action": "向下滚动", "params": { "像素": "260" } },
+    { "action": "等待", "params": { "秒数": 1 } },
+    { "action": "点赞", "params": {} },
+    { "action": "评论", "params": { "内容": "太棒了！" } },
+    { "action": "发朋友圈", "params": { "内容": "又到周五，给自己加个鸡腿。", "图片": "/images/bg/night.jpg" } },
+    { "action": "等待", "params": { "秒数": 1.5 } },
+    { "action": "返回主页", "params": {} },
+    { "action": "等待", "params": { "秒数": 1 } }
+  ]
+}

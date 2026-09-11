@@ -1,0 +1,23 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<script src="/enhance/pinyin_data.js"></script>
+<script>
+  window.__probe = (text) => {
+    const W = window.__WX_PINYIN || {};
+    const S = W.s || {}, P = W.p || {}, BG = W.bg || {};
+    const WORD_SET = new Set();
+    for (const k in P) for (const w of P[k]) WORD_SET.add(w);
+    for (const k in S) for (const w of S[k]) WORD_SET.add(w);
+    const n = text.length; let last='';
+    for (let L=Math.min(6,n); L>=1; L--){ const t=text.slice(n-L); if(WORD_SET.has(t)){last=t; break;} }
+    const out = {text, lastWord:last};
+    out.bg_last = BG[last] ? Object.keys(BG[last]).slice(0,12) : null;
+    const lastChar = text.slice(-1);
+    out.bg_char = BG[lastChar] ? Object.keys(BG[lastChar]).slice(0,12) : null;
+    out.bg_2 = BG[text.slice(-2)] ? Object.keys(BG[text.slice(-2)]).slice(0,12) : null;
+    out.p_last = P[last] ? P[last].slice(0,12) : null;
+    out.bg_size = Object.keys(BG).length;
+    out.p_size = Object.keys(P).length;
+    return out;
+  };
+</script>
+</body></html>

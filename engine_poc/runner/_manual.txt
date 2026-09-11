@@ -1,0 +1,22 @@
+READY=True
+LOG:
+wrote 25 files, miss 4 :: opencc/s2t.json(HTTP404),opencc/STPhrases.ocd2(HTTP404),opencc/STCharacters.ocd2(HTTP404),lua/convert_ar_num_to_zh/init.lua(HTTP404)
+deploying...
+READY rime_ice
+ERRS:
+
+process(nihao) -> {"head":"","body":"ni hao","tail":"","state":1,"page":0,"isLastPage":false,"highlighted":0,"candidates":[{"text":"你好"},{"text":"🙂️"},{"text":"拟好"},{"text":"你"},{"text":"🫵🏻"},{"text":"尼"},{"text":"泥"},{"text":"逆"},{"text":"拟"},{"text":"腻"}]}
+process(wo) -> {"head":"","body":"ni hao wo","tail":"","state":1,"page":0,"isLastPage":false,"highlighted":0,"candidates":[{"text":"你好我"},{"text":"你好"},{"text":"🙂️"},{"text":"拟好"},{"text":"你"},{"text":"🫵🏻"},{"text":"尼"},{"text":"泥"},{"text":"逆"},{"text":"拟"}]}
+CONSOLE:
+[error] dictionary.cc:411] translator/dictionary not specified in schema 'radical_pinyin'.
+[error] user_dictionary.cc:585] translator/dictionary not specified in schema 'radical_pinyin'.
+[error] mapped_file.cc:78] attempt to open non-existent file '/rime/lua/lunar.db'.
+[error] reverse_lookup_dictionary.cc:39] Error opening reversedb '/rime/lua/lunar.db'.
+[error] mapped_file.cc:78] attempt to open non-existent file '/rime/build/melt_eng.table.bin'.
+[error] table.cc:260] Error opening table file '/rime/build/melt_eng.table.bin'.
+[error] dictionary.cc:368] Error loading table for dictionary 'melt_eng'.
+[error] mapped_file.cc:78] attempt to open non-existent file '/rime/build/radical_pinyin.table.bin'.
+[error] table.cc:260] Error opening table file '/rime/build/radical_pinyin.table.bin'.
+[error] dictionary.cc:368] Error loading table for dictionary 'radical_pinyin'.
+[error] dictionary.cc:411] translator/dictionary not specified in schema 'radical_pinyin'.
+[error] user_dictionary.cc:585] translator/dictionary not specified in schema 'radical_pinyin'.

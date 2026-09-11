@@ -252,5 +252,7 @@
         }
       ]
     }
-  ]
+  ],
+  "peer": {},
+  "peerNav": false
 }

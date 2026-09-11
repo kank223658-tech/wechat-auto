@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Rime WASM engine PoC - deploy Wusong</title>
+<script type="importmap">
+{ "imports": {
+  "@libreservice/my-worker": "./my-worker.js",
+  "@libreservice/micro-plum": "./micro-plum.js",
+  "js-yaml": "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/+esm",
+  "luaparse": "https://cdn.jsdelivr.net/npm/luaparse@0.3.1/+esm"
+} }
+</script>
+</head>
+<body>
+<div id="log">loading...</div>
+<script type="module">
+import { LambdaWorker, asyncFS } from '@libreservice/my-worker'
+import { Recipe, GitHubDownloader } from '@libreservice/micro-plum'
+const logEl = document.getElementById('log')
+const log = (s) => { window.__LOG = (window.__LOG||[]) ; window.__LOG.push(s); logEl.textContent = s }
+window.__READY = false
+window.addEventListener('error', e => log('ERR ' + e.message))
+
+const worker = new LambdaWorker('./worker.js')
+const FS = asyncFS(worker)
+const setIME = worker.register('setIME')
+const setPageSize = worker.register('setPageSize')
+const deploy = worker.register('deploy')
+const processFn = worker.register('process')
+const reset = worker.register('resetUserDirectory')
+
+const RIME_PATH = '/rime'
+
+async function ensureDir(path) {
+  let i = 1
+  while ((i = path.indexOf('/', i) + 1) > 0) {
+    const dir = path.slice(0, i)
+    try { await FS.lstat(dir) } catch { await FS.mkdir(dir) }
+  }
+}
+
+window.__deployWusong = async function() {
+  try {
+    log('downloading rime-ice manifest...')
+    const downloader = new GitHubDownloader('iDvel/rime-ice', ['rime_ice'])
+    const recipe = new Recipe(downloader, { onLoadFailure: (u,r)=>log('dl-fail '+u+' '+r) })
+    const manifest = await recipe.load()
+    log('manifest files: ' + manifest.length)
+    window.__MANIFEST = manifest.map(f=>({file:f.file, has:!!f.content}))
+    let wrote = 0
+    for (const { file, content } of manifest) {
+      if (!content) continue
+      const path = `${RIME_PATH}/${file}`
+      try { await ensureDir(path); await FS.writeFile(path, content); wrote++ } catch(e){}
+    }
+    log('wrote ' + wrote + ' files to /rime')
+    // 设为默认方案清单
+    const custom = `patch:\n  schema_list:\n    - schema: rime_ice\n`
+    try { await FS.writeFile(`${RIME_PATH}/default.custom.yaml`, custom) } catch(e){}
+    log('deploying (compile dicts...)...')
+    await deploy()
+    log('deployed, switching to rime_ice')
+    await setIME('rime_ice')
+    setPageSize(10)
+    log('READY rime_ice')
+    window.__READY = true
+    return 'ok'
+  } catch(e) {
+    log('DEPLOY ERR ' + (e && e.stack || e))
+    return 'ERR ' + (e && e.message || e)
+  }
+}
+
+window.__process = async function(input) {
+  const r = await processFn(input)
+  return JSON.stringify(r)
+}
+
+async function boot() {
+  // 先确保默认引擎就绪（用内置 luna_pinyin 预热），再部署雾凇
+  try {
+    await setIME('luna_pinyin'); setPageSize(10)
+    log('boot(base luna_pinyin) ok')
+  } catch(e) { log('boot ERR ' + (e && e.message || e)) }
+}
+boot()
+</script>
+</body>
+</html>

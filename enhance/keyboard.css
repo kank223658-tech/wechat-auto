@@ -274,7 +274,8 @@
 /* ---- 键盘弹出时，把聊天输入栏/评论条顶到键盘上方（真机效果）----
    用 transform 而非 bottom（避免回流导致的滞后，与 #wxkb 合成器动画帧序一致） */
 body.wxkb-open .dialogue-footer { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
-body.wxkb-open #commentBar { transform: translateY(calc(-1 * (278px + var(--kb-cand-h, 0px)))); }
+/* #commentBar 已改为「定位在 513px 整图键盘上方」的深色细条（bottom:513px），
+   不再需要随 wxkb-open 顶起 —— 旧 278 联动规则会与固定定位叠加造成二次位移，故删除。 */
 
 /* ---- 底部听写行：地球(语言切换)靠左、麦克风(听写)靠右，裸图标浮在键盘底、Home 条之上 ---- */
 #wxkb { position: fixed; }   /* 已是 fixed，作为 .kb-dict 绝对定位的包含块 */

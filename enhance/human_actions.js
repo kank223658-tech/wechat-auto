@@ -277,11 +277,21 @@
         lastPinchMs() { return _lastPinchMs; },
     };
 
-    /* 给聊天里的图片气泡绑定点击事件：点击即打开全屏查看器。
+    /* 可点开的图片：聊天气泡 + 对方朋友圈配图 / 主页缩略图。
+       我的朋友圈（.moments__post）用自带的 PhotoSwipe 查看器，这里不重复绑定，避免双查看器冲突。
+       视频封面（[data-wx-video-src]）由 peer_pages.js / moments_extra.js 自己绑定「播放视频」，这里跳过。 */
+    const CLICKABLE_IMG_SELECTOR = [
+        '.msg-image img',
+        '#wxPeerMoments .wpm-imgs img',
+        '#wxPeerProfile .wpp-thumbs img',
+    ].join(',');
+
+    /* 给图片绑定点击事件：点击即打开全屏查看器。
        这样「查看图片」动作即使不显式调用 openImage，也能由真实点击驱动。 */
     function bindImageClicks() {
-        document.querySelectorAll('.msg-image img').forEach((img) => {
+        document.querySelectorAll(CLICKABLE_IMG_SELECTOR).forEach((img) => {
             if (img.dataset.wxHumanBound) return;
+            if (img.dataset.wxVideoSrc || img.closest('[data-wx-video-src]')) return; // 视频封面：交给视频播放
             img.dataset.wxHumanBound = '1';
             img.style.cursor = 'zoom-in';
             img.addEventListener('click', (e) => {

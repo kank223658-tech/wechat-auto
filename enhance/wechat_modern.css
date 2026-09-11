@@ -723,19 +723,11 @@ input::placeholder, textarea::placeholder { color: #9a9aa2 !important; }
    3. 评论区（点赞/评论）与正文间距、头像圆角。
    ============================================================ */
 
-/* ---- 配图尺寸按数量分级（真机：单图大、双图/四图中、其余三列小图） ---- */
-#moments .moments__post .thumbnails.thumb-1 .thumbnail { width: 168px; height: 168px; }
-#moments .moments__post .thumbnails.thumb-1 .thumbnail img { width: 100% !important; height: 100% !important; }
-#moments .moments__post .thumbnails.thumb-2 .thumbnail,
-#moments .moments__post .thumbnails.thumb-4 .thumbnail { width: 122px; height: 122px; }
-#moments .moments__post .thumbnails.thumb-3 .thumbnail,
-#moments .moments__post .thumbnails.thumb-5 .thumbnail { width: 94px; height: 94px; }
-#moments .moments__post .thumbnails.thumb-6 .thumbnail,
-#moments .moments__post .thumbnails.thumb-7 .thumbnail,
-#moments .moments__post .thumbnails.thumb-8 .thumbnail,
-#moments .moments__post .thumbnails.thumb-9 .thumbnail { width: 94px; height: 94px; }
+/* ---- 配图：尺寸/间距已由 moments_exact.css 统一接管（真机三列方格 + 田字格四图 + 单图按比例）
+   这里只保留外观兜底；⚠ 不要再写 margin，否则同名 !important 且选择器更长会把
+   moments_exact.css 的 margin:0 压掉，导致一行三列挤不下、变成一行两张。 ---- */
 #moments .moments__post .thumbnails .thumbnail {
-    margin: 0 6px 6px 0 !important;
+    margin: 0 !important;
     border-radius: 4px;
     overflow: hidden;
     background: #2c2c2e;
@@ -882,12 +874,12 @@ body {
 }
 
 /* 覆盖 vue 原生 moments.less 的 .weui-cell__hd img{width:45px!important}，
-   统一动态头像为 42px 圆角矩形，避免旧 45px 样式残留 */
+   统一动态头像为 64px 圆角矩形（真机规格，见 moments_exact.css） */
 #moments .weui-cell.moments__post .weui-cell__hd,
 #moments .weui-cell.moments__post .weui-cell__hd > img {
-    width: 42px !important;
-    min-width: 42px !important;
-    height: 42px !important;
+    width: 64px !important;
+    min-width: 64px !important;
+    height: 64px !important;
     border-radius: 6px !important;
     object-fit: cover !important;
 }
@@ -1032,3 +1024,89 @@ body {
     border: .5px solid #2e2e30 !important;
 }
 .profile .weui-btn { border-radius: 8px; }
+
+/* ---- 朋友圈视频动态：缩略图封面铺满 + 居中播放角标（点开走全屏播放器） ---- */
+#moments .moments__post .thumbnails .thumbnail.video-thumb {
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+}
+#moments .moments__post .thumbnails .thumbnail.video-thumb .wmp-video-wrap {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+#moments .moments__post .thumbnails .thumbnail.video-thumb img.wmp-video-cover {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+}
+#moments .moments__post .thumbnails .thumbnail.video-thumb .wmp-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .4);
+    border: 2px solid rgba(255, 255, 255, .92);
+}
+#moments .moments__post .thumbnails .thumbnail.video-thumb .wmp-play::before {
+    content: "";
+    position: absolute;
+    left: 56%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 9px 0 9px 15px;
+    border-color: transparent transparent transparent #fff;
+    transform: translate(-50%, -50%);
+}
+
+
+/* ============================================================
+   朋友圈（我的）可滚动 + 导航栏吸附
+   ------------------------------------------------------------
+   之前 #moments 不是滚动容器（overflow 默认 visible），动态一多内容
+   就被 #app 裁掉，录屏里「朋友圈上下滑不动」。
+   这里把整页改成滚动容器：高度用 top+bottom 撑满（自适应状态栏高度），
+   导航栏 position:sticky 吸附在顶部，滚动时内容从导航栏下穿过。
+   封面 .home-pic 的 margin-top:-90px 会把封面顶到状态栏后面，滚动容器
+   裁掉的那部分本来就被状态栏挡住，观感不变。
+   ============================================================ */
+#moments.sub-page {
+    height: auto !important;
+    bottom: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+}
+#moments > #wx-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 99 !important;
+}
+/* 录屏里不出现 PC 滚动条 */
+#moments::-webkit-scrollbar { width: 0 !important; height: 0 !important; }
+
+/* ============================================================
+   「闪回聊天」硬切：路由子页（朋友圈等）与底层页在同一帧切回，
+   不播滑入/滑出动画，观感 = 剪辑软件里的一次硬切。
+   animation:none 会让 Vue 的过渡立即结束（getTransitionInfo 判定无动画，
+   直接回调），从而瞬间移除离场子页。
+   ============================================================ */
+body.wx-nocut .sub-page,
+body.wx-nocut .sub-page.animated,
+body.wx-nocut .outter,
+body.wx-nocut .outter.hideLeft,
+body.wx-nocut #app,
+body.wx-nocut #app.wx-peer-pushing {
+    animation: none !important;
+    transition: none !important;
+}
