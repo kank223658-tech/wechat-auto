@@ -1949,6 +1949,14 @@ RUNTIME_DIR = os.path.join(ROOT, "_runtime")                  # 每条任务的 
 BATCH_CONF_PATH = os.path.join(ROOT, "_concurrent.json")      # 批量设置（并发上限等）
 BATCH_MAX_CONCURRENT = 3                                      # 默认同时跑几条（前端可改）
 
+# —— 录制质量守门员（自动重录）——
+# main.py 收尾时给每条成品写 <mp4>.quality.json（帧间隔健康度）。这里在收割任务时
+# 读报告：不合格且还有重录额度 → 任务自动重新排队重跑；额度用尽 → 在历次尝试中
+# 择优（ok 优先，其次可疑断流少，再比最大间隔）作为交付。实时录屏掉帧是偶发事件，
+# 「重录一次」比任何防掉帧手段都可靠。WX_QUALITY_ATTEMPTS 环境变量可改重录上限。
+QUALITY_GATE_ENABLED = True
+QUALITY_MAX_ATTEMPTS = max(1, int(os.environ.get("WX_QUALITY_ATTEMPTS", "3")))
+
 _task_lock = threading.Lock()     # 保护 _tasks / _task_procs 等
 _tasks = {}                       # id -> 任务 dict（可持久化部分）
 _task_procs = {}                  # id -> Popen
@@ -2145,6 +2153,13 @@ def _launch_task_locked(task):
     task["video"] = None
     task["error"] = None
     task["log_offset"] = 0
+    # 质量守门员：正常启动清零重录计数；守门员触发的重录（_retry 置位）保留计数，
+    # 只记录本轮启动时刻 —— 收割时只考察本轮启动之后产出的成片，避免 resurrect 旧片。
+    if task.pop("_retry", False):
+        task["attempts"] = int(task.get("attempts") or 0)
+    else:
+        task["attempts"] = 0
+    task["_launch_ts"] = time.time()
     task["updated"] = _dt.datetime.now().timestamp()
     return True
 
@@ -2163,16 +2178,74 @@ def _finalize_task_locked(tid, proc):
                 tail = fh.read()[-800:]
         except OSError:
             pass
-    # 找该任务产出的视频：wx_<tid>_*.mp4 最新一张（文件名含毫秒时间戳，字典序即时间序）
+    # 找该任务产出的视频：wx_<tid>_*.mp4（文件名含毫秒时间戳，字典序即时间序）。
+    # 质量守门员：只考察本轮启动（task["_launch_ts"]）之后产出的成片，避免把上一轮
+    # 的旧片误当成本轮交付。
     vids = []
     if os.path.isdir(VIDEO_DIR):
+        launch_ts = float(task.get("_launch_ts") or 0.0)
         vids = [f for f in os.listdir(VIDEO_DIR)
                 if f.lower().endswith(".mp4") and f.startswith(f"wx_{tid}_")]
+        if launch_ts > 0:
+            def _mtime(f):
+                try:
+                    return os.path.getmtime(os.path.join(VIDEO_DIR, f))
+                except OSError:
+                    return 0.0
+            vids = [f for f in vids if _mtime(f) >= launch_ts - 5.0]
         vids.sort(reverse=True)
     if vids:
+        # —— 择优：读每条成片的 .quality.json，ok 优先，其次可疑断流少，再比最大间隔；
+        #    无报告的成片排最后（不阻塞交付，但不会优先当选）。vids 本身按最新在前，
+        #    Python 排序稳定，同分时保留最新的一条。——
+        def _qkey(fname):
+            rep = None
+            qpath = os.path.join(VIDEO_DIR, fname + ".quality.json")
+            if os.path.isfile(qpath):
+                try:
+                    with open(qpath, "r", encoding="utf-8") as qh:
+                        rep = json.load(qh)
+                except (OSError, ValueError):
+                    rep = None
+            if not isinstance(rep, dict):
+                return (2, 999, 999.0, None)
+            return (0 if rep.get("ok") else 1,
+                    int(rep.get("suspect_count") or 0),
+                    float(rep.get("max_gap") or 0.0),
+                    rep)
+        ranked = sorted(vids, key=_qkey)
+        best_vid = ranked[0]
+        _b_ok, _b_cnt, _b_gap, best_rep = _qkey(best_vid)
+        attempts = int(task.get("attempts") or 0)
+        if QUALITY_GATE_ENABLED and _b_ok != 0 and attempts + 1 < QUALITY_MAX_ATTEMPTS:
+            # 全部不合格且还有重录额度 → 重新排队，调度循环会自动重跑
+            task["attempts"] = attempts + 1
+            task["_retry"] = True
+            task["status"] = TASK_QUEUED
+            task["video"] = None
+            task["error"] = (f"质检不合格（{_b_cnt} 处动态断流，最大间隔 {_b_gap}s），"
+                             f"第 {attempts + 1}/{QUALITY_MAX_ATTEMPTS - 1} 次自动重录")
+            task["updated"] = _dt.datetime.now().timestamp()
+            return
         task["status"] = TASK_SUCCESS
-        task["video"] = vids[0]
-        task["error"] = None
+        task["video"] = best_vid
+        task["quality"] = best_rep if isinstance(best_rep, dict) else None
+        if _b_ok == 0:
+            task["error"] = None
+        else:
+            task["error"] = (f"质检不合格（{_b_cnt} 处动态断流）但已达重录上限，"
+                             f"已择优保留")
+        # 重录成功后清掉本轮被淘汰的失败片及其报告（择优交付，废片不再占库）
+        for f in vids:
+            if f != best_vid:
+                try:
+                    os.remove(os.path.join(VIDEO_DIR, f))
+                except OSError:
+                    pass
+                try:
+                    os.remove(os.path.join(VIDEO_DIR, f + ".quality.json"))
+                except OSError:
+                    pass
     else:
         task["status"] = TASK_FAILED
         reason = f"进程退出码 {code}" if code is not None else "进程已退出"

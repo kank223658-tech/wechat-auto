@@ -566,6 +566,82 @@ FRAME_OUT_W = 1080              # 0=不高清放大，直接输出采集分辨�
 GAP_BLEND_MIN_FRAMES = 12       # 间隔 >= 12 帧（约 0.2s）才考虑过渡
 GAP_BLEND_HOLD_FRAC = 0.30      # 过渡中「前一帧完整停留」占该间隔的比例（其余为混合帧）
 GAP_BLEND_DIFF_EPS = 0.018      # 下采样灰度归一化差异阈值：低于它视为静止等待（不混合）
+
+# 录制质量守门员（帧间隔健康度 + sidecar 报告）
+# ------------------------------------------------------------
+# 实时录屏的掉帧是偶发事件（同步 API 结构性 / screencast 一帧一 ack 管道性 /
+# 系统级节流三类来源），与其把每个掉帧都「修饰」掉，不如量化每条成片的质量，
+# 让不合格的整段自动重录。判定规则：
+#   · 相邻帧间隔 >= QUALITY_GAP_MAX_SEC 视为「断流候选」；
+#   · 断流期间前后两帧画面差异 >= QUALITY_DYNAMIC_DIFF（断流时画面在动）才是
+#     真掉帧 —— 静止等待本来就没帧，不算；落在 hard_cut_spans（登记硬切窗，
+#     如 Tab 切换瞬间上屏）内的间隔是已知瞬时切换，也不算；
+#   · 每条成品旁写 <mp4>.quality.json（帧数/时长/最大间隔/可疑断流明细），
+#     编辑器批次收割时据此自动重录不合格任务并择优（见 editor_server
+#     _finalize_task_locked）。CLI 单跑只打印 [质检] 结论不自动重录。
+QUALITY_GATE_ENABLED = True
+QUALITY_GAP_MAX_SEC = 0.15      # 断流候选阈值（秒）
+# 「画面在动」判定阈值：真转场掉帧的前后帧差异通常 >0.1（动画位移过半）；
+# 0.05 可滤掉静止等待期的轻微变化（toast 淡出/状态栏等），避免把正常长等待
+# 误判成掉帧而触发无谓重录（e2e 实测 2.7s 静止等待 diff=0.0269 的教训）。
+QUALITY_DYNAMIC_DIFF = 0.05
+
+# 采集通道模式：帧回调不再依赖 Playwright 事件派发
+# ------------------------------------------------------------
+# 同步 Playwright 的 CDP 事件只在「调用 Playwright 方法」期间派发：触发动作之后
+# Python 侧任何非 Playwright 工作（文件 IO/PIL/JSON/加解密）都会让帧流停摆，
+# 这是结构性掉帧的根源；且 screencast 是「一帧一 ack」协议，Playwright 派发链路
+# 上的任何延迟都会让浏览器丢中间帧。
+# "ws" 模式（默认）：给 Chrome 附加 --remote-debugging-port，用独立线程 + 自带
+#   最小 websocket 客户端直连页面 target 跑 screencast + ack。收帧/回 ack 完全
+#   独立于脚本执行，Python 主线程再忙帧照收不误。失败自动回退 "cdp"。
+# "cdp" 模式：旧路径，走 Playwright CDP 会话（依赖事件派发）。环境变量
+#   WX_CAPTURE_MODE=cdp 可强制用于 A/B 对比。
+CAPTURE_MODE = os.environ.get("WX_CAPTURE_MODE", "ws").strip().lower()
+
+# 转场确定性重采（导演时钟）
+# ------------------------------------------------------------
+# 思路：本项目的内容是剧本生成的，转场动画全是已知的 CSS transition —— 这些帧
+# 根本不需要「录」。触发动画后立刻 pause 所有运行中动画（Web Animations API），
+# 逐帧把 currentTime 推进 1/60s 并各截一帧，产出与真实渲染节奏完全无关的完美
+# 60fps 帧列；合成前用帧列替换 [t0,t1] 窗口内的实时帧（暂停期实时帧的节奏是
+# 失真的）。窗口外帧时间戳不动，音效映射由帧列表驱动（见 _mux_audio），故音画
+# 自动对齐。失败（无动画/截图异常）自动退回实时采集，不影响动作本身。
+DET_TRANSITION_ENABLED = os.environ.get("WX_DET_TRANSITION", "1") != "0"
+DET_TRANSITION_MAX_DUR = 2.0    # 单个转场重采时长上限（秒），防御性封顶
+
+_DET_PAUSE_JS = """() => {
+  const anims = document.getAnimations({subtree: true}).filter(a => {
+    try { const s = a.playState; return s === 'running' || s === 'pending'; }
+    catch (e) { return false; }
+  });
+  const infos = anims.map(a => {
+    try {
+      const t = a.effect.getTiming();
+      return {dur: Number(t.duration) || 0, delay: Number(t.delay) || 0,
+              ct: Number(a.currentTime) || 0};
+    } catch (e) { return {dur: 0, delay: 0, ct: 0}; }
+  });
+  anims.forEach(a => { try { a.pause(); } catch (e) {} });
+  return {count: anims.length, infos: infos};
+}"""
+
+_DET_STEP_JS = """(tMs) => {
+  document.getAnimations({subtree: true}).forEach(a => {
+    try {
+      if (a.playState !== 'paused') return;
+      const t = a.effect.getTiming();
+      const end = (Number(t.delay) || 0) + (Number(t.duration) || 0);
+      a.currentTime = Math.max(0, Math.min(tMs, end));
+    } catch (e) {}
+  });
+}"""
+
+_DET_FINISH_JS = """() => {
+  document.getAnimations({subtree: true}).forEach(a => {
+    try { if (a.playState === 'paused') a.finish(); } catch (e) {}
+  });
+}"""
 # 帧缓存：[ (timestamp_seconds, jpeg_bytes), ... ]   timestamp=CDP 真实帧交换时刻
 _FRAMES = []
 _FRAME_LOCK = threading.Lock()
@@ -1765,6 +1841,135 @@ def _wusong_word_len(run: str, i: int, max_len: int = 6) -> int:
     return 0
 
 
+class _WsClient:
+    """零依赖最小 WebSocket 客户端（仅用于 CDP DevTools 通道）。
+
+    只实现本项目需要的面：文本帧收发（JSON 消息）、分片消息聚合、服务端 ping→
+    pong、连接关闭检测。上行帧按 RFC 6455 客户端规则加掩码；服务端（Chrome）
+    下行帧不带掩码。帧长支持 16bit/64bit 两种扩展长度（screencast 大帧必须）。
+    不用第三方库的原因：部署机环境不可控，且协议面极小，自实现反而更可控。
+    """
+
+    def __init__(self, sock: socket.socket):
+        self._sock = sock
+        self._send_lock = threading.Lock()
+        self._rx_buf = b""
+
+    @classmethod
+    def connect_url(cls, url: str, timeout: float = 5.0) -> "_WsClient":
+        """连接 ws://127.0.0.1:PORT/devtools/page/<id> 形式的 DevTools 地址。"""
+        import base64 as _b64
+        m = re.match(r"^ws://([^:/]+):(\d+)(/.*)$", url)
+        if not m:
+            raise ValueError(f"无法解析 ws 地址：{url}")
+        host, port, path = m.group(1), int(m.group(2)), m.group(3)
+        sock = socket.create_connection((host, port), timeout=timeout)
+        key = _b64.b64encode(os.urandom(16)).decode()
+        req = ("GET %s HTTP/1.1\r\nHost: %s:%d\r\nUpgrade: websocket\r\n"
+               "Connection: Upgrade\r\nSec-WebSocket-Key: %s\r\n"
+               "Sec-WebSocket-Version: 13\r\n\r\n" % (path, host, port, key))
+        sock.sendall(req.encode())
+        sock.settimeout(timeout)
+        # 读响应头（到 \r\n\r\n 为止），校验 101
+        buf = b""
+        while b"\r\n\r\n" not in buf:
+            chunk = sock.recv(4096)
+            if not chunk:
+                raise ConnectionError("websocket 握手中断")
+            buf += chunk
+        head, _, rest = buf.partition(b"\r\n\r\n")
+        status = head.split(b"\r\n", 1)[0]
+        if b" 101 " not in status and not status.endswith(b" 101"):
+            raise ConnectionError(f"websocket 握手被拒：{status!r}")
+        c = cls(sock)
+        c._rx_buf = rest
+        return c
+
+    def settimeout(self, seconds: float):
+        self._sock.settimeout(seconds)
+
+    def close(self):
+        try:
+            # 发送关闭帧（best effort），再断 TCP
+            self._send_frame(0x8, b"")
+        except Exception:                        # noqa: BLE001
+            pass
+        try:
+            self._sock.close()
+        except Exception:                        # noqa: BLE001
+            pass
+
+    def _send_frame(self, opcode: int, payload: bytes):
+        with self._send_lock:
+            header = bytearray([0x80 | opcode])
+            n = len(payload)
+            mask = os.urandom(4)
+            if n < 126:
+                header.append(0x80 | n)
+            elif n < 1 << 16:
+                header.append(0x80 | 126)
+                header += n.to_bytes(2, "big")
+            else:
+                header.append(0x80 | 127)
+                header += n.to_bytes(8, "big")
+            header += mask
+            masked = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+            self._sock.sendall(bytes(header) + masked)
+
+    def send_json(self, obj: dict):
+        self._send_frame(0x1, json.dumps(obj, separators=(",", ":")).encode())
+
+    def _recv_exact(self, n: int) -> bytes:
+        while len(self._rx_buf) < n:
+            chunk = self._sock.recv(1 << 20)
+            if not chunk:
+                raise ConnectionError("websocket 连接被对端关闭")
+            self._rx_buf += chunk
+        out, self._rx_buf = self._rx_buf[:n], self._rx_buf[n:]
+        return out
+
+    def recv_json(self, timeout: float) -> dict:
+        """阻塞收一条完整文本消息；超时抛 socket.timeout（页面静止期没帧是正常的，
+        调用方应把超时当 keepalive 而不是断连）。"""
+        opcode, payload = self._recv_message(timeout)
+        if opcode != 0x1:
+            return {}                            # 二进制/pong 等非文本消息：忽略
+        return json.loads(payload.decode("utf-8", errors="replace"))
+
+    def _recv_message(self, timeout: float):
+        self._sock.settimeout(timeout)
+        fin, opcode, payload = False, 0, b""
+        while not fin:
+            b1, b2 = self._recv_exact(2)
+            fin = bool(b1 & 0x80)
+            op = b1 & 0x0F
+            masked = bool(b2 & 0x80)
+            length = b2 & 0x7F
+            if length == 126:
+                length = int.from_bytes(self._recv_exact(2), "big")
+            elif length == 127:
+                length = int.from_bytes(self._recv_exact(8), "big")
+            if op == 0x8:                        # close
+                raise ConnectionError("websocket close 帧")
+            if op == 0x9:                        # ping → pong
+                if masked:
+                    mask = self._recv_exact(4)
+                    data = bytes(b ^ mask[i % 4] for i, b in enumerate(self._recv_exact(length)))
+                else:
+                    data = self._recv_exact(length)
+                self._send_frame(0xA, data)
+                continue
+            if masked:
+                mask = self._recv_exact(4)
+                chunk = bytes(b ^ mask[i % 4] for i, b in enumerate(self._recv_exact(length)))
+            else:
+                chunk = self._recv_exact(length)
+            if op != 0x0:                        # text/binary 起始帧
+                opcode = op
+            payload += chunk                     # 0x0 为 continuation
+        return opcode, payload
+
+
 class WeChatAuto:
     """驱动 vue-WeChat 页面的自动化封装（含手机键盘模拟）"""
 
@@ -1774,7 +1979,14 @@ class WeChatAuto:
         self.browser = None
         self.context = None
         self.page = None
-        self._cdp = None           # CDP 会话（screencast 真 60fps 采集用）
+        self._cdp = None           # CDP 会话（screencast 真 60fps 采集用，cdp 模式）
+        self._pump = None          # 独立采集 ws 客户端（ws 模式）
+        self._pump_thread = None   # 采集线程
+        self._pump_run = False     # 采集线程运行标志
+        self._pump_msg_id = 0      # ws CDP 消息自增 id
+        self._pump_pending = {}    # 主线程 CDP 命令的等待表（id -> {event, result}）
+        self._det_spans = []       # 确定性重采登记窗口 [{t0,t1,frames}]
+        self.last_quality = None   # 本次录制的帧间隔健康度报告（_frame_health 产出）
         self._start_ts = None      # 本轮运行计时起点（monotonic），用于报告耗时
         self.last_mp4 = None       # 兼容旧字段：旧 25fps 录屏已删除，恒为 None
         self.last_mp4_60 = None    # 当前唯一输出：按真实时间戳合成的 VFR MP4（stop 后可用）
@@ -2254,6 +2466,19 @@ class WeChatAuto:
             "--disable-renderer-backgrounding",
             "--disable-features=CalculateNativeWinOcclusion",
         ]
+        # ws 采集模式：额外给 Chrome 开一个 DevTools 调试端口，供独立采集线程直连
+        # 页面 target 跑 screencast（Playwright 自己仍走 pipe，互不干扰）。端口自动
+        # 选空闲；连接失败时 _start_capture 会自动回退 Playwright CDP 会话。
+        self._dbg_port = None
+        if CAPTURE_MODE == "ws":
+            try:
+                _probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                _probe.bind(("127.0.0.1", 0))
+                self._dbg_port = _probe.getsockname()[1]
+                _probe.close()
+                _launch_args.append(f"--remote-debugging-port={self._dbg_port}")
+            except OSError:
+                self._dbg_port = None
         # 关键：**不要**传 record_video_size。它只是把视频画布拉大到 1170x2532，
         # 但页面内容仍按 390x844 渲染，于是画面只在左上角 1/3，其余全是大片灰边
         # （实测右上角像素为纯灰，这就是「画面错乱」的根源）。
@@ -2313,8 +2538,9 @@ class WeChatAuto:
         """)
         self.page = self.context.new_page()
         self.page_open = True          # Python 层面的存活标记（供后台线程判断，不触碰 Playwright）
-        # screencast 真 60fps 采集：浏览器每个合成帧主动推送（固定走此方案）
-        self._start_screencast()
+        # screencast 真 60fps 采集：浏览器每个合成帧主动推送（ws 独立线程优先，
+        # 失败回退 Playwright CDP 会话）
+        self._start_capture()
         # 首次导航：Vite dev server 冷启动时首页要「按需编译」，Playwright 默认
         # 10s 超时经常不够（表现为 Page.goto: Timeout 10000ms exceeded）。这里给足
         # 90s，并在失败时重试——重试前用 _wait_frontend_ready 确认首页真的可访问，
@@ -2415,10 +2641,9 @@ class WeChatAuto:
                 pass
         # #endregion
         mp4_vfr_path = None
-        # 先停止 screencast，避免合成期间继续往 _FRAMES 追加帧
+        # 先停止逐帧采集（ws 线程 / cdp 会话），避免合成期间继续往 _FRAMES 追加帧
         try:
-            if getattr(self, "_cdp", None) is not None:
-                self._cdp.send("Page.stopScreencast")
+            self._stop_capture()
         except Exception:                    # noqa: BLE001
             pass
         try:
@@ -2432,6 +2657,8 @@ class WeChatAuto:
             with _FRAME_LOCK:
                 frames = list(_FRAMES)
                 _FRAMES.clear()
+            # 确定性重采窗口替换：把暂停/步进期的失真实时帧换成精确 1/60s 的合成帧列
+            frames = self._apply_det_spans(frames)
             if FRAME_CAPTURE_ENABLED and frames:
                 stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
                 prefix = f"wx_{OUT_TAG}_" if OUT_TAG else "wx_"
@@ -2443,6 +2670,27 @@ class WeChatAuto:
                                                  hard_cut_spans=getattr(self, "_hard_cut_spans", None))
                     # 把按键音效按视频时间轴混流进成品（实时播放弃用不影响这里）
                     mp4_vfr_path = self._mux_audio(ffmpeg, frames, mp4_vfr_path)
+                    # —— 质量守门员：帧间隔健康度 + sidecar 报告 ——
+                    self.last_quality = WeChatAuto._frame_health(
+                        frames, trim_sec=self.trim_head_sec,
+                        hard_cut_spans=getattr(self, "_hard_cut_spans", None))
+                    if QUALITY_GATE_ENABLED and mp4_vfr_path:
+                        try:
+                            with open(mp4_vfr_path + ".quality.json", "w",
+                                      encoding="utf-8") as _qh:
+                                json.dump(self.last_quality, _qh,
+                                          ensure_ascii=False, indent=2)
+                        except OSError as _qexc:
+                            print(f"[质检] 报告写入失败（忽略）：{_qexc}")
+                        _q = self.last_quality
+                        if _q.get("ok"):
+                            print(f"[质检] 通过：{_q.get('frames')} 帧 / "
+                                  f"{_q.get('duration')}s / 最大间隔 {_q.get('max_gap')}s，"
+                                  f"无动态断流。")
+                        else:
+                            print(f"[质检] 不合格：{_q.get('suspect_count')} 处动态断流"
+                                  f"（最大间隔 {_q.get('max_gap')}s）明细："
+                                  f"{_q.get('suspects')}")
                 else:
                     mp4_vfr_path = None
                     print("[提示] 未检测到 ffmpeg，跳过逐帧合成")
@@ -2673,6 +2921,79 @@ class WeChatAuto:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     @staticmethod
+    def _jpeg_diff01(jpeg_a, jpeg_b) -> float:
+        """两张 JPEG 的下采样灰度归一化差异（0~1），供断流判定用。
+
+        与 _assemble_vfr_mp4 内的 _visual_diff 同算法；入参可为 base64 字符串
+        （_FRAMES 实际存储格式）或 bytes。任一帧解码失败返回 0（判不出来就当
+        静止，不误伤）。
+        """
+        try:
+            from PIL import Image as _PIL        # noqa: N813
+            import base64 as _b64d
+            import io as _io
+            if isinstance(jpeg_a, str):
+                jpeg_a = _b64d.b64decode(jpeg_a)
+            if isinstance(jpeg_b, str):
+                jpeg_b = _b64d.b64decode(jpeg_b)
+            _a = _PIL.open(_io.BytesIO(jpeg_a)).convert("L").resize((32, 70))
+            _b = _PIL.open(_io.BytesIO(jpeg_b)).convert("L").resize((32, 70))
+            _pa = _a.load()
+            _pb = _b.load()
+            _s = 0.0
+            for _x in range(32):
+                for _y in range(70):
+                    _s += abs(_pa[_x, _y] - _pb[_x, _y])
+            return _s / (32 * 70 * 255.0)
+        except Exception:                        # noqa: BLE001
+            return 0.0
+
+    @staticmethod
+    def _frame_health(frames, trim_sec: float = 0.0, hard_cut_spans=None) -> dict:
+        """帧间隔健康度分析：找出「断流期间画面还在动」的真掉帧。
+
+        frames: [(ts, data)]，data 为 base64 字符串或 bytes（与 _FRAMES 一致）。
+        只对 >= QUALITY_GAP_MAX_SEC 的间隔做两次 JPEG 解码（逐帧全解码太贵）。
+        返回 dict：ok/frames/duration/max_gap/suspects（ok=False 表示建议重录）。
+        """
+        fs = sorted(frames, key=lambda f: f[0])
+        if not fs:
+            return {"ok": False, "error": "no_frames"}
+        t0 = fs[0][0]
+        keep = [(ts, d) for ts, d in fs if ts >= t0 + float(trim_sec or 0.0)]
+        if len(keep) < 2:
+            return {"ok": True, "frames": len(keep), "duration": 0.0,
+                    "max_gap": 0.0, "suspects": [], "suspect_count": 0}
+        spans = [(float(a), float(b)) for a, b in (hard_cut_spans or ())]
+        suspects = []
+        max_gap = 0.0
+        max_gap_ts = 0.0
+        for i in range(len(keep) - 1):
+            gap = keep[i + 1][0] - keep[i][0]
+            if gap > max_gap:
+                max_gap = gap
+                max_gap_ts = keep[i][0] - t0
+            if gap < QUALITY_GAP_MAX_SEC:
+                continue
+            if any(a <= keep[i][0] <= b for a, b in spans):
+                continue          # 登记硬切窗内的间隔是已知瞬时上屏，不算断流
+            diff = WeChatAuto._jpeg_diff01(keep[i][1], keep[i + 1][1])
+            if diff >= QUALITY_DYNAMIC_DIFF:
+                suspects.append({"ts": round(keep[i][0] - t0, 3),
+                                 "gap": round(gap, 3), "diff": round(diff, 4)})
+        return {
+            "ok": not suspects,
+            "frames": len(keep),
+            "duration": round(keep[-1][0] - keep[0][0], 3),
+            "max_gap": round(max_gap, 3),
+            "max_gap_ts": round(max_gap_ts, 3),
+            "suspects": suspects[:20],        # 明细最多记 20 条，避免报告爆炸
+            "suspect_count": len(suspects),
+            "thresholds": {"gap_sec": QUALITY_GAP_MAX_SEC,
+                           "dynamic_diff": QUALITY_DYNAMIC_DIFF},
+        }
+
+    @staticmethod
     def _ffmpeg_fps_mode_flag(ffmpeg: str) -> str:
         """返回当前 ffmpeg 版本应使用的帧率控制选项。
 
@@ -2697,17 +3018,9 @@ class WeChatAuto:
         self._sleep_with_capture(max(0.05, (seconds + jitter) / SPEED))
         self.live_snapshot()
 
-    def _start_screencast(self):
-        """开启 CDP screencast：浏览器每个合成帧主动推 JPEG，写入 _FRAMES。
-
-        固定走此方案（旧版 page.screenshot() 采样已删除）。同步 API 事件只能在
-        Playwright 调用期间派发，故配合 _pump_wait 分片 wait_for_timeout 来收帧。
-        """
-        if getattr(self, "_cdp", None) is not None:
-            return
-        self._cdp = self.context.new_cdp_session(self.page)
-        self._cdp.on("Page.screencastFrame", self._on_screencast_frame)
-        self._cdp.send("Page.startScreencast", {
+    def _screencast_params(self) -> dict:
+        """screencast 启动参数（ws/cdp 两条通道共用，保证行为一致）。"""
+        return {
             "format": "jpeg",
             "quality": FRAME_JPEG_QUALITY,
             "everyNthFrame": 1,          # 每个合成帧都推，不隔帧
@@ -2715,26 +3028,307 @@ class WeChatAuto:
             "maxHeight": FRAME_SURFACE_MAX_H,  # 放宽采集高上限：高度也被撑大的表面（如键盘/覆盖层顶出视口）若只给 1300 会被整幅下采样，
                                                # 导致内容被缩到左上角、其余大片黑（即「被撑大→缩左上角」闪帧）。放宽后全尺寸传入，
                                                # 再由合成阶段 crop=600:1300:0:0 裁回手机屏，内容保持原始大小。
-        })
+        }
+
+    def _start_capture(self):
+        """开启逐帧采集。优先独立 websocket 线程（ws 模式），失败回退 Playwright
+        CDP 会话（cdp 模式）。详见 CAPTURE_MODE 配置块说明。"""
+        if getattr(self, "_cdp", None) is not None or getattr(self, "_pump", None) is not None:
+            return
+        if CAPTURE_MODE == "ws" and getattr(self, "_dbg_port", None):
+            try:
+                self._start_ws_pump()
+                print(f"[采集] 独立 websocket 采集线程已启动（端口 {self._dbg_port}，"
+                      f"帧流不再依赖 Playwright 事件派发）。")
+                return
+            except Exception as exc:             # noqa: BLE001
+                print(f"[采集] 独立 websocket 通道启动失败（{exc}），回退 Playwright CDP 会话。")
+        self._start_screencast()
+
+    def _find_page_ws_url(self) -> str:
+        """从 DevTools HTTP 端点找到本页 target 的 ws 地址。
+
+        注意：本方法会被采集线程调用，绝不能触碰 Playwright 对象（非线程安全），
+        只依赖 DevTools HTTP 端点。页面 target 在同源导航间保持稳定；本实例通常
+        只有一个 page（编辑器实时画面也复用它），优先取前端 dev server 页面，
+        回退第一个 page target。
+        """
+        import urllib.request as _ur
+        with _ur.urlopen(f"http://127.0.0.1:{self._dbg_port}/json/list",
+                         timeout=3) as _resp:
+            targets = json.loads(_resp.read().decode("utf-8", errors="replace"))
+        pages = [t for t in targets if t.get("type") == "page"
+                 and t.get("webSocketDebuggerUrl")]
+        if not pages:
+            raise ConnectionError("DevTools 端点未列出任何 page target")
+        for t in pages:                          # 优先匹配前端 dev server 页面
+            if f":{PORT}" in (t.get("url") or ""):
+                return t["webSocketDebuggerUrl"]
+        return pages[0]["webSocketDebuggerUrl"]
+
+    def _start_ws_pump(self):
+        """启动独立采集线程：直连页面 target 跑 screencast + ack。
+
+        帧的接收与回 ack 完全不经过 Playwright —— 同步 API 的「事件只在调用期间
+        派发」限制由此彻底绕开；ack 延迟也只取决于本线程自身（一帧一 ack 协议下
+        最大限度地压低了浏览器丢中间帧的概率）。连接断开自动重连（页面导航 /
+        target 更换时 screencast 会话随之重建）。
+        """
+        # 预检：确认 DevTools 端点已就绪（Chrome 启动到端点监听有短暂窗口，最多等 8s；
+        # 期间重试而不是回退 —— 端点没就绪≠通道不可用）
+        _deadline = time.time() + 8.0
+        while True:
+            try:
+                self._find_page_ws_url()
+                break
+            except Exception:                    # noqa: BLE001
+                if time.time() >= _deadline:
+                    raise                        # 超时才放弃（上层回退 cdp 模式）
+                time.sleep(0.25)
+        self._pump_run = True
+        self._pump_thread = threading.Thread(target=self._pump_loop,
+                                             name="wx-frame-pump", daemon=True)
+        self._pump_thread.start()
+
+    def _pump_loop(self):
+        """采集线程主循环：连接 → startScreencast → 收帧/ack → 断了重连。"""
+        while self._pump_run:
+            try:
+                url = self._find_page_ws_url()
+                ws = _WsClient.connect_url(url, timeout=5.0)
+            except Exception:                    # noqa: BLE001
+                if self._pump_run:
+                    time.sleep(0.3)
+                continue
+            self._pump = ws                      # 供主线程 _pump_cmd 发命令（截图）
+            try:
+                ws.settimeout(1.0)
+                self._pump_msg_id += 1
+                start_id = self._pump_msg_id
+                ws.send_json({"id": start_id, "method": "Page.startScreencast",
+                              "params": self._screencast_params()})
+                started = False
+                while self._pump_run:
+                    try:
+                        msg = ws.recv_json(timeout=1.0)
+                    except socket.timeout:
+                        continue                 # 静止期无帧是正常现象，非断连
+                    except (ConnectionError, OSError):
+                        break
+                    if not msg:
+                        continue
+                    if msg.get("id") == start_id:
+                        if msg.get("error"):
+                            raise RuntimeError(f"startScreencast 被拒：{msg['error']}")
+                        started = True
+                        continue
+                    if msg.get("method") == "Page.screencastFrame":
+                        params = msg.get("params") or {}
+                        self._ingest_frame(params)
+                        try:
+                            self._pump_msg_id += 1
+                            ws.send_json({
+                                "id": self._pump_msg_id,
+                                "method": "Page.screencastFrameAck",
+                                "params": {"sessionId": params.get("sessionId")},
+                            })
+                        except (ConnectionError, OSError):
+                            break
+                    elif msg.get("id") is not None and msg.get("id") in self._pump_pending:
+                        # 主线程 _pump_cmd 的响应（如确定性重采的截图命令）
+                        entry = self._pump_pending[msg["id"]]
+                        entry["result"] = msg
+                        entry["event"].set()
+                if not started and self._pump_run:
+                    raise RuntimeError("screencast 未能在连接存续期内启动")
+            except Exception:                    # noqa: BLE001
+                pass                             # 断连/异常：走重连
+            finally:
+                self._pump = None
+                # 断连时立刻唤醒所有等待响应的主线程命令（避免白等超时）
+                for _entry in list(self._pump_pending.values()):
+                    if not _entry["event"].is_set():
+                        _entry["result"] = {"error": {"message": "ws 采集通道已断开"}}
+                        _entry["event"].set()
+                try:
+                    ws.close()
+                except Exception:                # noqa: BLE001
+                    pass
+            if self._pump_run:
+                time.sleep(0.1)
+
+    def _stop_capture(self):
+        """停掉逐帧采集（ws 线程与 cdp 会话两条路径）。"""
+        if getattr(self, "_pump", None) is not None or self._pump_run:
+            self._pump_run = False
+            _t = self._pump_thread
+            if _t is not None and _t.is_alive():
+                _t.join(timeout=2.0)
+            self._pump = None
+            self._pump_thread = None
+        if getattr(self, "_cdp", None) is not None:
+            try:
+                self._cdp.send("Page.stopScreencast")
+            except Exception:                    # noqa: BLE001
+                pass
+
+    # ---------- 转场确定性重采（导演时钟） ----------
+
+    def _pump_cmd(self, method: str, params: dict = None, timeout: float = 10.0) -> dict:
+        """主线程向 ws 采集通道发一条 CDP 命令并等结果。
+
+        采集线程的 recv 循环会顺路把「id 命中的响应」路由回这里（其余响应忽略），
+        因此截图命令可以与 screencast 帧流共用同一条 websocket。
+        """
+        pump = self._pump
+        if pump is None:
+            raise RuntimeError("ws 采集通道未运行")
+        entry = {"event": threading.Event(), "result": None}
+        with _FRAME_LOCK:
+            self._pump_msg_id += 1
+            mid = self._pump_msg_id
+        self._pump_pending[mid] = entry
+        try:
+            pump.send_json({"id": mid, "method": method, "params": params or {}})
+            if not entry["event"].wait(timeout):
+                raise TimeoutError(f"{method} 响应超时（{timeout}s）")
+            res = entry["result"]
+            if not isinstance(res, dict):
+                raise RuntimeError(f"{method} 无有效响应")
+            if res.get("error"):
+                raise RuntimeError(f"{method} 被拒：{res['error']}")
+            return res.get("result") or {}
+        finally:
+            self._pump_pending.pop(mid, None)
+
+    def _capture_screenshot_jpeg(self) -> bytes:
+        """单帧截图（确定性重采用）：ws 泵通道优先，其次 Playwright CDP 会话，
+        最后 page.screenshot 兜底。返回 JPEG 原始字节。"""
+        import base64 as _b64s
+        params = {"format": "jpeg", "quality": FRAME_JPEG_QUALITY}
+        if getattr(self, "_pump", None) is not None:
+            res = self._pump_cmd("Page.captureScreenshot", params)
+            data = res.get("data")
+            if data:
+                return _b64s.b64decode(data)
+            raise RuntimeError("captureScreenshot 返回空数据")
+        if getattr(self, "_cdp", None) is not None:
+            res = self._cdp.send("Page.captureScreenshot", params)
+            return _b64s.b64decode(res["data"])
+        return self.page.screenshot(type="jpeg", quality=FRAME_JPEG_QUALITY)
+
+    def _det_transition(self, label: str = "") -> bool:
+        """确定性转场重采：触发动画后立即调用（同一线程）。
+
+        pause 所有运行中动画 → 逐帧推进 currentTime + 截图 → finish。帧列登记到
+        self._det_spans，合成前由 _apply_det_spans 替换窗口内实时帧。
+        注意：部分转场是「两段式启动」（先 transition:none 预热 + 双 rAF，之后才
+        创建过渡），触发后动画不会立刻存在 —— 这里最多等 0.5s 轮询到动画出现再
+        pause（轮询期间未 pause 任何东西，无害；起始 currentTime 由 ct 补偿）。
+        返回是否成功；失败时页面动画会被 finish 复位，调用方可继续实时采集。
+        """
+        if not DET_TRANSITION_ENABLED:
+            return False
+        try:
+            info = None
+            _deadline = time.time() + 0.5
+            while True:
+                info = self.page.evaluate(_DET_PAUSE_JS)
+                if (info or {}).get("count"):
+                    break
+                if time.time() >= _deadline:
+                    return False                 # 无动画（纯瞬时上屏类转场）
+                time.sleep(0.02)
+            infos = (info or {}).get("infos") or []
+            if not (info or {}).get("count") or not infos:
+                return False
+            end_ms = min(max((i["delay"] + i["dur"]) for i in infos),
+                         DET_TRANSITION_MAX_DUR * 1000.0)
+            start_ms = max(0.0, min(i["ct"] for i in infos))
+            if end_ms - start_ms < 33.0:         # 不足 2 帧：不值得重采
+                self.page.evaluate(_DET_FINISH_JS)
+                return False
+            n = max(2, int(round((end_ms - start_ms) / 1000.0 * FRAME_CAPTURE_FPS)))
+            t0_wall = time.time()
+            det = []
+            for k in range(n):
+                t_ms = start_ms + (end_ms - start_ms) * (k / float(n))
+                self.page.evaluate(_DET_STEP_JS, t_ms)
+                det.append(self._capture_screenshot_jpeg())
+            t1_wall = time.time()
+            self.page.evaluate(_DET_FINISH_JS)
+            if len(det) < 2:
+                return False
+            off = float(getattr(self, "_audio_offset", 0.0) or 0.0)
+            self._det_spans.append({"t0": t0_wall + off, "t1": t1_wall + off,
+                                    "frames": det})
+            print(f"[转场] {label}: 确定性重采 {len(det)} 帧"
+                  f"（{len(det) / FRAME_CAPTURE_FPS:.2f}s）替换实时段。")
+            return True
+        except Exception as exc:                 # noqa: BLE001
+            print(f"[转场] {label}: 确定性重采失败（{exc}），保持实时采集。")
+            try:
+                self.page.evaluate(_DET_FINISH_JS)
+            except Exception:                    # noqa: BLE001
+                pass
+            return False
+
+    def _apply_det_spans(self, frames):
+        """把确定性重采的帧列按登记窗口替换进帧缓存（stop() 合成前调用）。
+
+        窗口 [t0,t1] 内的实时帧全部丢弃（暂停/步进期间实时帧的节奏是失真的），
+        换成 n 帧、间隔精确 1/60s 的合成帧（ts 自 t0 起排）。窗口外的帧时间戳
+        原样保留 —— 后续帧停顿时长不变；音效映射由帧列表驱动，自动对齐。
+        """
+        spans = getattr(self, "_det_spans", None) or []
+        if not spans:
+            return frames
+        out = sorted(frames, key=lambda f: f[0])
+        for sp in spans:
+            t0, det = sp["t0"], sp["frames"]
+            n = len(det)
+            if n < 2:
+                continue
+            out = [f for f in out if not (t0 <= f[0] < sp["t1"])]
+            step = 1.0 / float(FRAME_CAPTURE_FPS)
+            for k, jpeg_bytes in enumerate(det):
+                out.append((t0 + k * step, jpeg_bytes))
+        out.sort(key=lambda f: f[0])
+        self._det_spans = []
+        return out
+
+    def _start_screencast(self):
+        """开启 CDP screencast（cdp 模式 / 回退路径）：浏览器每个合成帧主动推
+        JPEG，写入 _FRAMES。同步 API 事件只能在 Playwright 调用期间派发，故配合
+        _pump_wait 分片 wait_for_timeout 来收帧。"""
+        if getattr(self, "_cdp", None) is not None:
+            return
+        self._cdp = self.context.new_cdp_session(self.page)
+        self._cdp.on("Page.screencastFrame", self._on_screencast_frame)
+        self._cdp.send("Page.startScreencast", self._screencast_params())
 
     def _on_screencast_frame(self, params):
-        """screencast 推送帧：ack 后把 base64 数据原样写入 _FRAMES（解码延后到合成）。
+        """cdp 模式帧回调：ack 后入库（细节见 _ingest_frame）。"""
+        try:
+            self._cdp.send("Page.screencastFrameAck",
+                           {"sessionId": params["sessionId"]})
+        except Exception:                    # noqa: BLE001
+            pass
+        self._ingest_frame(params)
+
+    def _ingest_frame(self, params):
+        """screencast 帧入库（ws/cdp 两通道共用）：ack 之后由调用方执行。
 
         帧时间直接用 CDP metadata.timestamp（浏览器合成器真实帧交换时刻，秒）。
         VFR 合成时相邻两帧的时间差就是该帧在屏幕上停留的真实时长，按这个节奏
         输出即可消除「CFR 网格重排」造成的时间量化卡顿。
 
         性能关键：这里绝不做 base64 解码/PIL 解码。CDP screencast 是「每帧等
-        ack 才推下一帧」，动画爆发期（转场 60fps 大帧）若在本回调里逐帧解码，
+        ack 才推下一帧」，动画爆发期（转场 60fps 大帧）若在回调里逐帧解码，
         ack 会延迟、浏览器被迫丢帧，录出的转场只剩首尾两帧 + 合成器补帧鬼影。
         base64 字符串直接入缓存（零拷贝），解码统一挪到 _assemble_vfr_mp4
         （离线阶段，慢一点无所谓）。
         """
-        try:
-            self._cdp.send("Page.screencastFrameAck",
-                           {"sessionId": params["sessionId"]})
-        except Exception:                    # noqa: BLE001
-            pass
         try:
             meta = params.get("metadata") or {}
             ts = meta.get("timestamp", time.monotonic())
@@ -5276,7 +5870,9 @@ class WeChatAuto:
             "() => window.__wxTransferDetail && window.__wxTransferDetail.open()")
         if not ok:
             raise RuntimeError("打开转账详情失败：__wxTransferDetail 未注入。")
-        _pump_wait(0.6)
+        # 确定性重采：暂停动画逐帧重采推入过渡（失败自动保持实时采集）
+        self._det_transition("打开转账详情")
+        _pump_wait(0.25)
 
     def accept_transfer(self):
         """在转账详情页点「收款」：内容瞬时切换为已收款（对齐参考视频）。"""
@@ -5296,7 +5892,8 @@ class WeChatAuto:
             "() => window.__wxTransferDetail && window.__wxTransferDetail.close()")
         if not ok:
             raise RuntimeError("关闭转账详情失败：转账详情页未打开。请先 [打开转账详情]。")
-        _pump_wait(0.6)
+        self._det_transition("关闭转账详情")
+        _pump_wait(0.25)
 
     def set_phone_scene(self, mode: str):
         """切换手机状态栏场景（转账参考视频场景 / 默认场景）。"""
