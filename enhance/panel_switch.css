@@ -1,0 +1,93 @@
+/* ============================================================
+   底部三面板「直接切换」（键盘 / 表情 / 更多）——统一驱动层
+   ------------------------------------------------------------
+   参考素材：参考图片/微信聊天框三个界面切换.mp4（真机 iOS 微信，13s）
+   逐帧实测结论（全分辨率 1180×2556，换算到本项目 600×1300 逻辑画布）：
+
+     状态        输入栏顶边  面板高(上移量)   对应本项目
+     收起(聊天底)   2284        0            0
+     键盘           1385      899           513   (513/899×1300 ≈ 742，比例一致)
+     表情           1228     1054           583
+     更多(+)        1565      719           376
+
+     切换动画：输入栏【直接】从 A 位移到 B（不经过收起态），
+     旧面板下滑出屏、新面板同帧上滑入屏，整段 230ms、对称 S 曲线
+     （实测归一化进度 0.43→0.34 / 0.57→0.56，拟合 cubic-bezier(.42,0,.58,1)）。
+     面板【开启/收起】（与收起态之间）用既有路径，不动（保持历史录屏一致）。
+
+   实现要点：切换期间给 body 挂 .wx-pswitch，本文件用 (0,3,2) 特异性的
+   `html body.wx-chat.wx-pswitch ...` 规则压过 chat_exact.css / transfer_ui.css
+   里各面板自己的 (0,3,1) 规则，把「输入栏位移 + 消息区高度」收敛到
+   --ps-h / --ps-sec 两个变量上，由 JS 在同一帧改写 → CSS 过渡直接 A→B 插值。
+   切换结束后摘掉 .wx-pswitch，交还各面板自己的稳态规则（数值一致，无跳变）。
+   ============================================================ */
+
+:root {
+    --ps-h: 0px;                              /* 切换期间输入栏上移量，JS 写 */
+    --ps-sec: 1019px;                         /* 切换期间消息区高度，JS 写 */
+    --ps-dur: 230ms;                          /* 实测 230ms */
+    --ps-ease: cubic-bezier(.42, 0, .58, 1);  /* 实测对称 S 曲线 */
+    --kb-h: 513px;                            /* 键盘高（=输入栏上移量），与 keyboard.css 一致 */
+    /* 「更多」面板输入栏上移量。★ 不是视觉位移 376：kb/emoji 态都把 .dialogue-footer
+       裁到 bar-base(86)（去掉 131 常规态里的 45px 底部安全区尾巴）再平移，
+       attach 态同款处理 → 上移量 = 376(视觉) + 45(尾巴) = 421。
+       否则消息区按 86 算底边会比 footer 顶低 45px，最后一条消息被输入栏盖住。 */
+    --wxp-h: 421px;
+}
+
+/* ---- 切换期间：五个联动件共用同一条时长/曲线，保证「一体刚性升降」---- */
+html body.wx-chat.wx-pswitch .dialogue-footer {
+    /* 输入栏位移统一由 --ps-h 驱动：CSS 过渡会从「当前计算值」直接插值到新值，
+       所以 表情→更多 是 −583 → −376 的一段直线位移，而不是先回 0 再升。 */
+    transform: translateY(calc(-1 * var(--ps-h))) !important;
+    transition: transform var(--ps-dur) var(--ps-ease),
+                height var(--ps-dur) var(--ps-ease) !important;
+}
+html body.wx-chat.wx-pswitch .dialogue-section {
+    /* 消息区底边始终贴着输入栏顶边 → 与输入栏同步收放，最后一条消息不脱队 */
+    height: var(--ps-sec) !important;
+    transition: height var(--ps-dur) var(--ps-ease) !important;
+}
+html body.wx-chat.wx-pswitch #wxkb {
+    /* visibility 也要一起过渡：它是「离散可动画」的——一端为 visible 时整段保持可见，
+       到终点才隐藏。若只过渡 transform，收起键盘会瞬间隐形而不是滑下去。 */
+    transition: transform var(--ps-dur) var(--ps-ease),
+                visibility var(--ps-dur) var(--ps-ease) !important;
+}
+html body.wx-chat.wx-pswitch .wx-emoji-panel {
+    transition: transform var(--ps-dur) var(--ps-ease) !important;
+}
+html body.wx-chat.wx-pswitch #wxTransferPanel {
+    /* 「+」面板本体带 .wx-transfer-mask 的 opacity/visibility 显隐（0.55 黑遮罩那套），
+       覆盖 transition 时要把这两项一起带上，否则关闭瞬间闪没、没有下滑。 */
+    transition: transform var(--ps-dur) var(--ps-ease),
+                opacity var(--ps-dur) var(--ps-ease),
+                visibility var(--ps-dur) var(--ps-ease) !important;
+}
+
+/* ---- 「更多(+)」面板：输入栏上移量改用 --wxp-h（421 = 视觉 376 + 45 尾巴，见 :root 注）----
+   与 kb/emoji 态同款：footer 裁到 bar-base（去掉 45px 安全区尾巴），消息区公式才自洽 */
+html body.wx-chat.wxp-open .dialogue-footer {
+    transform: translateY(calc(-1 * var(--wxp-h, 421px))) !important;
+    height: calc(var(--chat-bar-base, 86px) + var(--chat-grow, 0px)) !important;
+}
+html body.wx-chat.wxp-open .component-dialogue-bar-person {
+    height: calc(var(--chat-bar-base, 86px) + var(--chat-grow, 0px)) !important;
+}
+
+/* ---- 「更多(+)」面板：消息区同样要让位 ----
+   原 transfer_ui.css 只把输入栏上移 −376，没改消息区高度，导致列表最后几条
+   被面板盖住（真机是列表被面板顶上推、最后一条贴输入栏）。这里补上同款公式。 */
+body.wx-chat.wxp-open .dialogue-section {
+    height: calc(100% - 71px - var(--chat-grow, 0px) - var(--wxp-h, 376px) - var(--chat-bar-base, 86px)) !important;
+}
+
+/* ---- 「更多(+)」面板打开时输入栏图标位保持与键盘/表情态一致（2px 基线差抹平）---- */
+body.wx-chat.wxp-open .component-dialogue-bar-person .expression,
+body.wx-chat.wxp-open .component-dialogue-bar-person .more {
+    top: calc(22px + var(--chat-grow, 0px)) !important;
+}
+body.wx-chat.wxp-open .component-dialogue-bar-person .chat-way,
+body.wx-chat.wxp-open .component-dialogue-bar-person .chat-say {
+    top: 12px !important;
+}

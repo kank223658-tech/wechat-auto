@@ -51,14 +51,20 @@
 #wxTransferPanel.open { transform: translateY(0); }
 
 /* 面板打开时输入工具栏整体上移（与面板同时、同曲线，真机实测一体刚性升降）。
-   -376px：输入框顶边落在真机同款位置；面板(z 999981)盖住工具栏底部空白。
+   -421px = 视觉位移 376 + footer 安全区尾巴 45（同 kb/emoji 态把 footer 裁到
+   bar-base(86) 再平移，见 panel_switch.css --wxp-h 注）：
+   输入框顶边落在真机同款位置；面板(z 999981)盖住工具栏底部空白。
    背景必须不透明且与面板同色 #1a1a1a：真机里输入栏+面板是同一张连续深色表面，
    设透明会让聊天头像从输入栏里透出来（穿模）。 */
 body.wx-chat.wxp-open .dialogue-footer {
-    transform: translateY(-376px) !important;
+    transform: translateY(-421px) !important;
+    height: calc(var(--chat-bar-base, 86px) + var(--chat-grow, 0px)) !important;
     background: #1a1a1a !important;
     border-top-color: transparent !important;
     transition: transform .26s cubic-bezier(.22, 1, .36, 1) !important;
+}
+body.wx-chat.wxp-open .component-dialogue-bar-person {
+    height: calc(var(--chat-bar-base, 86px) + var(--chat-grow, 0px)) !important;
 }
 
 #wxTransferPanel .tp-grid {
