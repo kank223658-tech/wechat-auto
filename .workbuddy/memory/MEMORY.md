@@ -7,6 +7,13 @@
 - 录制期间别往 vue-WeChat 写文件（重编译→刷新→死帧）；录后 ffmpeg freezedetect 扫死帧；视频异常用稳定帧全分辨率对比。
 - 改解析/动作后必跑 `_check_fullcover_parse.py`（65/65）。
 - 复用工具（项目根）：`_check_scrollfx/_cmp_frames/_check_hardcut/_check_ghost2/_state_scan/_probe_num/_vg_track4/_vg_final/_check_blank/_probe_mic`、`_snd/_scan_backspace.py`。
+- 回归测试：`py _test_quality_gate.py`(8/8)、`py _test_ws_capture.py`(真 Chrome ws 采集)、`py _test_det_transition.py`(确定性重采)。
+
+## 录制链路三重修复（2026-09-12 落地，e2e 全绿）
+- 采集通道 `CAPTURE_MODE`（默认 ws，WX_CAPTURE_MODE=cdp 回旧路）：Chrome 加 `--remote-debugging-port`，独立线程 `_WsClient`（零依赖手写 ws 客户端）直连页面 target 跑 screencast+ack，帧流不依赖 Playwright 事件派发；断线重连；`_pump_cmd` 主线程可经同一条 ws 发截图命令（pending 表路由）。
+- 质量守门员：`_frame_health` 帧间隔健康度（gap≥0.15s 且前后帧 diff≥0.05 才算掉帧；硬切窗豁免），写 `<mp4>.quality.json`；editor_server `_finalize_task_locked` 读报告自动重录（上限 WX_QUALITY_ATTEMPTS=3）并择优交付、清理废片；只考察本轮 `_launch_ts` 之后的成片。
+- 转场确定性重采 `_det_transition`：pause getAnimations（⚠️两段式启动的动画要轮询等它出现，最多 0.5s）→逐帧 currentTime+截图→finish；`_apply_det_spans` 合成前替换窗口实时帧，音效映射由帧列表驱动自动对齐。已接入打开/关闭转账详情；WX_DET_TRANSITION=0 关。
+- git 推送：直连被重置，**必须走 git 已配置的代理 127.0.0.1:7899**（`-c http.proxy=` 清空反而失败）；大包推送慢，用 run_in_background。
 
 ## 真实渲染器
 - 真渲染器=`py main.py --editmode --headless --liveport 8001`（改 enhance 后须重启）；`/shot.jpeg` 缓存帧（先 tap 再取）；`/api/tap|type|pick|edit|scroll|back|scene`；真帧 600×1300。验证实例=8002+`--scene scene.json`（发现 Tab≈362,1210、我≈487,1210、通讯录≈225,1210；通讯录路由 '#/contact'；朋友圈格≈200,190）。
