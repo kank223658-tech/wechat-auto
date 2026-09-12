@@ -369,10 +369,10 @@ body, #app { background: #181818 !important; }
     z-index: 9;
     box-shadow: none !important;
 }
-/* 默认参考数据里「陆香儿」未读数参与标题总数，但参考图不显示角标。
-   旧实现按 .list-row:nth-child(3) 硬编码行号隐藏，会误伤用户历史会话里
-   排在第 3 位的联系人（如「香儿」），导致其未读角标不显示。
-   这里不再按行号隐藏，改为在 config.js 里按「陆香儿」精确处理。 */
+/* 历史遗留说明：旧版参考数据靠隐藏固定行号角标来对齐参考图，会误伤
+   用户历史会话里同位置的联系人。现在会话列表完全由场景数据驱动，
+   角标显隐由 config.js 按每条会话的 unread 动态计算，这里仅保留
+   免打扰行的样式兜底。 */
 #wechat .wechat-list .list-row:nth-child(4) .desc-mute,
 #wechat .wechat-list .list-row:nth-child(5) .desc-mute { display: none !important; }
 

@@ -35,16 +35,19 @@
     const MOMENTS_ID = 'wxPeerMoments';
 
     /* ---------- 数据 ---------- */
-    const FALLBACK_AVATAR = '/images/header/header01.png';
+    const FALLBACK_AVATAR = '/images/avatar/2_20260831_184618_874.jpg';
 
     const defaults = () => ({
-        name: '陆香儿',
-        wxid: 'luxianger',
-        area: '广东 深圳',
+        /* 旧版兜底人设（陆香儿/luxianger/广东 深圳）已清理。
+           真实身份来自 __wxConfig.getPeer()：场景 peer 数据，或按场景人物
+           名字随机生成的「女性 8 位微信号 + 大城市」（见 config.js genPeerDefaults） */
+        name: '微信好友',
+        wxid: '',
+        area: '',
         gender: 0,
         avatar: FALLBACK_AVATAR,
         signature: '',
-        cover: '/images/bg/cover.jpg',
+        cover: '/images/peer/peer_cover.jpg',
         momentsThumbs: [],
         video: null,
         posts: [],
@@ -98,7 +101,8 @@
             '    <img class="wpp-avatar" alt="">' +
             '    <div class="wpp-meta">' +
             '      <div class="wpp-name"><span class="wpp-name-t"></span><i class="wpp-gender"></i></div>' +
-            '      <div class="wpp-wxid"></div>' +
+            '      <div class="wpp-nick"></div>' +
+'      <div class="wpp-wxid"></div>' +
             '      <div class="wpp-area"></div>' +
             '    </div>' +
             '  </div>' +
@@ -106,7 +110,7 @@
             '    <div class="wpp-cell wpp-friend-cell">' +
             '      <div class="wpp-cell-main">' +
             '        <div class="wpp-cell-title">朋友资料</div>' +
-            '        <div class="wpp-cell-desc">添加朋友的备注名、电话、标签、备忘、照片等，并设置朋友权限。</div>' +
+            '        <div class="wpp-cell-desc">添加朋友的备注名、电话、标签、备注、照片等，并设置朋友权限。</div>' +
             '      </div>' +
             '      <span class="wpp-arrow"></span>' +
             '    </div>' +
@@ -153,12 +157,50 @@
         const g = root.querySelector('.wpp-gender');
         g.classList.toggle('male', Number(p.gender) === 1);
         g.classList.toggle('female', Number(p.gender) !== 1);
-        root.querySelector('.wpp-wxid').textContent = '微信号：' + (p.wxid || '');
-        root.querySelector('.wpp-area').textContent = '地区：' + (p.area || '');
+        g.style.display = (Number(p.gender) === 1 || Number(p.gender) === 2) ? '' : 'none';
+        const nickEl = root.querySelector('.wpp-nick');
+        if (p.nickname) { nickEl.textContent = '昵称:' + p.nickname; nickEl.style.display = ''; }
+        else { nickEl.textContent = ''; nickEl.style.display = 'none'; }
+        root.querySelector('.wpp-wxid').textContent = '微信号:' + (p.wxid || '');
+        const areaEl = root.querySelector('.wpp-area');
+        areaEl.textContent = '地区:' + (p.area || '');
+        areaEl.style.display = p.area ? '' : 'none';
         // 朋友圈缩略图（参考视频：最多 5 张，74px 方图）
+        // 与人物实际朋友圈联动，保证脚本前后一致：
+        //   1) 人物自己的动态 p.posts（对方朋友圈页同一数据源）
+        //   2) 全场景朋友圈里 author==本人物名的帖子（脚本跑视频前加入的图片）
+        //   3) 显式 momentsThumbs 兜底（旧脚本兼容）
         const thumbs = root.querySelector('.wpp-moments-cell .wpp-thumbs');
         thumbs.innerHTML = '';
-        (p.momentsThumbs || []).slice(0, 5).forEach((src) => {
+        const thumbSrcs = (function () {
+            const out = [];
+            const push = function (src) {
+                src = String(src || '');
+                if (src && out.indexOf(src) < 0) out.push(src);
+            };
+            const fromPosts = function (posts) {
+                (posts || []).forEach(function (post) {
+                    const v = postVideo(post);
+                    if (v && v.cover) push(v.cover);
+                    (post.images || []).forEach(function (im) {
+                        push(typeof im === 'string' ? im : (im && (im.src || im.url || '')));
+                    });
+                });
+            };
+            fromPosts(p.posts);
+            if (!out.length && p.name && window.__wxConfig &&
+                    typeof window.__wxConfig.getMomentsPosts === 'function') {
+                const all = window.__wxConfig.getMomentsPosts();
+                if (Array.isArray(all)) {
+                    fromPosts(all.filter(function (m) {
+                        return String((m && (m.author || m.name)) || '') === p.name;
+                    }));
+                }
+            }
+            if (!out.length) (p.momentsThumbs || []).forEach(push);
+            return out;
+        })();
+        thumbSrcs.slice(0, 5).forEach((src) => {
             const im = el('img');
             im.src = src;
             thumbs.appendChild(im);
@@ -191,9 +233,15 @@
         root.setAttribute('aria-hidden', 'true');
         root.innerHTML =
             '<div class="wpm-scroll">' +
+            // 顶部导航（20260912 与「我的朋友圈」同款）：sticky 吸顶 124px（状态栏58+导航66），
+            // 整块随 --pnav-a 淡入（rgba 27,27,27），标题=对方昵称，返回箭头常显。
+            // 平时全透明盖在封面上，封面滚出后黑条+标题同步淡入——真机一致。
+            '  <div class="wpm-nav">' +
+            '    <span class="wpm-nav-back" data-peer-back></span>' +
+            '    <span class="wpm-nav-title"></span>' +
+            '  </div>' +
             '  <div class="wpm-cover">' +
             '    <img class="wpm-cover-img" alt="">' +
-            '    <span class="wpm-back" data-peer-back></span>' +
             '    <div class="wpm-cover-bottom">' +
             '      <div class="wpm-name"></div>' +
             '      <img class="wpm-avatar" alt="">' +
@@ -206,6 +254,13 @@
         void root.offsetWidth;   // 同上：首次创建时也要能从右侧滑入，而不是直接弹出
         const back = root.querySelector('[data-peer-back]');
         if (back) back.addEventListener('click', () => back());
+        // 下滑 → 导航黑条/标题淡入（窗口对准封面底 537 扫过导航底 124：y=413 完成）
+        const sc = root.querySelector('.wpm-scroll');
+        if (sc) sc.addEventListener('scroll', () => {
+            const y = sc.scrollTop || 0;
+            const a = Math.max(0, Math.min(1, (y - 313) / 100));
+            sc.style.setProperty('--pnav-a', a.toFixed(3));
+        }, { passive: true });
         return root;
     }
 
@@ -321,6 +376,7 @@
         const p = peer();
         root.querySelector('.wpm-cover-img').src = p.cover || '';
         root.querySelector('.wpm-name').textContent = p.name || '';
+        root.querySelector('.wpm-nav-title').textContent = p.name || '';
         root.querySelector('.wpm-avatar').src = p.avatar || FALLBACK_AVATAR;
         const sig = root.querySelector('.wpm-signature');
         sig.textContent = p.signature || '';

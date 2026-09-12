@@ -572,9 +572,8 @@ body, #app { background: #111 !important; }
 #moments .moments__post .timestamp { color: #5a5a5e !important; }
 #moments .moments__post .liketext { background: #1c1c1e !important; }
 #moments .moments__post .liketext .nickname { color: #6aa1ff !important; }
-/* 评论输入条 */
-#commentBar { background: #1c1c1e !important; border-top-color: #2e2e30 !important; }
-#commentBar input { background: #2e2e30 !important; color: #fff !important; border-color: #2e2e30 !important; }
+/* 评论输入条：旧深色主题规则已删 —— 外观由 moments_exact.css §八全权接管
+   （513 键盘上方深色细条），此处不再写任何 #commentBar 规则以免将来漏穿。 */
 .comment-entry { color: #fff !important; }
 .comment-entry b { color: #6aa1ff !important; }
 
@@ -699,15 +698,8 @@ input::placeholder, textarea::placeholder { color: #9a9aa2 !important; }
     color: #c8c8ce !important;
 }
 
-/* ---- 朋友圈评论输入条：#commentInput 同款胶囊 ---- */
-#commentBar input {
-    height: 34px !important;
-    border: none !important;
-    border-radius: 8px !important;
-    padding: 0 12px !important;
-    font-size: 15px !important;
-    outline: none !important;
-}
+/* 旧「#commentBar input 胶囊」规则已删（moments_exact.css §八接管，输入区为
+   通栏透明细条 + 76×34 发送键，无胶囊框）。 */
 
 /* ---- 发朋友圈正文：#mcText 对齐 ---- */
 #momentCompose #mcText {
@@ -940,7 +932,7 @@ body {
    ------------------------------------------------------------
    真机深色微信下所有行间分隔线、底边都应是暗灰或透明，绝不能是白色。
    这里强制主页聊天列表行分隔线、及对话页/朋友圈底部任何可能露白的
-   伪元素为暗色，消除用户截图里「陆香儿行下方 / 视频最下方」的白色横线。
+   伪元素为暗色，消除列表行下方 / 视频最下方可能出现的白色横线。
    ============================================================ */
 #wechat .wechat-list .list-row::before,
 #wechat .wechat-list .list-row::after,

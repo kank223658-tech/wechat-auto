@@ -1,0 +1,1073 @@
+[
+ {
+  "action": "打开聊天",
+  "category": "聊天",
+  "icon": "💬",
+  "desc": "从聊天列表点击进入指定会话",
+  "params": [
+   {
+    "key": "联系人",
+    "label": "联系人名称",
+    "type": "text",
+    "placeholder": "如：孙权",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "我方打字",
+  "category": "聊天",
+  "icon": "⌨️",
+  "desc": "手机键盘动画打字 + 回车发送",
+  "params": [
+   {
+    "key": "内容",
+    "label": "要输入的内容",
+    "type": "textarea",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "打字不发",
+  "category": "聊天",
+  "icon": "✍️",
+  "desc": "打出文字但不发送（停留展示，可配合删除）",
+  "params": [
+   {
+    "key": "内容",
+    "label": "要输入的内容",
+    "type": "textarea",
+    "default": ""
+   },
+   {
+    "key": "停留",
+    "label": "停留秒数",
+    "type": "number",
+    "default": "1.5"
+   }
+  ]
+ },
+ {
+  "action": "删除文字",
+  "category": "聊天",
+  "icon": "⌫",
+  "desc": "按退格键删除输入框字符（-1 = 清空）",
+  "params": [
+   {
+    "key": "数量",
+    "label": "删除字符数（-1 清空）",
+    "type": "text",
+    "default": "-1"
+   }
+  ]
+ },
+ {
+  "action": "对方正在输入",
+  "category": "聊天",
+  "icon": "⏳",
+  "desc": "聊天头部显示「对方正在输入...」",
+  "params": [
+   {
+    "key": "秒数",
+    "label": "显示秒数",
+    "type": "number",
+    "default": "1.2"
+   }
+  ]
+ },
+ {
+  "action": "对方发消息",
+  "category": "聊天",
+  "icon": "📨",
+  "desc": "对方逐字打字（含打错退回）后以左侧白气泡上屏，不再是瞬间复制",
+  "params": [
+   {
+    "key": "内容",
+    "label": "消息内容",
+    "type": "textarea",
+    "default": ""
+   },
+   {
+    "key": "头像",
+    "label": "对方头像（可空）",
+    "type": "text",
+    "placeholder": "如：/images/header/yehua.jpg",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "对方后台发消息",
+  "category": "聊天",
+  "icon": "📩",
+  "desc": "给当前不在看的会话投递对方消息，画面不变，仅刷新该会话在主页的预览+未读角标（返回主页可看到）；内容以 [图片] 开头时变成图片气泡",
+  "params": [
+   {
+    "key": "联系人",
+    "label": "目标会话联系人",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "内容",
+    "label": "消息内容（[图片] 开头=图片消息）",
+    "type": "textarea",
+    "default": ""
+   },
+   {
+    "key": "图片",
+    "label": "配图路径（图片消息用，可空）",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "头像",
+    "label": "对方头像（可空）",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "发送者",
+    "label": "群聊发送者名（可空）",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "置顶",
+    "label": "来消息置顶",
+    "type": "select",
+    "options": [
+     "是",
+     "否"
+    ],
+    "default": "是"
+   }
+  ]
+ },
+ {
+  "action": "后台消息队列",
+  "category": "聊天",
+  "icon": "📬",
+  "desc": "装载一批后台消息并立刻在后台发出去：执行到这一行时，队列里每条消息马上投递给对应会话，刷新主页预览+未读角标，之后打开该会话即可看到（不再按秒/步延迟）",
+  "params": [
+   {
+    "key": "数据",
+    "label": "JSON 数组，形如 [{联系,内容,头像,置顶}]",
+    "type": "textarea",
+    "placeholder": "[{\"联系\":\"陆香儿\",\"内容\":\"图片怎么发您\"}]",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "查看图片",
+  "category": "聊天",
+  "icon": "🔍",
+  "desc": "点开一张图片放大查看：全屏放大动画 + 手抖停留 + 自动关闭",
+  "params": [
+   {
+    "key": "图片",
+    "label": "图片路径",
+    "type": "text",
+    "placeholder": "如：/images/header/yehua.jpg",
+    "default": ""
+   },
+   {
+    "key": "停留",
+    "label": "停留秒数（可空）",
+    "type": "number",
+    "default": "0.3"
+   },
+   {
+    "key": "焦点",
+    "label": "放大位置 x,y（可空）",
+    "type": "text",
+    "placeholder": "如 0.35,0.4",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "返回主页",
+  "category": "导航",
+  "icon": "🏠",
+  "desc": "切回聊天列表主页（转场动画结束后默认再停留 0.3s）",
+  "params": [
+   {
+    "key": "停留",
+    "label": "转场后主页等待秒数（默认可空）",
+    "type": "number",
+    "default": "0.3"
+   }
+  ]
+ },
+ {
+  "action": "切换Tab",
+  "category": "导航",
+  "icon": "🧭",
+  "desc": "点击底部 Tab",
+  "params": [
+   {
+    "key": "Tab",
+    "label": "Tab 名称",
+    "type": "select",
+    "options": [
+     "微信",
+     "通讯录",
+     "发现",
+     "我"
+    ],
+    "default": "微信"
+   }
+  ]
+ },
+ {
+  "action": "隐藏键盘",
+  "category": "导航",
+  "icon": "🙈",
+  "desc": "收起手机键盘",
+  "params": []
+ },
+ {
+  "action": "进入朋友圈",
+  "category": "朋友圈",
+  "icon": "📖",
+  "desc": "从发现页进入朋友圈",
+  "params": []
+ },
+ {
+  "action": "打开对方主页",
+  "category": "个人主页",
+  "icon": "👤",
+  "desc": "点对方消息头像 → 推入「对方个人资料页」（头像/昵称/微信号/地区/朋友资料/朋友圈缩略图/视频号/发消息）",
+  "params": [
+   {
+    "key": "对方",
+    "label": "人设名（可空，留空用场景里配置的对方）",
+    "type": "text",
+    "placeholder": "如：餐车老板娘·吴遂卿",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "进入对方朋友圈",
+  "category": "个人主页",
+  "icon": "🌅",
+  "desc": "点资料页「朋友圈」行 → 右滑推入对方朋友圈（全屏封面 + 昵称头像签名 + 动态列表）",
+  "params": []
+ },
+ {
+  "action": "打开对方设置",
+  "category": "个人主页",
+  "icon": "⚙️",
+  "desc": "点资料页右上角「…」推入联系人设置页（编辑备注/设置权限/推荐给朋友/星标/加入黑名单/投诉/删除联系人，深色样式复刻参考视频）",
+  "params": [
+   {
+    "key": "对方",
+    "label": "人设名（可空，留空用场景里配置的对方）",
+    "type": "text",
+    "placeholder": "如：餐车老板娘·吴遂卿",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "加入黑名单",
+  "category": "个人主页",
+  "icon": "🚫",
+  "desc": "拉黑全过程动画：拨「加入黑名单」开关变绿 → 底部弹起确认弹窗（确定/取消）→ 点确定弹窗收起 → 中央「正在加载」加载动画，复刻参考视频全过程",
+  "params": [
+   {
+    "key": "确认",
+    "label": "弹窗点哪个按钮",
+    "type": "select",
+    "options": [
+     "确定",
+     "取消"
+    ],
+    "default": "确定"
+   },
+   {
+    "key": "加载秒",
+    "label": "「正在加载」显示秒数",
+    "type": "number",
+    "default": "1.4"
+   },
+   {
+    "key": "停留",
+    "label": "结束停留秒数",
+    "type": "number",
+    "default": "0.8"
+   }
+  ]
+ },
+ {
+  "action": "移出黑名单",
+  "category": "个人主页",
+  "icon": "✅",
+  "desc": "把已拉黑的联系人移出黑名单：开关关掉 → 确认弹窗（文案为移出版本）→ 确定 → 「正在加载」加载动画",
+  "params": [
+   {
+    "key": "确认",
+    "label": "弹窗点哪个按钮",
+    "type": "select",
+    "options": [
+     "确定",
+     "取消"
+    ],
+    "default": "确定"
+   },
+   {
+    "key": "加载秒",
+    "label": "「正在加载」显示秒数",
+    "type": "number",
+    "default": "1.4"
+   },
+   {
+    "key": "停留",
+    "label": "结束停留秒数",
+    "type": "number",
+    "default": "0.8"
+   }
+  ]
+ },
+ {
+  "action": "返回上一页",
+  "category": "个人主页",
+  "icon": "↩️",
+  "desc": "对方朋友圈 → 对方资料页 → 聊天页（iOS 推出转场）",
+  "params": []
+ },
+ {
+  "action": "闪回聊天",
+  "category": "个人主页",
+  "icon": "⚡",
+  "desc": "硬切回聊天界面：瞬间隐藏「我的朋友圈」或「对方主页/朋友圈」（不做滑出转场），观感等同视频剪辑的一次切镜，随后可继续录制；「回到」填联系人时，闪回后直接进该会话",
+  "params": [
+   {
+    "key": "停留",
+    "label": "切完后停留秒数（可空，默认 0.12）",
+    "type": "number",
+    "default": "0.12"
+   },
+   {
+    "key": "回到",
+    "label": "闪回后进入的会话（可空=只回聊天列表）",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "闪白",
+    "label": "切镜时闪一帧白（剪辑感更强）",
+    "type": "select",
+    "options": [
+     "否",
+     "是"
+    ],
+    "default": "否"
+   }
+  ]
+ },
+ {
+  "action": "编辑对方资料",
+  "category": "个人主页",
+  "icon": "🧩",
+  "desc": "整体替换「对方」的资料与朋友圈（昵称/微信号/地区/头像/封面/签名/朋友圈缩略图/视频号/动态全部可配）；动态里加 video 即为视频动态（朋友圈里显示播放角标，可点开全屏播放）",
+  "params": [
+   {
+    "key": "数据",
+    "label": "预设名 / JSON 对象 / .json 路径",
+    "type": "textarea",
+    "placeholder": "{\"name\":\"吴遂卿\",\"wxid\":\"LSDH-WSQ\",\"area\":\"广东 佛山\",\"gender\":0,\"avatar\":\"/images/peer/peer_avatar.jpg\",\"signature\":\"随心随性\",\"cover\":\"/images/peer/peer_cover.jpg\",\"posts\":[{\"date\":\"10 6月\",\"images\":[\"/images/peer/peer_p1.jpg\"],\"text\":\"偶尔玩下 蛮好\"},{\"date\":\"08 6月\",\"video\":\"/videos/demo.mp4\",\"cover\":\"/images/peer/peer_v1.jpg\",\"text\":\"随手拍的海\"}]}",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "向下滚动",
+  "category": "朋友圈",
+  "icon": "⬇️",
+  "desc": "自然滚动指定像素（我的朋友圈 / 对方朋友圈均可）",
+  "params": [
+   {
+    "key": "像素",
+    "label": "像素",
+    "type": "number",
+    "default": "300"
+   }
+  ]
+ },
+ {
+  "action": "向上滚动",
+  "category": "朋友圈",
+  "icon": "⬆️",
+  "desc": "向上滚动指定像素（我的朋友圈 / 对方朋友圈均可）",
+  "params": [
+   {
+    "key": "像素",
+    "label": "像素",
+    "type": "number",
+    "default": "300"
+   }
+  ]
+ },
+ {
+  "action": "滚动到",
+  "category": "朋友圈",
+  "icon": "↕️",
+  "desc": "把朋友圈滚到顶部或底部（对方朋友圈优先，没开时用我的朋友圈）",
+  "params": [
+   {
+    "key": "位置",
+    "label": "位置",
+    "type": "select",
+    "options": [
+     "底部",
+     "顶部"
+    ],
+    "default": "底部"
+   }
+  ]
+ },
+ {
+  "action": "点开图片",
+  "category": "朋友圈",
+  "icon": "🔍",
+  "desc": "点开朋友圈动态里的配图全屏查看（对方朋友圈优先，没开时用我的朋友圈）；序号写「2」=第2条第1张，写「2,3」=第2条第3张",
+  "params": [
+   {
+    "key": "序号",
+    "label": "第几条动态,第几张图（可空，默认 1,1）",
+    "type": "text",
+    "placeholder": "如：2,3",
+    "default": "1"
+   },
+   {
+    "key": "停留",
+    "label": "停留秒数（可空=默认）",
+    "type": "number",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "播放视频",
+  "category": "朋友圈",
+  "icon": "▶️",
+  "desc": "点开朋友圈视频全屏播放（停留后自动关闭）；留空「视频」则点开当前打开的朋友圈里第 N 个视频动态（对方朋友圈优先，没开时用我的朋友圈）",
+  "params": [
+   {
+    "key": "视频",
+    "label": "视频地址（可空，留空=点开朋友圈里的视频）",
+    "type": "text",
+    "placeholder": "如：/videos/demo.mp4",
+    "default": ""
+   },
+   {
+    "key": "序号",
+    "label": "第几个视频动态（留空视频时生效）",
+    "type": "number",
+    "default": "1"
+   },
+   {
+    "key": "停留",
+    "label": "播放停留秒数（可空=按视频时长）",
+    "type": "number",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "点赞",
+  "category": "朋友圈",
+  "icon": "👍",
+  "desc": "复刻真机点赞：弹出「···」两格菜单（♥赞/💬评论）→ 点「赞」→ 菜单收起 + 点赞条弹出；「序号」留空 = 最后一条动态",
+  "params": [
+   {
+    "key": "序号",
+    "label": "第几条动态（留空=最后一条）",
+    "type": "number",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "评论",
+  "category": "朋友圈",
+  "icon": "💬",
+  "desc": "复刻真机评论：弹出「···」菜单点「评论」→ 输入条随键盘滑入 → 键盘动画打字 → 点「发送」后评论弹进点赞/评论条",
+  "params": [
+   {
+    "key": "内容",
+    "label": "评论内容",
+    "type": "textarea",
+    "default": ""
+   },
+   {
+    "key": "序号",
+    "label": "第几条动态（留空=最后一条）",
+    "type": "number",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "发朋友圈",
+  "category": "朋友圈",
+  "icon": "✏️",
+  "desc": "发表文字朋友圈（键盘打字 + 发表上屏）",
+  "params": [
+   {
+    "key": "内容",
+    "label": "朋友圈文案",
+    "type": "textarea",
+    "default": ""
+   },
+   {
+    "key": "图片",
+    "label": "配图路径（可空）",
+    "type": "text",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "编辑朋友圈",
+  "category": "朋友圈",
+  "icon": "🖼️",
+  "desc": "重建「我的朋友圈」动态（作者/文案/配图/视频/点赞/评论全可配）；也支持对象形式 {me:{...}, posts:[...]} 一次同时改主页资料",
+  "params": [
+   {
+    "key": "数据",
+    "label": "JSON 数组、{me,posts} 对象或 .json 文件路径",
+    "type": "textarea",
+    "placeholder": "[{\"author\":\"陆香儿\",\"text\":\"...\",\"images\":[\"/images/peer/peer_p1.jpg\"],\"likes\":[\"陆香儿\"]},{\"author\":\"陆香儿\",\"text\":\"随手拍的海\",\"video\":\"/videos/demo.mp4\",\"cover\":\"/images/peer/peer_v1.jpg\"}]",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "编辑我的资料",
+  "category": "个人资料",
+  "icon": "🧑",
+  "desc": "编辑「我」的主页资料：昵称 / 头像 / 朋友圈封面 / 个性签名（主页列表、通讯录、朋友圈同步更新）",
+  "params": [
+   {
+    "key": "数据",
+    "label": "JSON 对象或 .json 文件路径",
+    "type": "textarea",
+    "placeholder": "{\"name\":\"阿荡\",\"avatar\":\"/images/avatar/2_20260831_184618_874.jpg\",\"bg\":\"/images/peer/peer_cover.jpg\",\"signature\":\"填坑小能手\"}",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "设置头像",
+  "category": "个人资料",
+  "icon": "🪪",
+  "desc": "修改头像（所有位置即时更新）",
+  "params": [
+   {
+    "key": "图片",
+    "label": "头像图片路径",
+    "type": "text",
+    "placeholder": "如：/images/header/header02.jpg",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "设置背景",
+  "category": "个人资料",
+  "icon": "🖼️",
+  "desc": "修改朋友圈封面背景",
+  "params": [
+   {
+    "key": "图片",
+    "label": "背景图片路径",
+    "type": "text",
+    "placeholder": "如：/images/bg/bg02.jpg",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "修改昵称",
+  "category": "个人资料",
+  "icon": "🏷️",
+  "desc": "修改我的昵称（主页列表、通讯录、朋友圈同步更新）",
+  "params": [
+   {
+    "key": "昵称",
+    "label": "新昵称",
+    "type": "text",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "修改签名",
+  "category": "个人资料",
+  "icon": "✒️",
+  "desc": "修改我的个性签名（同步到通讯录 / 我的资料）",
+  "params": [
+   {
+    "key": "签名",
+    "label": "个性签名",
+    "type": "text",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "编辑主页",
+  "category": "主页",
+  "icon": "🏠",
+  "desc": "按数据重建聊天列表主页：支持私聊/群聊/未读/免打扰，可一次配多个会话，之后用「打开聊天」逐个进入",
+  "params": [
+   {
+    "key": "数据",
+    "label": "JSON 数组或 .json 文件路径",
+    "type": "textarea",
+    "placeholder": "[{\"name\":\"孙权\",\"text\":\"容我三思\",\"avatar\":\"/images/header/sunquan.jpg\"},{\"group\":\"收购万达讨论群\",\"text\":\"今晚八点开会\",\"members\":[\"阿荡\",\"夜华\"],\"newMsgCount\":2}]",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "发送图片",
+  "category": "聊天",
+  "icon": "🖼️",
+  "desc": "我方在聊天里发送一张图片（真实气泡）；「打开」为是则发送后自动点开放大查看再关闭",
+  "params": [
+   {
+    "key": "图片",
+    "label": "图片路径",
+    "type": "text",
+    "placeholder": "如：/images/header/yehua.jpg",
+    "default": ""
+   },
+   {
+    "key": "打开",
+    "label": "是否点开查看",
+    "type": "select",
+    "options": [
+     "否",
+     "是"
+    ],
+    "default": "否"
+   },
+   {
+    "key": "停留",
+    "label": "查看停留秒数（可空）",
+    "type": "number",
+    "default": "0.3"
+   },
+   {
+    "key": "焦点",
+    "label": "放大位置 x,y（可空）",
+    "type": "text",
+    "placeholder": "如 0.35,0.4",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "对方发图片",
+  "category": "聊天",
+  "icon": "🖼️",
+  "desc": "对方发送一张图片；「打开」为是则上屏后自动点开放大查看再关闭",
+  "params": [
+   {
+    "key": "图片",
+    "label": "图片路径",
+    "type": "text",
+    "placeholder": "如：/images/header/sunquan.jpg",
+    "default": ""
+   },
+   {
+    "key": "打开",
+    "label": "是否点开查看",
+    "type": "select",
+    "options": [
+     "否",
+     "是"
+    ],
+    "default": "否"
+   },
+   {
+    "key": "停留",
+    "label": "查看停留秒数（可空）",
+    "type": "number",
+    "default": "0.3"
+   },
+   {
+    "key": "焦点",
+    "label": "放大位置 x,y（可空）",
+    "type": "text",
+    "placeholder": "如 0.35,0.4",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "发送表情",
+  "category": "聊天",
+  "icon": "🖼️",
+  "desc": "我方发表情贴纸（小尺寸贴纸气泡）；配图选哪张就发哪张",
+  "params": [
+   {
+    "key": "表情",
+    "label": "表情图片路径",
+    "type": "text",
+    "placeholder": "如：/images/myemoji/xxx.png",
+    "default": ""
+   },
+   {
+    "key": "发送后",
+    "label": "发完后底部面板去向",
+    "type": "select",
+    "options": [
+     "自动",
+     "键盘",
+     "收起"
+    ],
+    "default": "自动"
+   }
+  ]
+ },
+ {
+  "action": "对方表情",
+  "category": "聊天",
+  "icon": "🖼️",
+  "desc": "对方发来表情贴纸；配图选哪张就上屏哪张",
+  "params": [
+   {
+    "key": "表情",
+    "label": "表情图片路径",
+    "type": "text",
+    "placeholder": "如：/images/myemoji/xxx.png",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "对方后台发表情",
+  "category": "聊天",
+  "icon": "🖼️",
+  "desc": "给未打开的会话投递对方表情，刷新主页预览/角标",
+  "params": [
+   {
+    "key": "联系人",
+    "label": "目标会话联系人",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "表情",
+    "label": "表情图片路径",
+    "type": "text",
+    "placeholder": "如：/images/myemoji/xxx.png",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "发送emoji",
+  "category": "聊天",
+  "icon": "😀",
+  "desc": "我方发送 emoji 小表情（微信新版 3D 黄脸表情，弹笑脸面板→逐个点选→发送，全真机动画）。表情写名称/别名/编号，多个用逗号分隔（逐个进输入框后一次发送）。全部可用名称及含义见 /images/wxemoji3d/names.json（微笑/呲牙/大笑/爱心/捂脸/握手/墨镜/害羞/皱眉/花痴/流汗/生气/羞涩/闭嘴/惊恐/装酷/大哭/调皮/憨笑/哭泣/委屈/愤怒/难过/尴尬/抓狂/惊讶/无语/困/恐惧，或 1~29 编号，或「随机」）",
+  "params": [
+   {
+    "key": "表情",
+    "label": "emoji 名称/编号",
+    "type": "text",
+    "placeholder": "如：害羞 / 呲牙 / 3 / 3,5,8 / 随机",
+    "default": ""
+   },
+   {
+    "key": "发送后",
+    "label": "发完后底部面板去向",
+    "type": "select",
+    "options": [
+     "自动",
+     "键盘",
+     "收起"
+    ],
+    "default": "自动"
+   }
+  ]
+ },
+ {
+  "action": "对方emoji",
+  "category": "聊天",
+  "icon": "😀",
+  "desc": "对方发来 emoji 小表情（直接上屏左侧气泡）。表情写名称/编号/随机，可用名称见 /images/wxemoji3d/names.json",
+  "params": [
+   {
+    "key": "表情",
+    "label": "emoji 名称/编号",
+    "type": "text",
+    "placeholder": "如：捂脸 / 5 / 随机",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "发送语音",
+  "category": "聊天",
+  "icon": "🎙️",
+  "desc": "我方发送语音消息（时长决定波形长短）",
+  "params": [
+   {
+    "key": "秒数",
+    "label": "语音秒数",
+    "type": "number",
+    "default": "3"
+   }
+  ]
+ },
+ {
+  "action": "对方语音",
+  "category": "聊天",
+  "icon": "🎙️",
+  "desc": "对方发送语音消息",
+  "params": [
+   {
+    "key": "秒数",
+    "label": "语音秒数",
+    "type": "number",
+    "default": "3"
+   }
+  ]
+ },
+ {
+  "action": "撤回我的消息",
+  "category": "聊天",
+  "icon": "↩️",
+  "desc": "撤回我方最后一条消息，显示系统提示",
+  "params": []
+ },
+ {
+  "action": "对方撤回消息",
+  "category": "聊天",
+  "icon": "↩️",
+  "desc": "对方撤回一条消息，显示系统提示",
+  "params": []
+ },
+ {
+  "action": "转发消息",
+  "category": "聊天",
+  "icon": "🔁",
+  "desc": "我方转发一条消息（转发：内容）",
+  "params": [
+   {
+    "key": "内容",
+    "label": "转发内容",
+    "type": "textarea",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "切换底部面板",
+  "category": "聊天",
+  "icon": "🎛️",
+  "desc": "直接切换聊天页底部面板（键盘/表情/更多/收起），不退回聊天底部；输入栏 230ms 对称 S 曲线直接位移，旧面板下滑、新面板同帧上滑（复刻参考视频「微信聊天框三个界面切换.mp4」）",
+  "params": [
+   {
+    "key": "面板",
+    "label": "目标面板",
+    "type": "select",
+    "options": [
+     "键盘",
+     "表情",
+     "更多",
+     "收起"
+    ],
+    "default": "键盘"
+   },
+   {
+    "key": "停留",
+    "label": "切换后停留秒数（可空，默认 0.3）",
+    "type": "number",
+    "default": "0.3"
+   }
+  ]
+ },
+ {
+  "action": "面板切换序列",
+  "category": "聊天",
+  "icon": "🎞️",
+  "desc": "按给定节奏「一口气」连续切换底部三面板（键盘/表情/更多/收起），精确定时复刻参考视频的整段切换；定时在浏览器端完成，节奏可逐帧对齐。序列每项 = {面板, 停留}：立刻切到「面板」，停留 N 秒再执行下一项。",
+  "params": [
+   {
+    "key": "序列",
+    "label": "序列（JSON 数组，元素含 面板/停留）",
+    "type": "textarea",
+    "default": "[{\"面板\":\"收起\",\"停留\":1.83},{\"面板\":\"键盘\",\"停留\":1.75},{\"面板\":\"表情\",\"停留\":1.25},{\"面板\":\"更多\",\"停留\":1.7},{\"面板\":\"收起\",\"停留\":1.65},{\"面板\":\"表情\",\"停留\":1.65},{\"面板\":\"键盘\",\"停留\":1.4},{\"面板\":\"更多\",\"停留\":1.5}]"
+   }
+  ]
+ },
+ {
+  "action": "打开转账面板",
+  "category": "聊天",
+  "icon": "➕",
+  "desc": "点聊天输入栏「+」弹出功能面板（照片/转账/红包等，对齐参考图1）",
+  "params": []
+ },
+ {
+  "action": "转账金额",
+  "category": "聊天",
+  "icon": "💰",
+  "desc": "真实转账流程：功能面板→金额页输金额/说明→转账→6位密码→橙色转账卡片",
+  "params": [
+   {
+    "key": "接收人",
+    "label": "接收人（聊天对象名）",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "金额",
+    "label": "转账金额",
+    "type": "text",
+    "default": "50.00"
+   },
+   {
+    "key": "备注",
+    "label": "备注（可空）",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "密码",
+    "label": "支付密码（6位数字）",
+    "type": "text",
+    "default": "123456"
+   }
+  ]
+ },
+ {
+  "action": "转账",
+  "category": "聊天",
+  "icon": "💰",
+  "desc": "我方发送一笔转账（绿色转账卡片：谁 + 金额 + 备注）",
+  "params": [
+   {
+    "key": "接收人",
+    "label": "接收人（聊天对象名）",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "金额",
+    "label": "转账金额",
+    "type": "text",
+    "default": "50.00"
+   },
+   {
+    "key": "备注",
+    "label": "备注（可空）",
+    "type": "text",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "对方转账",
+  "category": "聊天",
+  "icon": "💰",
+  "desc": "对方发来一笔转账（左侧转账卡片）",
+  "params": [
+   {
+    "key": "接收人",
+    "label": "接收人",
+    "type": "text",
+    "default": ""
+   },
+   {
+    "key": "金额",
+    "label": "转账金额",
+    "type": "text",
+    "default": "50.00"
+   },
+   {
+    "key": "备注",
+    "label": "备注（可空）",
+    "type": "text",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "打开转账详情",
+  "category": "聊天",
+  "icon": "🧾",
+  "desc": "点击对方转账卡片，打开转账详情页（右滑推入，深色页面）",
+  "params": []
+ },
+ {
+  "action": "接收转账",
+  "category": "聊天",
+  "icon": "✅",
+  "desc": "在转账详情页点「接收」：瞬时切换为已收款（绿色对勾+已存入零钱）",
+  "params": []
+ },
+ {
+  "action": "关闭转账详情",
+  "category": "聊天",
+  "icon": "↩️",
+  "desc": "点返回箭头，转账详情页右滑退出回聊天页",
+  "params": []
+ },
+ {
+  "action": "手机状态栏",
+  "category": "聊天",
+  "icon": "📱",
+  "desc": "切换状态栏场景：转账=参考视频状态栏（03:14+灵动岛微信绿标+录屏红点），默认=恢复 18:36",
+  "params": [
+   {
+    "key": "模式",
+    "label": "模式",
+    "type": "select",
+    "options": [
+     "转账",
+     "默认"
+    ],
+    "default": "转账"
+   }
+  ]
+ },
+ {
+  "action": "@成员",
+  "category": "聊天",
+  "icon": "👥",
+  "desc": "在输入框 @ 成员（弹出键盘，内容保留在输入框）",
+  "params": [
+   {
+    "key": "昵称",
+    "label": "成员昵称",
+    "type": "text",
+    "placeholder": "如：夜华",
+    "default": ""
+   }
+  ]
+ },
+ {
+  "action": "等待",
+  "category": "系统",
+  "icon": "⏱️",
+  "desc": "自然等待指定秒数",
+  "params": [
+   {
+    "key": "秒数",
+    "label": "等待秒数",
+    "type": "number",
+    "default": "1"
+   }
+  ]
+ }
+]

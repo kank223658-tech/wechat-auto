@@ -21,7 +21,6 @@ weixin-auto\
 ├── editor\index.html     # 编辑器界面（工作流编辑 + 脚本模式）
 ├── enhance\              # 注入式前端增强：手机键盘/配置/朋友圈扩展/样式
 ├── script.txt            # 旧版文本剧本（仍可用）
-├── demo_multi.py         # 演示剧本：多轮聊天 + 切换聊天 + 朋友圈评论，生成视频
 ├── scene.json            # 独立场景编辑器读写的数据（我的资料+会话消息+朋友圈）
 ├── editor\scene.html     # 独立场景编辑器（可放大、点选即改、编排联系人/消息）
 ├── workflow.json         # 可视化编辑器保存的工作流（运行入口）
@@ -91,13 +90,13 @@ python main.py --headless --speed 2   # 无头 + 2 倍速（更快出片）
 ### 方式三：脚本模式（内置 DeepSeek 剧本转译引擎）
 
 在编辑器顶部切到 **脚本模式**：粘贴剧本（标准格式或松散自然语言），点
-**AI 转译剧本** 由内置 DeepSeek 大模型（`deepseek-v4-flash`）自动补全仿真动作，
+**AI 转译剧本** 由内置 DeepSeek 大模型（`deepseek-flash`）自动补全仿真动作，
 预览确认后一键运行录屏。没有 API Key 时自动降级为离线规则解析，标准格式剧本照常可用。
 
 使用流程：
 
 1. 顶部切到 **脚本模式**，点 **⚙ 配置大模型** 填入 DeepSeek API Key（模型默认
-   `deepseek-v4-flash`，可改为 `deepseek-chat` 等）。Key 只保存在本机
+   `deepseek-flash`，可改为 `deepseek-v4-pro` 等）。Key 只保存在本机
    `settings.json`，界面不回显明文；也可以设置环境变量 `DEEPSEEK_API_KEY` 代替。
 2. 在左侧大文本框粘贴剧本。既支持标准指令格式（见下表），也支持自然语言叙述，例如：
    > 我和陆香儿聊了下周聚餐的事，她说周三有空，我回复好的到时候见。
@@ -123,9 +122,9 @@ python main.py --headless --speed 2   # 无头 + 2 倍速（更快出片）
   **同类别（美女→美女、学员→学员）** 的库中人物，整段对话内容原样保留，只换人名，并优先
   挑这个剧本里还没用过的人。库中没有同类别可替换时才保留原名并给出提示。
 - **判定类别**：人名里含「学员 / 学生 / 同学 / 粉丝」等字样 → 归入**学员**；否则 → **美女**。
-- **系统默认联系人**（陆香儿、妍、微信支付、梓康群、公众号、服务号、微信团队、沉默光环、D）
-  是前端真实存在的人，转译时**不会被替换**，但也建议给他们在场景编辑器选好头像后点
-  「保存到人物库」，否则历史会话里会走默认头像。
+- **联系人名的唯一来源是人物库 `people.json`**（美女 / 学员 两类）。剧本里写的人名若在
+  人物库中，直接沿用其名字和头像；不在库中则被自动替换成**同类别**的库中人物（学员→学员、
+  美女→美女）。当前场景（`scene.json`）里已有的联系人同样可以直接用。
 
 > 提示：想让某个库外名字不被替换，就把它加进人物库（在场景编辑器「👥 人物库」新增，或在
 > 「会话」给联系人选头像后点顶栏「💾 保存到人物库」），转译时就会沿用这个名字和头像。
@@ -210,8 +209,8 @@ start_all.bat scene
 | `[设置背景]` | 图片路径 | 修改朋友圈封面背景 |
 | `[等待]` | 秒数 | 自然等待 |
 
-以 `#` 开头的行是注释。可用图片：`/images/header/header01.png`、`/images/bg/bg02.jpg` 等
-（见 `vue-WeChat/public/images/`），也可放自定义图片到该目录后填写路径。
+以 `#` 开头的行是注释。可用图片需放在 `vue-WeChat/public/images/` 下（如
+`/images/avatar/`、`/images/bg/` 里的真实文件，可在场景编辑器图片库中查看），也可自行放图片到该目录后填写路径。
 
 > 🎬 对方主页 / 对方朋友圈：`[编辑对方资料]` 的数据里，`posts[]` 每条动态可写
 > `date` / `images[]` / `text`，加一个 `video` 字段就是视频动态——
@@ -234,10 +233,10 @@ start_all.bat scene
 > （`内容 | 时间`），与「停留/插话」的 `|` 共用时段时可写 `[打字不发] 内容 | 0.3 | 18:20`。
 > 注意：`[打字不发]` 只是"打字不发"、消息不上屏，因此不显示时间分隔条。
 
-> ⚠️ 联系人名：运行时会用 `enhance/config.js` 的 `DEFAULT_HOME` 重建首页会话列表，
-> 因此 `[打开聊天]` 只能填这些真实存在的名字——微信支付 / 梓康群 / 陆香儿 / 服务号 / 公众号 /
-> 微信团队 / 沉默光环 / D / 妍（旧示例里的「孙权」「孙尚香2」已不存在，用了会报错）。
-> 想要其它名字，先在流程里加一步 `[编辑主页]`（数据见 `reference_workflow.json`）重建列表。
+> ⚠️ 联系人名：系统**没有**硬编码的默认联系人名单——首页会话列表由 `scene.json` 场景数据
+> 重建，人物名与头像以**人物库 `people.json`** 为唯一来源（库外名字在 AI 转译时会被自动
+> 替换成同类别库中人物）。直接运行文本剧本时，`[打开聊天]` 只能填当前场景里真实存在的
+> 名字，或先在流程里加一步 `[编辑主页]`（数据见 `reference_workflow.json`）重建列表。
 
 > 💬 后台消息：`[对方后台发消息] 陆香儿 | 内容` 给「当前不在看的会话」投递对方消息，画面不变，
 > 只把该会话在主页的预览和未读角标（含底部「微信」角标、标题「微信 (N)」）刷新，之后 `[返回主页]`
@@ -247,7 +246,8 @@ start_all.bat scene
 > 需存在于主页列表，转译/运行前会自动补进 `[编辑主页]`。
 
 直接跑一段完整演示（多轮聊天 + 切换聊天 + 朋友圈点赞评论并录屏）：
-`py demo_multi.py`，或 `py main.py --script script.txt`。
+`py main.py --script script.txt`（另有 `script_moments.txt` 朋友圈、`script_peer_moments.txt`
+对方朋友圈等示例剧本）。
 
 ## 五、实现说明
 
@@ -255,12 +255,13 @@ start_all.bat scene
   中文用 `pypinyin` 转拼音，逐个敲拼音键后弹出候选词条，点击候选上屏；真实键盘事件仍由
   Playwright 发出，保证输入框内容与画面一致。
 - **剧本转译**：`script_translator.py` 用标准库 `urllib` 调 DeepSeek `chat/completions`
-  （OpenAI 兼容，模型 `deepseek-v4-flash`），只输出 JSON 动作数组；无 Key / 网络失败 /
+  （OpenAI 兼容，模型 `deepseek-flash`），只输出 JSON 动作数组；无 Key / 网络失败 /
   解析失败时自动降级为 `main.parse_script_text()` 的规则解析，别名归一后照样可用。
 - **录屏**：整个流程在同一个 Playwright context 内执行，单条录制，结束后 ffmpeg 转码 MP4。
 - **可编辑化**：`enhance/config.js` 维护个人资料（头像/昵称/背景）与朋友圈数据，
   通过 `data-me-avatar` 等标记即时同步到页面所有位置。
-- **打字节奏**：`main.py` 顶部常量区可调（速度、标点停顿、打错回删概率、键盘按键保持时长等）。
+- **打字节奏**：`main.py` 顶部常量区可调（速度、标点停顿、键盘按键保持时长等）。打字动画
+  **永不出现打错回删**（已从代码中彻底移除），`[删除文字]` 动作不受影响。
 
 ## 六、拼音候选 / 苹果表情 构建与回滚
 
@@ -270,7 +271,6 @@ start_all.bat scene
 ```bat
 py build_rime_dict.py            :: 可选：下载/解析 Rime 明月拼音词典 -> enhance/rime/rime_data.json（有本地缓存则跳过，断网回退 jieba）
 py build_wusong_dict.py          :: 可选：下载/解析雾凇拼音(rime-ice)词典 -> enhance/rime-ice/wusong_data.json（真实语料词频，显著提升候选排序）
-py fetch_apple_emoji.py          :: 可选：按 enhance/emoji_map.json 下载苹果 emoji 到 vue-WeChat/public/images/emoji/，并生成 enhance/emoji_map.js
 py build_pinyin_dict.py          :: 必选：合并 jieba + Rime + 雾凇 + curated 高频词，重建 enhance/pinyin_data.js
 ```
 
@@ -286,7 +286,9 @@ restore_candidate_backup.bat           :: 回滚到最近一次备份（双击�
 py restore_candidate_backup.py --list  :: 列出所有备份
 ```
 
-> 手动编辑 `enhance/emoji_map.json`（词 -> emoji）可扩充表情联想；随后重跑 `fetch_apple_emoji.py` 下载缺图并重新生成 `emoji_map.js`。
+> 手动编辑 `enhance/emoji_map.json`（词 -> emoji）可扩充表情联想；苹果 emoji 图片已在
+> `vue-WeChat/public/images/emoji/`，配套 `enhance/emoji_map.js` 直接手改即可
+> （原 `fetch_apple_emoji.py` 下载脚本已移除）。
 
 ## 七、Rime WASM 引擎（雾凇）预编译缓存
 
@@ -295,16 +297,13 @@ py restore_candidate_backup.py --list  :: 列出所有备份
 但 Rime 引擎每次录屏都是**全新浏览器 context**（无持久 profile，IndexedDB 不跨录屏保留），
 而部署雾凇需要 `deploy()` 现场把词典编译成 `.bin`，冷部署要几十秒（本机约 16s，另一台实测 68~72s）。
 
-为让录屏不再等部署，可**一次性预编译并缓存 build 产物**，之后每次录屏秒级就绪：
-
-```bat
-py _capture_build.py   :: 一次性：起 headless Chromium，雾凇 deploy() 后把 /rime/build/* 存到 vue-WeChat/public/engine/rime-ice/build/
-py _measure_rime.py local   :: 可选：量引擎就绪耗时，并生成 worker_local.js（把引擎文件改为本地加载）
-```
+为让录屏不再等部署，可**一次性预编译并缓存 build 产物**，之后每次录屏秒级就绪。
+预编译产物已缓存在 `vue-WeChat/public/engine/rime-ice/build/`（当年用一次性脚本
+`_capture_build.py` 生成，该脚本与 `_measure_rime.py` 已清理，无需再跑）。
 
 原理与约定：
 
-- **预编译产物**：`_capture_build.py` 把一次 `deploy()` 的 `/rime/build/*.bin` 静态打包到
+- **预编译产物**：一次性脚本把一次 `deploy()` 的 `/rime/build/*.bin` 静态打包到
   `vue-WeChat/public/engine/rime-ice/build/`（含约 59MB 的 `rime_ice.table.bin`、`rime_ice.prism.bin`、
   `rime_ice.reverse.bin`、`rime_ice.schema.yaml`、`default.yaml`）。
 - **启动写回**：`main.py::_rime_bootstrap_js()` 先写源 yaml/dict 到 `/rime/`，再把这些预编译 `.bin`
@@ -315,4 +314,4 @@ py _measure_rime.py local   :: 可选：量引擎就绪耗时，并生成 worker
 - **回退**：若 `vue-WeChat/public/engine/rime-ice/build/` 缺文件，`deploy()` 自动回退到冷编译（慢但可用）。
 - **体积**：预编译产物约 60MB 本地静态资源，可接受（原本也要下载源词典）。
 
-> 引擎文件来自 `@libreservice/my-rime`（AGPL-3.0-or-later），部署逻辑见 `engine_poc/PROJECT.md`。
+> 引擎文件来自 `@libreservice/my-rime`（AGPL-3.0-or-later）。

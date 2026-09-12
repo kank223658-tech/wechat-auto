@@ -1,0 +1,16 @@
+{
+  "me": { "name": "d", "avatar": "/images/avatar/2_20260831_184618_874.jpg" },
+  "home": [
+    {
+      "name": "陆香儿",
+      "messages": [
+        { "dir": "peer", "kind": "text", "text": "我今晚好想哭，我要哭一晚。" },
+        { "dir": "me", "kind": "text", "text": "哭什么" },
+        { "dir": "peer", "kind": "emoji", "image": "/images/wxemoji3d/e01.png" },
+        { "dir": "me", "kind": "emoji", "image": "/images/wxemoji3d/e03.png" },
+        { "dir": "peer", "kind": "emoji", "image": "/images/emoji/1f300.png" },
+        { "dir": "me", "kind": "image", "image": "/images/asset/e25.png" }
+      ]
+    }
+  ]
+}

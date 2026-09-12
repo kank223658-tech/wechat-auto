@@ -1,0 +1,1356 @@
+{
+  "说明": "微信新版 3D emoji 对照表（共 110 个）。剧本 [发送emoji] / [对方emoji] 用名称或编号引用；编号即 idx（= 文件 eNN 序号，1~110）,名称匹配 name 或 aliases（支持包含匹配）；多个用逗号分隔；写「随机」则随机选一个。",
+  "面板": "笑脸 tab；idx 1~7 为「最近使用」行；「所有表情」网格的显示顺序见 order 字段（黄脸在前、旧版黄脸居中、手势/物品/企鹅在后），order 里是文件名列表。",
+  "emoji": [
+    {
+      "idx": 1,
+      "file": "e01.png",
+      "url": "/images/wxemoji3d/e01.png",
+      "name": "大笑",
+      "aliases": [
+        "开怀大笑",
+        "乐",
+        "哈哈",
+        "哈哈哈"
+      ],
+      "desc": "眯眼张嘴大笑。真心开心、被逗乐，安全通用"
+    },
+    {
+      "idx": 2,
+      "file": "e02.png",
+      "url": "/images/wxemoji3d/e02.png",
+      "name": "捂脸",
+      "aliases": [
+        "捂脸笑"
+      ],
+      "desc": "手捂脸。尴尬、无语、哭笑不得；也=自嘲没眼看"
+    },
+    {
+      "idx": 3,
+      "file": "e03.png",
+      "url": "/images/wxemoji3d/e03.png",
+      "name": "笑哭",
+      "aliases": [
+        "哭了",
+        "笑出眼泪"
+      ],
+      "desc": "笑出眼泪。使用率最高：爆笑、缓解尴尬、无奈自嘲"
+    },
+    {
+      "idx": 4,
+      "file": "e04.png",
+      "url": "/images/wxemoji3d/e04.png",
+      "name": "爱心",
+      "aliases": [
+        "红心",
+        "心"
+      ],
+      "desc": "红爱心。喜欢、表白、感谢"
+    },
+    {
+      "idx": 5,
+      "file": "e05.png",
+      "url": "/images/wxemoji3d/e05.png",
+      "name": "握手",
+      "aliases": [
+        "合作"
+      ],
+      "desc": "两手相握。合作、友好、客套寒暄"
+    },
+    {
+      "idx": 6,
+      "file": "e06.png",
+      "url": "/images/wxemoji3d/e06.png",
+      "name": "害羞",
+      "aliases": [
+        "羞羞",
+        "不好意思"
+      ],
+      "desc": "眯眼脸红笑。不好意思、腼腆、害羞"
+    },
+    {
+      "idx": 7,
+      "file": "e07.png",
+      "url": "/images/wxemoji3d/e07.png",
+      "name": "得意",
+      "aliases": [
+        "嘚瑟",
+        "墨镜脸",
+        "得意洋洋"
+      ],
+      "desc": "墨镜斜嘴笑。嘚瑟、炫耀、就这还不简单"
+    },
+    {
+      "idx": 8,
+      "file": "e08.png",
+      "url": "/images/wxemoji3d/e08.png",
+      "name": "微笑",
+      "aliases": [
+        "嗨",
+        "你好"
+      ],
+      "desc": "嘴角上扬眼朝下。官方=友好礼貌；实际=敷衍、呵呵、话题终结（长辈发=友好，年轻人发多为负面）"
+    },
+    {
+      "idx": 9,
+      "file": "e09.png",
+      "url": "/images/wxemoji3d/e09.png",
+      "name": "皱眉",
+      "aliases": [
+        "困惑",
+        "为难"
+      ],
+      "desc": "八字眉撇嘴。为难、发愁、有点烦"
+    },
+    {
+      "idx": 10,
+      "file": "e10.png",
+      "url": "/images/wxemoji3d/e10.png",
+      "name": "色",
+      "aliases": [
+        "花痴",
+        "爱心眼",
+        "眼冒爱心",
+        "心动"
+      ],
+      "desc": "爱心眼流口水。花痴：对颜值/美食心动，夸好看好吃"
+    },
+    {
+      "idx": 11,
+      "file": "e11.png",
+      "url": "/images/wxemoji3d/e11.png",
+      "name": "瞪眼",
+      "aliases": [
+        "怒视",
+        "生气瞪眼"
+      ],
+      "desc": "瞪大双眼。惊讶瞪眼、就这？、震惊"
+    },
+    {
+      "idx": 12,
+      "file": "e12.png",
+      "url": "/images/wxemoji3d/e12.png",
+      "name": "酷",
+      "aliases": [
+        "墨镜",
+        "帅气",
+        "装酷"
+      ],
+      "desc": "墨镜淡定微笑。酷、帅、稳、低调有型"
+    },
+    {
+      "idx": 13,
+      "file": "e13.png",
+      "url": "/images/wxemoji3d/e13.png",
+      "name": "大哭",
+      "aliases": [
+        "痛哭"
+      ],
+      "desc": "直线眼双泪柱。崩溃大哭、破防了、哭死"
+    },
+    {
+      "idx": 15,
+      "file": "e15.png",
+      "url": "/images/wxemoji3d/e15.png",
+      "name": "闭嘴",
+      "aliases": [
+        "保密",
+        "封嘴"
+      ],
+      "desc": "拉链嘴。住口、不想听、闭嘴吧你（熟人玩笑）"
+    },
+    {
+      "idx": 16,
+      "file": "e16.png",
+      "url": "/images/wxemoji3d/e16.png",
+      "name": "睡觉",
+      "aliases": [
+        "睡",
+        "睡了"
+      ],
+      "desc": "闭眼冒Z。困了、晚安；也=不想聊了、下线"
+    },
+    {
+      "idx": 17,
+      "file": "e17.png",
+      "url": "/images/wxemoji3d/e17.png",
+      "name": "嚎啕大哭",
+      "aliases": [
+        "放声大哭",
+        "泪飞"
+      ],
+      "desc": "皱眼嚎啕。大受打击、嚎啕痛哭"
+    },
+    {
+      "idx": 18,
+      "file": "e18.png",
+      "url": "/images/wxemoji3d/e18.png",
+      "name": "憋屈",
+      "aliases": [
+        "委屈红了眼",
+        "急了",
+        "眼含热泪"
+      ],
+      "desc": "橙脸含泪抿嘴。憋屈、委屈红了眼、有苦说不出"
+    },
+    {
+      "idx": 19,
+      "file": "e19.png",
+      "url": "/images/wxemoji3d/e19.png",
+      "name": "发怒",
+      "aliases": [
+        "愤怒",
+        "生气",
+        "暴怒"
+      ],
+      "desc": "红脸皱眉。生气、冒火、暴怒（比发火更红）"
+    },
+    {
+      "idx": 20,
+      "file": "e20.png",
+      "url": "/images/wxemoji3d/e20.png",
+      "name": "调皮",
+      "aliases": [
+        "吐舌",
+        "眨眼"
+      ],
+      "desc": "眨眼吐舌。开玩笑、俏皮、捣蛋、皮一下"
+    },
+    {
+      "idx": 21,
+      "file": "e21.png",
+      "url": "/images/wxemoji3d/e21.png",
+      "name": "憨笑",
+      "aliases": [
+        "咧嘴笑"
+      ],
+      "desc": "眯眼露齿憨笑。傻乐、憨憨地笑、没心没肺"
+    },
+    {
+      "idx": 22,
+      "file": "e22.png",
+      "url": "/images/wxemoji3d/e22.png",
+      "name": "惊恐",
+      "aliases": [
+        "吓到",
+        "吓死"
+      ],
+      "desc": "瞪眼张嘴发抖。吓到、害怕、毛骨悚然"
+    },
+    {
+      "idx": 23,
+      "file": "e23.png",
+      "url": "/images/wxemoji3d/e23.png",
+      "name": "难过",
+      "aliases": [
+        "低落"
+      ],
+      "desc": "八字眉瘪嘴。伤心、低落、难过"
+    },
+    {
+      "idx": 24,
+      "file": "e24.png",
+      "url": "/images/wxemoji3d/e24.png",
+      "name": "尴尬",
+      "aliases": [
+        "哭笑不得"
+      ],
+      "desc": "斜眼脸红僵笑。尴尬、冷场、脚趾抠地"
+    },
+    {
+      "idx": 25,
+      "file": "e25.png",
+      "url": "/images/wxemoji3d/e25.png",
+      "name": "抓狂",
+      "aliases": [
+        "崩溃"
+      ],
+      "desc": "双手抱头抓狂。烦躁到极点、崩溃边缘"
+    },
+    {
+      "idx": 26,
+      "file": "e26.png",
+      "url": "/images/wxemoji3d/e26.png",
+      "name": "惊讶",
+      "aliases": [
+        "吃惊",
+        "受惊了",
+        "意外"
+      ],
+      "desc": "挑眉瞪眼。惊到、没想到、怎么回事"
+    },
+    {
+      "idx": 27,
+      "file": "e27.png",
+      "url": "/images/wxemoji3d/e27.png",
+      "name": "无语",
+      "aliases": [
+        "撇嘴",
+        "斜眼"
+      ],
+      "desc": "斜眼平嘴。无语、懒得说、服了"
+    },
+    {
+      "idx": 28,
+      "file": "e28.png",
+      "url": "/images/wxemoji3d/e28.png",
+      "name": "困",
+      "aliases": [
+        "犯困",
+        "没精神"
+      ],
+      "desc": "半闭眼下垂。犯困、没睡醒、迷糊"
+    },
+    {
+      "idx": 29,
+      "file": "e29.png",
+      "url": "/images/wxemoji3d/e29.png",
+      "name": "恐惧",
+      "aliases": [
+        "害怕"
+      ],
+      "desc": "橙脸惊叫冒汗。吓傻了、极度害怕"
+    },
+    {
+      "idx": 30,
+      "file": "e30.png",
+      "url": "/images/wxemoji3d/e30.png",
+      "name": "翻白眼",
+      "aliases": [
+        "眼睛向上看",
+        "望天"
+      ],
+      "desc": "眼珠上翻。嫌弃、不屑、给你个眼神自己体会（负面）"
+    },
+    {
+      "idx": 31,
+      "file": "e31.png",
+      "url": "/images/wxemoji3d/e31.png",
+      "name": "开心",
+      "aliases": [
+        "乐开花",
+        "眉开眼笑"
+      ],
+      "desc": "闭眼咧嘴大笑。乐开花、特别高兴"
+    },
+    {
+      "idx": 32,
+      "file": "e32.png",
+      "url": "/images/wxemoji3d/e32.png",
+      "name": "大兵",
+      "aliases": [
+        "钢盔",
+        "士兵",
+        "军盔",
+        "悠闲"
+      ],
+      "desc": "绿军帽墨镜。淡定、悠闲、听我指挥（官方悠闲=大兵抽烟脸）"
+    },
+    {
+      "idx": 33,
+      "file": "e33.png",
+      "url": "/images/wxemoji3d/e33.png",
+      "name": "咒骂",
+      "aliases": [
+        "骂人",
+        "暴躁",
+        "怒骂",
+        "爆粗口"
+      ],
+      "desc": "皱眉大吼喷口水。爆粗口、气到骂人（负面）"
+    },
+    {
+      "idx": 34,
+      "file": "e34.png",
+      "url": "/images/wxemoji3d/e34.png",
+      "name": "疑问",
+      "aliases": [
+        "什么",
+        "问号"
+      ],
+      "desc": "托腮问号。什么情况、没听懂、？"
+    },
+    {
+      "idx": 35,
+      "file": "e35.png",
+      "url": "/images/wxemoji3d/e35.png",
+      "name": "嘘",
+      "aliases": [
+        "安静",
+        "小声点"
+      ],
+      "desc": "手指竖唇。安静、保密、别说了"
+    },
+    {
+      "idx": 36,
+      "file": "e36.png",
+      "url": "/images/wxemoji3d/e36.png",
+      "name": "晕",
+      "aliases": [
+        "头晕",
+        "眼花"
+      ],
+      "desc": "漩涡眼。被绕晕、晕头转向、服气到晕"
+    },
+    {
+      "idx": 37,
+      "file": "e37.png",
+      "url": "/images/wxemoji3d/e37.png",
+      "name": "黑脸哭",
+      "aliases": [
+        "乌鸦脸",
+        "黑脸"
+      ],
+      "desc": "黑脸瞪眼掉泪。无语到发黑、又气又伤心（衰）"
+    },
+    {
+      "idx": 38,
+      "file": "e38.png",
+      "url": "/images/wxemoji3d/e38.png",
+      "name": "骷髅",
+      "aliases": [
+        "死了",
+        "凉了"
+      ],
+      "desc": "骷髅头。死了、笑死、累死（我已阵亡）"
+    },
+    {
+      "idx": 39,
+      "file": "e39.png",
+      "url": "/images/wxemoji3d/e39.png",
+      "name": "煎蛋锅",
+      "aliases": [
+        "敲蒙了",
+        "嗡嗡"
+      ],
+      "desc": "煎蛋锅。=「菜」：技术差、被嫌弃菜（嘲讽）"
+    },
+    {
+      "idx": 40,
+      "file": "e40.png",
+      "url": "/images/wxemoji3d/e40.png",
+      "name": "再见",
+      "aliases": [
+        "拜拜",
+        "挥手",
+        "友尽",
+        "送客"
+      ],
+      "desc": "睁眼举手道别。拜拜、告辞；网络义=友尽、不想聊了、送客（负面含义为主）"
+    },
+    {
+      "idx": 41,
+      "file": "e41.png",
+      "url": "/images/wxemoji3d/e41.png",
+      "name": "冷汗",
+      "aliases": [
+        "尴尬汗",
+        "流汗"
+      ],
+      "desc": "斜眼冒冷汗。尴尬冒汗、紧张、心虚"
+    },
+    {
+      "idx": 42,
+      "file": "e42.png",
+      "url": "/images/wxemoji3d/e42.png",
+      "name": "抠鼻",
+      "aliases": [
+        "抠鼻",
+        "挖鼻",
+        "不屑"
+      ],
+      "desc": "手指挖鼻孔。不屑、爱谁谁、无所谓（轻蔑）"
+    },
+    {
+      "idx": 43,
+      "file": "e43.png",
+      "url": "/images/wxemoji3d/e43.png",
+      "name": "拜托",
+      "aliases": [
+        "求求了",
+        "恳求"
+      ],
+      "desc": "双手合十脸红。拜托拜托、求求了、求你"
+    },
+    {
+      "idx": 44,
+      "file": "e44.png",
+      "url": "/images/wxemoji3d/e44.png",
+      "name": "呲牙",
+      "aliases": [
+        "傻笑",
+        "咧嘴乐",
+        "露齿笑"
+      ],
+      "desc": "咧嘴露齿笑。傻笑、客套笑；对长辈用安全，平辈=敷衍"
+    },
+    {
+      "idx": 45,
+      "file": "e45.png",
+      "url": "/images/wxemoji3d/e45.png",
+      "name": "小得意",
+      "aliases": [
+        "傲娇",
+        "翘尾巴",
+        "小得意",
+        "嘚瑟笑"
+      ],
+      "desc": "挑眉斜嘴翘下巴。傲娇、小得意、嘚瑟"
+    },
+    {
+      "idx": 46,
+      "file": "e46.png",
+      "url": "/images/wxemoji3d/e46.png",
+      "name": "鄙视",
+      "aliases": [
+        "鄙视你",
+        "倒拇指",
+        "拇指朝下",
+        "差评"
+      ],
+      "desc": "双拇指朝下。官方=鄙视、看不起；网络=差评、不认可（比翻白眼更冲）"
+    },
+    {
+      "idx": 47,
+      "file": "e47.png",
+      "url": "/images/wxemoji3d/e47.png",
+      "name": "委屈",
+      "aliases": [
+        "委屈巴巴",
+        "委屈哭了",
+        "捂嘴"
+      ],
+      "desc": "皱眉双手捂嘴。委屈、委屈巴巴、眼泪打转"
+    },
+    {
+      "idx": 48,
+      "file": "e48.png",
+      "url": "/images/wxemoji3d/e48.png",
+      "name": "快哭了",
+      "aliases": [
+        "要哭了",
+        "愁哭了",
+        "眼泪打转"
+      ],
+      "desc": "耷拉眼角撇嘴。快哭了、马上要哭了、很委屈"
+    },
+    {
+      "idx": 49,
+      "file": "e49.png",
+      "url": "/images/wxemoji3d/e49.png",
+      "name": "阴险",
+      "aliases": [
+        "眯眼笑",
+        "奸笑",
+        "窃笑"
+      ],
+      "desc": "眯眼咧嘴奸笑。嘿嘿、不怀好意、憋着坏（调侃用）"
+    },
+    {
+      "idx": 50,
+      "file": "e50.png",
+      "url": "/images/wxemoji3d/e50.png",
+      "name": "亲亲",
+      "aliases": [
+        "嘟嘴",
+        "么么",
+        "亲一个"
+      ],
+      "desc": "闭眼噘嘴。么么哒、亲亲、撒娇"
+    },
+    {
+      "idx": 51,
+      "file": "e51.png",
+      "url": "/images/wxemoji3d/e51.png",
+      "name": "可怜",
+      "aliases": [
+        "可怜巴巴",
+        "求你了",
+        "眼泪汪汪",
+        "撒娇"
+      ],
+      "desc": "水汪汪大眼托脸。可怜巴巴、求你了、卖惨撒娇（🥺 同款）"
+    },
+    {
+      "idx": 52,
+      "file": "e52.png",
+      "url": "/images/wxemoji3d/e52.png",
+      "name": "感冒",
+      "aliases": [
+        "生病",
+        "口罩",
+        "戴口罩",
+        "不舒服"
+      ],
+      "desc": "白口罩。感冒了、不舒服、注意防护"
+    },
+    {
+      "idx": 53,
+      "file": "e53.png",
+      "url": "/images/wxemoji3d/e53.png",
+      "name": "脸红",
+      "aliases": [
+        "脸红瞪眼",
+        "羞愤",
+        "瞪眼红脸",
+        "社死"
+      ],
+      "desc": "瞪眼脸通红。被说中了、又羞又恼、社死现场"
+    },
+    {
+      "idx": 54,
+      "file": "e54.png",
+      "url": "/images/wxemoji3d/e54.png",
+      "name": "天啊",
+      "aliases": [
+        "抱头",
+        "吓蒙",
+        "吓傻",
+        "OMG"
+      ],
+      "desc": "抱头惊叫。天啊、OMG、大受震撼、吓傻"
+    },
+    {
+      "idx": 55,
+      "file": "e55.png",
+      "url": "/images/wxemoji3d/e55.png",
+      "name": "闭眼无语",
+      "aliases": [
+        "闭眼",
+        "懒得看"
+      ],
+      "desc": "闭眼平嘴。沉默、不想说话、告辞"
+    },
+    {
+      "idx": 56,
+      "file": "e56.png",
+      "url": "/images/wxemoji3d/e56.png",
+      "name": "失望",
+      "aliases": [
+        "沮丧",
+        "蔫了",
+        "伤心"
+      ],
+      "desc": "闭眼皱眉。失望、蔫了、提不起劲"
+    },
+    {
+      "idx": 57,
+      "file": "e57.png",
+      "url": "/images/wxemoji3d/e57.png",
+      "name": "举手",
+      "aliases": [
+        "我来",
+        "抢答"
+      ],
+      "desc": "单手高举。我来！、抢答、报名、选我"
+    },
+    {
+      "idx": 59,
+      "file": "e59.png",
+      "url": "/images/wxemoji3d/e59.png",
+      "name": "甜笑",
+      "aliases": [
+        "温柔笑",
+        "暖暖的"
+      ],
+      "desc": "弯眼温柔笑。甜甜的笑、暖、宠溺"
+    },
+    {
+      "idx": 60,
+      "file": "e60.png",
+      "url": "/images/wxemoji3d/e60.png",
+      "name": "机智",
+      "aliases": [
+        "坏笑",
+        "机灵",
+        "小机灵"
+      ],
+      "desc": "手托下巴斜眼。机智、灵机一动、有主意"
+    },
+    {
+      "idx": 61,
+      "file": "e61.png",
+      "url": "/images/wxemoji3d/e61.png",
+      "name": "羞笑",
+      "aliases": [
+        "甜甜的笑",
+        "脸红笑"
+      ],
+      "desc": "弯眼脸红笑。害羞又开心、腼腆一笑"
+    },
+    {
+      "idx": 62,
+      "file": "e62.png",
+      "url": "/images/wxemoji3d/e62.png",
+      "name": "耶",
+      "aliases": [
+        "耶",
+        "拍照",
+        "比耶"
+      ],
+      "desc": "双手比耶。耶！、合影打卡、开心到飞起"
+    },
+    {
+      "idx": 63,
+      "file": "e63.png",
+      "url": "/images/wxemoji3d/e63.png",
+      "name": "吃瓜",
+      "aliases": [
+        "吃西瓜",
+        "围观"
+      ],
+      "desc": "啃西瓜。吃瓜群众、前排围观、看热闹"
+    },
+    {
+      "idx": 64,
+      "file": "e64.png",
+      "url": "/images/wxemoji3d/e64.png",
+      "name": "奋斗",
+      "aliases": [
+        "加油干",
+        "头巾"
+      ],
+      "desc": "红头巾握拳。奋斗、拼了、干就完了"
+    },
+    {
+      "idx": 65,
+      "file": "e65.png",
+      "url": "/images/wxemoji3d/e65.png",
+      "name": "汗",
+      "aliases": [
+        "无奈汗",
+        "汗颜"
+      ],
+      "desc": "平脸一滴汗。冷场、流汗、尴尬"
+    },
+    {
+      "idx": 66,
+      "file": "e66.png",
+      "url": "/images/wxemoji3d/e66.png",
+      "name": "炸毛",
+      "aliases": [
+        "白眼惊",
+        "惊呆"
+      ],
+      "desc": "瞪眼炸毛。惊到炸毛、气炸、毛了"
+    },
+    {
+      "idx": 67,
+      "file": "e67.png",
+      "url": "/images/wxemoji3d/e67.png",
+      "name": "Emm",
+      "aliases": [
+        "嗯",
+        "胡子脸",
+        "无语沉默"
+      ],
+      "desc": "眯眼胡须脸嗯……。Emm、无话可说、一时语塞"
+    },
+    {
+      "idx": 68,
+      "file": "e68.png",
+      "url": "/images/wxemoji3d/e68.png",
+      "name": "社会社会",
+      "aliases": [
+        "社会人",
+        "犯懒",
+        "稳"
+      ],
+      "desc": "托脸斜眼淡定。社会社会、稳、老江湖、见世面"
+    },
+    {
+      "idx": 69,
+      "file": "e69.png",
+      "url": "/images/wxemoji3d/e69.png",
+      "name": "旺柴",
+      "aliases": [
+        "柴犬",
+        "狗",
+        "狗头",
+        "狗头保命"
+      ],
+      "desc": "眯眼柴犬。旺柴=狗头保命：开玩笑、反讽、别当真"
+    },
+    {
+      "idx": 70,
+      "file": "e70.png",
+      "url": "/images/wxemoji3d/e70.png",
+      "name": "好的",
+      "aliases": [
+        "OK",
+        "没问题"
+      ],
+      "desc": "比OK手势。好的、没问题、包在我身上"
+    },
+    {
+      "idx": 71,
+      "file": "e71.png",
+      "url": "/images/wxemoji3d/e71.png",
+      "name": "打脸",
+      "aliases": [
+        "掌掴",
+        "啪啪"
+      ],
+      "desc": "脸上红手印。被打脸、说错话、自打嘴巴"
+    },
+    {
+      "idx": 72,
+      "file": "e72.png",
+      "url": "/images/wxemoji3d/e72.png",
+      "name": "哇",
+      "aliases": [
+        "哇",
+        "兴奋",
+        "星星眼",
+        "哇塞",
+        "崇拜"
+      ],
+      "desc": "星星眼张嘴。哇！太棒了、两眼放光、崇拜"
+    },
+    {
+      "idx": 73,
+      "file": "e73.png",
+      "url": "/images/wxemoji3d/e73.png",
+      "name": "斜眼看",
+      "aliases": [
+        "左右看",
+        "观察"
+      ],
+      "desc": "斜眼瞟。斜眼瞅、怀疑、就这？（轻蔑向）"
+    },
+    {
+      "idx": 74,
+      "file": "e74.png",
+      "url": "/images/wxemoji3d/e74.png",
+      "name": "666",
+      "aliases": [
+        "六六六",
+        "溜溜溜"
+      ],
+      "desc": "手势666。厉害、溜溜溜、双击666"
+    },
+    {
+      "idx": 75,
+      "file": "e75.png",
+      "url": "/images/wxemoji3d/e75.png",
+      "name": "让我看看",
+      "aliases": [
+        "遮眼",
+        "瞄一眼",
+        "偷看"
+      ],
+      "desc": "手遮一只眼偷瞄。让我看看、悄咪咪吃瓜、看戏"
+    },
+    {
+      "idx": 76,
+      "file": "e76.png",
+      "url": "/images/wxemoji3d/e76.png",
+      "name": "叹气",
+      "aliases": [
+        "鼻涕泡",
+        "委屈哭",
+        "呜呜",
+        "受委屈",
+        "唉",
+        "无奈",
+        "吐白气"
+      ],
+      "desc": "瘪嘴吐白气。唉、叹气、心累、生活不易"
+    },
+    {
+      "idx": 77,
+      "file": "e77.png",
+      "url": "/images/wxemoji3d/e77.png",
+      "name": "流泪",
+      "aliases": [
+        "泪如雨下",
+        "泪奔",
+        "两行泪"
+      ],
+      "desc": "睁眼两行长泪。流泪：伤心、感动、委屈（比大哭轻）"
+    },
+    {
+      "idx": 78,
+      "file": "e78.png",
+      "url": "/images/wxemoji3d/e78.png",
+      "name": "裂开",
+      "aliases": [
+        "心态崩了",
+        "裂"
+      ],
+      "desc": "脸裂两半。裂开：心态崩了、麻了、无语住"
+    },
+    {
+      "idx": 79,
+      "file": "e79.png",
+      "url": "/images/wxemoji3d/e79.png",
+      "name": "示爱",
+      "aliases": [
+        "嘴唇",
+        "红唇",
+        "吻"
+      ],
+      "desc": "饱满红唇。示爱、飞吻一枚、亲亲"
+    },
+    {
+      "idx": 80,
+      "file": "e80.png",
+      "url": "/images/wxemoji3d/e80.png",
+      "name": "心碎",
+      "aliases": [
+        "破碎",
+        "裂开的心"
+      ],
+      "desc": "裂开的心。心碎、伤心欲绝、破防"
+    },
+    {
+      "idx": 81,
+      "file": "e81.png",
+      "url": "/images/wxemoji3d/e81.png",
+      "name": "收到",
+      "aliases": [
+        "OK人偶",
+        "好的呢"
+      ],
+      "desc": "绿人举手。收到、明白、好嘞、完成"
+    },
+    {
+      "idx": 82,
+      "file": "e82.png",
+      "url": "/images/wxemoji3d/e82.png",
+      "name": "赞",
+      "aliases": [
+        "点赞",
+        "大拇指",
+        "棒"
+      ],
+      "desc": "金色大拇指。赞、优秀、干得漂亮、点赞"
+    },
+    {
+      "idx": 83,
+      "file": "e83.png",
+      "url": "/images/wxemoji3d/e83.png",
+      "name": "踩",
+      "aliases": [
+        "拇指向下"
+      ],
+      "desc": "大拇指朝下。踩、不行、反对（差评让给 e46 鄙视）"
+    },
+    {
+      "idx": 84,
+      "file": "e84.png",
+      "url": "/images/wxemoji3d/e84.png",
+      "name": "胜利",
+      "aliases": [
+        "耶手势",
+        "胜利手势"
+      ],
+      "desc": "V字手势。胜利、耶、二号机位"
+    },
+    {
+      "idx": 85,
+      "file": "e85.png",
+      "url": "/images/wxemoji3d/e85.png",
+      "name": "手指枪",
+      "aliases": [
+        "指枪",
+        "比划枪"
+      ],
+      "desc": "拇指食指比枪。biu、瞄准你、手指枪"
+    },
+    {
+      "idx": 86,
+      "file": "e86.png",
+      "url": "/images/wxemoji3d/e86.png",
+      "name": "捏",
+      "aliases": [
+        "一点点",
+        "捏捏"
+      ],
+      "desc": "拇指食指相捏。就一点点、捏捏、小小的"
+    },
+    {
+      "idx": 87,
+      "file": "e87.png",
+      "url": "/images/wxemoji3d/e87.png",
+      "name": "拳头",
+      "aliases": [
+        "加油拳",
+        "握拳"
+      ],
+      "desc": "握拳。加油、敲你、愤怒（看语境）"
+    },
+    {
+      "idx": 88,
+      "file": "e88.png",
+      "url": "/images/wxemoji3d/e88.png",
+      "name": "OK手势",
+      "aliases": [
+        "圈OK",
+        "妥了"
+      ],
+      "desc": "OK手势。OK、没问题、一切OK"
+    },
+    {
+      "idx": 89,
+      "file": "e89.png",
+      "url": "/images/wxemoji3d/e89.png",
+      "name": "合十",
+      "aliases": [
+        "祈祷",
+        "谢谢手势"
+      ],
+      "desc": "双手合十。祈祷、感谢、拜托了、保佑"
+    },
+    {
+      "idx": 90,
+      "file": "e90.png",
+      "url": "/images/wxemoji3d/e90.png",
+      "name": "啤酒",
+      "aliases": [
+        "干杯",
+        "哈啤酒"
+      ],
+      "desc": "啤酒杯碰杯。干杯、喝一个、庆祝"
+    },
+    {
+      "idx": 91,
+      "file": "e91.png",
+      "url": "/images/wxemoji3d/e91.png",
+      "name": "咖啡",
+      "aliases": [
+        "咖啡杯",
+        "喝一杯",
+        "来杯咖啡"
+      ],
+      "desc": "热咖啡。提提神、下午茶、来一杯"
+    },
+    {
+      "idx": 92,
+      "file": "e92.png",
+      "url": "/images/wxemoji3d/e92.png",
+      "name": "蛋糕",
+      "aliases": [
+        "生日蛋糕",
+        "甜点",
+        "生日快乐"
+      ],
+      "desc": "生日蛋糕。生日快乐、甜蜜、庆祝"
+    },
+    {
+      "idx": 93,
+      "file": "e93.png",
+      "url": "/images/wxemoji3d/e93.png",
+      "name": "玫瑰花",
+      "aliases": [
+        "送花",
+        "红玫瑰",
+        "玫瑰"
+      ],
+      "desc": "红玫瑰。送你、表白、浪漫"
+    },
+    {
+      "idx": 94,
+      "file": "e94.png",
+      "url": "/images/wxemoji3d/e94.png",
+      "name": "凋谢",
+      "aliases": [
+        "枯萎",
+        "蔫了的花"
+      ],
+      "desc": "枯萎的花。枯了、心累、凋零、凉了"
+    },
+    {
+      "idx": 95,
+      "file": "e95.png",
+      "url": "/images/wxemoji3d/e95.png",
+      "name": "菜刀",
+      "aliases": [
+        "刀",
+        "剁"
+      ],
+      "desc": "菜刀。剁了你、恶狠狠（熟人玩笑式威胁）"
+    },
+    {
+      "idx": 96,
+      "file": "e96.png",
+      "url": "/images/wxemoji3d/e96.png",
+      "name": "炸弹",
+      "aliases": [
+        "爆炸",
+        "轰"
+      ],
+      "desc": "黑炸弹。炸了、大事不妙、惊天大瓜"
+    },
+    {
+      "idx": 97,
+      "file": "e97.png",
+      "url": "/images/wxemoji3d/e97.png",
+      "name": "便便",
+      "aliases": [
+        "粑粑",
+        "臭臭"
+      ],
+      "desc": "便便。恶搞、臭家伙（玩笑向）"
+    },
+    {
+      "idx": 98,
+      "file": "e98.png",
+      "url": "/images/wxemoji3d/e98.png",
+      "name": "月亮睡了",
+      "aliases": [
+        "晚安月",
+        "弯月",
+        "晚安"
+      ],
+      "desc": "弯月笑脸。晚安、夜深了、睡了"
+    },
+    {
+      "idx": 99,
+      "file": "e99.png",
+      "url": "/images/wxemoji3d/e99.png",
+      "name": "太阳公公",
+      "aliases": [
+        "晴天",
+        "出太阳",
+        "太阳"
+      ],
+      "desc": "笑脸太阳。早安、天气真好、元气满满"
+    },
+    {
+      "idx": 100,
+      "file": "e100.png",
+      "url": "/images/wxemoji3d/e100.png",
+      "name": "庆祝",
+      "aliases": [
+        "拉炮",
+        "派对"
+      ],
+      "desc": "彩带拉炮。庆祝、开派对、值得纪念"
+    },
+    {
+      "idx": 101,
+      "file": "e101.png",
+      "url": "/images/wxemoji3d/e101.png",
+      "name": "礼物盒",
+      "aliases": [
+        "惊喜盒",
+        "送礼物",
+        "礼物"
+      ],
+      "desc": "蝴蝶结礼盒。送你的、惊喜、收下吧"
+    },
+    {
+      "idx": 102,
+      "file": "e102.png",
+      "url": "/images/wxemoji3d/e102.png",
+      "name": "红包",
+      "aliases": [
+        "红包封",
+        "压岁钱",
+        "利是"
+      ],
+      "desc": "红包封。红包拿来、恭喜发财、压岁钱"
+    },
+    {
+      "idx": 103,
+      "file": "e103.png",
+      "url": "/images/wxemoji3d/e103.png",
+      "name": "发财",
+      "aliases": [
+        "麻将",
+        "發",
+        "发"
+      ],
+      "desc": "麻将發字牌。发财、好运来、胡了"
+    },
+    {
+      "idx": 104,
+      "file": "e104.png",
+      "url": "/images/wxemoji3d/e104.png",
+      "name": "福到",
+      "aliases": [
+        "倒福",
+        "福字",
+        "福"
+      ],
+      "desc": "倒福字。福到了、新年福气"
+    },
+    {
+      "idx": 105,
+      "file": "e105.png",
+      "url": "/images/wxemoji3d/e105.png",
+      "name": "烟花",
+      "aliases": [
+        "放烟花",
+        "绽放"
+      ],
+      "desc": "烟花绽放。过年、绚烂、庆祝时刻"
+    },
+    {
+      "idx": 106,
+      "file": "e106.png",
+      "url": "/images/wxemoji3d/e106.png",
+      "name": "鞭炮",
+      "aliases": [
+        "爆竹",
+        "放炮"
+      ],
+      "desc": "串鞭。过年热闹、开门红、喜庆"
+    },
+    {
+      "idx": 107,
+      "file": "e107.png",
+      "url": "/images/wxemoji3d/e107.png",
+      "name": "猪头",
+      "aliases": [
+        "小猪头",
+        "猪猪"
+      ],
+      "desc": "猪头。骂人笨、憨憨（对亲近的人玩笑用）"
+    },
+    {
+      "idx": 108,
+      "file": "e108.png",
+      "url": "/images/wxemoji3d/e108.png",
+      "name": "企鹅",
+      "aliases": [
+        "QQ企鹅",
+        "挥手企鹅"
+      ],
+      "desc": "站立企鹅。卖萌、企鹅本鹅"
+    },
+    {
+      "idx": 109,
+      "file": "e109.png",
+      "url": "/images/wxemoji3d/e109.png",
+      "name": "企鹅跳",
+      "aliases": [
+        "蹦跶企鹅",
+        "开心企鹅"
+      ],
+      "desc": "跳跃企鹅。开心到跳起、蹦跶"
+    },
+    {
+      "idx": 110,
+      "file": "e110.png",
+      "url": "/images/wxemoji3d/e110.png",
+      "name": "企鹅跑",
+      "aliases": [
+        "奔跑企鹅",
+        "冲鸭企鹅"
+      ],
+      "desc": "奔跑企鹅。溜了溜了、跑路、撤"
+    }
+  ],
+  "order": [
+    "e08.png",
+    "e09.png",
+    "e10.png",
+    "e11.png",
+    "e12.png",
+    "e13.png",
+    "e15.png",
+    "e16.png",
+    "e17.png",
+    "e18.png",
+    "e19.png",
+    "e20.png",
+    "e21.png",
+    "e22.png",
+    "e23.png",
+    "e24.png",
+    "e25.png",
+    "e30.png",
+    "e27.png",
+    "e28.png",
+    "e29.png",
+    "e26.png",
+    "e31.png",
+    "e32.png",
+    "e33.png",
+    "e34.png",
+    "e35.png",
+    "e36.png",
+    "e37.png",
+    "e38.png",
+    "e39.png",
+    "e40.png",
+    "e41.png",
+    "e42.png",
+    "e43.png",
+    "e44.png",
+    "e45.png",
+    "e46.png",
+    "e47.png",
+    "e48.png",
+    "e49.png",
+    "e50.png",
+    "e51.png",
+    "e01.png",
+    "e52.png",
+    "e53.png",
+    "e03.png",
+    "e54.png",
+    "e55.png",
+    "e56.png",
+    "e57.png",
+    "e59.png",
+    "e60.png",
+    "e61.png",
+    "e62.png",
+    "e63.png",
+    "e64.png",
+    "e65.png",
+    "e66.png",
+    "e67.png",
+    "e68.png",
+    "e69.png",
+    "e70.png",
+    "e71.png",
+    "e72.png",
+    "e73.png",
+    "e74.png",
+    "e75.png",
+    "e76.png",
+    "e77.png",
+    "e78.png",
+    "e79.png",
+    "e04.png",
+    "e02.png",
+    "e06.png",
+    "e07.png",
+    "e80.png",
+    "e81.png",
+    "e82.png",
+    "e83.png",
+    "e05.png",
+    "e84.png",
+    "e85.png",
+    "e86.png",
+    "e87.png",
+    "e88.png",
+    "e89.png",
+    "e90.png",
+    "e91.png",
+    "e92.png",
+    "e93.png",
+    "e94.png",
+    "e95.png",
+    "e96.png",
+    "e97.png",
+    "e98.png",
+    "e99.png",
+    "e100.png",
+    "e101.png",
+    "e102.png",
+    "e103.png",
+    "e104.png",
+    "e105.png",
+    "e106.png",
+    "e107.png",
+    "e108.png",
+    "e109.png",
+    "e110.png"
+  ]
+}

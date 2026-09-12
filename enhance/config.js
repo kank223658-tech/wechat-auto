@@ -26,6 +26,20 @@
        由「打开个人主页 / 进入对方朋友圈」动作驱动，可被场景/脚本整体替换。 */
     let peerData = null;
 
+    /* ---- 通讯录首字母：与场景编辑器示意稿同一套锚点表（zh locale 比较）----
+       保证真机通讯录分组和编辑器里看到的完全一致 */
+    function _pyInitial(name) {
+        const m = (name || '').replace(/^\s+/, '').charAt(0) || '#';
+        if (/[a-zA-Z]/.test(m)) return m.toUpperCase();
+        if (/[\u4e00-\u9fa5]/.test(m)) {
+            const anchors = [['阿','A'],['芭','B'],['擦','C'],['搭','D'],['鹅','E'],['发','F'],['噶','G'],['哈','H'],['击','J'],['喀','K'],['垃','L'],['妈','M'],['拿','N'],['哦','O'],['啪','P'],['七','Q'],['然','R'],['撒','S'],['塌','T'],['挖','W'],['昔','X'],['压','Y'],['匝','Z']];
+            let cur = '#';
+            anchors.forEach(pr => { try { if (m.localeCompare(pr[0], 'zh-Hans-CN') >= 0) cur = pr[1]; } catch (e) {} });
+            return cur;
+        }
+        return '#';
+    }
+
     /* ---- 参考图时间轴：按「相对当前时刻」计算，保证录制时出现
        今天(HH:MM) / 昨天(HH:MM) / 上星期日(星期X) 的正确时间标签 ---- */
     const _M = 60000, _H = 3600000;
@@ -50,119 +64,70 @@
         return d.getTime();
     }
 
-    /* ---- 持久化默认：参考图数据（注入即生效，无需依赖工作流） ---- */
-    const DEFAULT_HOME = [
-        { 'name': '微信支付', 'text': '已支付 ¥11.65', 'avatar': '/images/wxic/icons_wechat_pay.svg',
-          'read': false, 'newMsgCount': 9, 'timestamp': _todayAt(18, 22) },
-        { 'name': '梓康群', 'text': '下午看得怎么样', 'avatar': '/images/avatar/2_20260831_184618_874.jpg',
-          'quiet': true, 'read': false, 'timestamp': _todayAt(18, 16) },
-        { 'name': '陆香儿', 'text': '我也吃饭去了', 'avatar': '/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg',
-          'read': false, 'newMsgCount': 1, 'timestamp': _todayAt(18, 16) },
-        { 'name': '服务号', 'text': '广东联网售票：已上线！全省客运线路实现 “一…',
-          'avatar': '/images/avatar/view1_20260831_184619_884.jpg', 'quiet': true, 'read': false, 'timestamp': _todayAt(17, 29) },
-        { 'name': '公众号', 'text': '快讯：自动驾驶首次被写入法律',
-          'avatar': '/images/avatar/御一下_1_涔涔_来自小红书网页版_20260831_184719_470.jpg', 'quiet': true, 'read': false, 'timestamp': _todayAt(10, 57) },
-        { 'name': '微信团队', 'text': '登录操作通知', 'avatar': '/images/wxic/wechat_logo.svg',
-          'read': true, 'timestamp': _todayAt(0, 49) },
-        { 'name': '沉默光环', 'text': '拍得', 'avatar': '/images/avatar/Jennie头像_1_PP酱v_来自小红书网页版_20260831_185616_327.jpg',
-          'read': true, 'timestamp': _dayAt(1, 23, 52) },
-        { 'name': 'D', 'text': '给 Cursor 的精准开发提示词（复制即用）# 任…',
-          'avatar': '/images/ref/D.png', 'read': true, 'timestamp': _dayAt(1, 22, 28) },
-        { 'name': '妍', 'text': '在吗', 'avatar': '/images/avatar/Dark_高质量女头__1_Dark__来自小红书网页版_20260831_185822_457.jpg',
-          'read': true, 'timestamp': _lastSunday() },
+    /* ---- 身份随机生成：按名字稳定哈希 → 每人固定一套「女性 8 位微信号 + 大城市地区」----
+       同一个人每次生成结果一致（跨天/跨会话不跳变），不同人互相独立。
+       用于：setContacts 的场景联系人、对方主页（peer）默认人设。 */
+    const _CITY_POOL = [
+        ['广东', '深圳'], ['浙江', '杭州'], ['上海', '上海'], ['四川', '成都'],
+        ['广东', '广州'], ['江苏', '南京'], ['湖北', '武汉'], ['重庆', '重庆'],
+        ['陕西', '西安'], ['天津', '天津'], ['北京', '北京'], ['福建', '厦门'],
     ];
-    const DEFAULT_MOMENTS = [{
-        'author': '陆香儿', 'avatar': '/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg',
-        'text': '就这么丝滑的下班。',
-        'images': ['/images/peer/peer_v1.jpg'],
-        // 参考图：配图下方的来源标注（视频号 · xxx），buildPost 会渲染成灰色小字
-        'source': '视频号 · 小陆AI搜索推广获客',
-        'time': '35分钟前', 'likes': [],
-        'comments': [{ 'name': '陆香儿', 'text': '没有保持苹果肌扁平的义务。' }],
-    }];
+    const _FEMALE_PRE = ['xiao', 'tang', 'meng', 'qi', 'nuo', 'anqi', 'xike', 'wantang', 'su', 'moli',
+                         'yanran', 'rou', 'nini', 'yaya', 'yuki', 'chenxi', 'ximan', 'yuqi', 'shanshan', 'keai'];
+    const _FEMALE_NUM = ['0520', '520', '1314', '6688', '0721', '1024', '666', '888', '0913', '222',
+                         '7788', '1121', '0308', '921', '1225'];
 
-    /* ---- 对方个人主页 / 对方朋友圈：参考视频「微信进入主页加入朋友圈」的默认数据 ---- */
-    const PEER_DEFAULT = {
-        name: '吴遂卿『餐车集装箱』',
-        wxid: 'LSDH-WSQ',
-        area: '广东 佛山',
-        gender: 0,                                  // 0=女 1=男
-        avatar: '/images/peer/peer_avatar.jpg',
-        signature: '随心随性',
-        cover: '/images/peer/peer_cover.jpg',
-        momentsThumbs: [
-            '/images/peer/peer_m1.jpg', '/images/peer/peer_m2.jpg',
-            '/images/peer/peer_m3.jpg', '/images/peer/peer_m4.jpg',
-            '/images/peer/peer_m5.jpg',
-        ],
-        video: {
-            name: '餐车集装箱厂家蓝色大海',
-            thumbs: [
-                '/images/peer/peer_v1.jpg', '/images/peer/peer_v2.jpg',
-                '/images/peer/peer_v3.jpg', '/images/peer/peer_v4.jpg',
-                '/images/peer/peer_v5.jpg',
-            ],
-        },
-        posts: [
-            { date: '10 6月', images: ['/images/peer/peer_p1.jpg'],
-              text: '偶尔玩下 蛮好😄' },
-            { date: '06 6月', images: ['/images/peer/peer_p2.jpg', '/images/peer/peer_p3.jpg',
-                                      '/images/peer/peer_p4.jpg', '/images/peer/peer_p5.jpg'],
-              text: '今天是很 666⁶⁶⁶ 的一天~\n2026/6-6✨Good luck❤️' },
-            { date: '', images: ['/images/peer/peer_p6.jpg', '/images/peer/peer_p7.jpg',
-                                 '/images/peer/peer_p8.jpg', '/images/peer/peer_p9.jpg'],
-              text: '太香啦~😄😄😄😄😄\n😄\n一下子开了二十来朵' },
-            { date: '04 6月', images: ['/images/peer/peer_p10.jpg'],
-              text: '诚则行稳致远' },
-        ],
-    };
+    function _hashName(name) {
+        const s = String(name || '');
+        let h = 5381;
+        for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+        return h;
+    }
 
-    /* ---- 场景编辑器可选的「女性朋友圈」预设：几套固定人设，一键套用 ---- */
-    const PEER_PRESETS = {
-        '餐车老板娘·吴遂卿': PEER_DEFAULT,
-        '花店店主·林晚晚': {
-            name: '林晚晚',
-            wxid: 'wanwan_flower',
-            area: '浙江 杭州',
+    /* 女性风格 8 位微信号：字母开头、总长恰好 8 位（如 qiqi0520） */
+    function genFemaleWxid(name) {
+        const h = _hashName(name);
+        let pre = _FEMALE_PRE[h % _FEMALE_PRE.length];
+        if (pre.length > 5) pre = pre.slice(0, 5);
+        const num = _FEMALE_NUM[(h >>> 7) % _FEMALE_NUM.length];
+        let id = (pre + num).slice(0, 8);
+        while (id.length < 8) id += String((h + id.length) % 10);
+        return id;
+    }
+
+    /* 大城市地区：返回 [省, 市]（联系人用数组，peer 显示时 join(' ')） */
+    function genCityArea(name) {
+        const h = _hashName(name);
+        return _CITY_POOL[(h >>> 3) % _CITY_POOL.length].slice();
+    }
+
+    /* 对方主页默认人设：不再内置任何硬编码旧人物（吴遂卿/餐车集装箱等已清理）。
+       身份取场景主页第一个真人（非群聊），微信号/地区按名字随机生成。 */
+    function _sceneFirstName() {
+        const s = window.__wxDefaultScene;
+        if (s && Array.isArray(s.home)) {
+            for (let i = 0; i < s.home.length; i++) {
+                const it = s.home[i];
+                if (it && it.type !== 'group' && (it.name || it.nickname)) return it.name || it.nickname;
+            }
+        }
+        return '';
+    }
+    function genPeerDefaults() {
+        const name = _sceneFirstName() || '微信好友';
+        return {
+            name: name,
+            wxid: genFemaleWxid(name),
+            area: genCityArea(name).join(' '),
             gender: 0,
-            avatar: '/images/peer/peer_avatar.jpg',
-            signature: '把日子过成诗',
+            avatar: '/images/avatar/2_20260831_184618_874.jpg',
+            signature: '',
             cover: '/images/peer/peer_cover.jpg',
-            momentsThumbs: ['/images/peer/peer_m4.jpg', '/images/peer/peer_m5.jpg',
-                            '/images/peer/peer_m3.jpg', '/images/peer/peer_m1.jpg'],
+            momentsThumbs: [],
             video: null,
-            posts: [
-                { date: '12 6月', images: ['/images/peer/peer_p6.jpg', '/images/peer/peer_p7.jpg',
-                                          '/images/peer/peer_p4.jpg', '/images/peer/peer_p5.jpg'],
-                  text: '今天的芍药开得正好🌸' },
-                { date: '08 6月', images: ['/images/peer/peer_p1.jpg'],
-                  text: '店里的团宠，今天又被客人投喂了😆' },
-                { date: '02 6月', images: ['/images/peer/peer_p3.jpg', '/images/peer/peer_p2.jpg'],
-                  text: '新到的一批花器，随手插都好看✨' },
-            ],
-        },
-        '瑜伽教练·苏念': {
-            name: '苏念',
-            wxid: 'sunian_yoga',
-            area: '广东 广州',
-            gender: 0,
-            avatar: '/images/peer/peer_avatar.jpg',
-            signature: '自律给我自由',
-            cover: '/images/peer/peer_cover.jpg',
-            momentsThumbs: ['/images/peer/peer_m5.jpg', '/images/peer/peer_m2.jpg',
-                            '/images/peer/peer_m4.jpg', '/images/peer/peer_m3.jpg'],
-            video: null,
-            posts: [
-                { date: '15 6月', images: ['/images/peer/peer_p8.jpg'],
-                  text: '早课结束，今天的体式稳了很多🧘‍♀️' },
-                { date: '09 6月', images: ['/images/peer/peer_p2.jpg', '/images/peer/peer_p3.jpg',
-                                          '/images/peer/peer_p4.jpg', '/images/peer/peer_p5.jpg'],
-                  text: '生日这天收到好多花，谢谢大家❤️' },
-                { date: '03 6月', images: ['/images/peer/peer_p6.jpg'],
-                  text: '保持热爱，奔赴山海。' },
-            ],
-        },
-    };
+            posts: [],
+        };
+    }
 
     /* ---- 时间标注解析：把「时间分隔条」用的时刻字符串换算成时间戳 + 显示文本 ----
        支持：HH:MM[:SS]、昨天 HH:MM、星期X/周X [HH:MM]、M月D日 HH:MM、N分钟/小时/天前、
@@ -217,6 +182,37 @@
         return p ? p.ts : (typeof timeStr === 'number' ? timeStr : Date.now());
     }
 
+    /* ---- 状态栏时钟同步：与开场锁屏时钟对齐 ----
+       取「历史会话」里最后一次出现的时间标注（time 字段，按真实时刻取最大，
+       解析规则同 parseTimeSpec，也和 准备制作界面/build_intro_config.py 的
+       last_history_clock 一致），同步到手机状态栏，保证开场动画 → 主视频
+       的时间逻辑连贯。整个场景没有任何时间标注时默认 00:00。
+       仅当场景显式带 messages（真实脚本数据）时才同步：默认参考主页
+       （applyPersistentDefaults）没有 messages，保持 18:36 的参考复刻不动。 */
+    function syncStatusBarClock(homeItems) {
+        let best = null;
+        (homeItems || []).forEach(it => {
+            const msgs = it && Array.isArray(it.messages) ? it.messages : [];
+            msgs.forEach(m => {
+                if (!m || m.time == null || String(m.time).trim() === '') return;
+                const spec = parseTimeSpec(m.time);
+                if (spec && (best === null || spec.ts > best)) best = spec.ts;
+            });
+        });
+        let clock;
+        if (best === null) {
+            clock = '00:00';
+        } else {
+            const d = new Date(best);
+            const pad = (n) => (n < 10 ? '0' : '') + n;
+            clock = pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+        if (window.__wxPhoneFrame && window.__wxPhoneFrame.setTime) {
+            window.__wxPhoneFrame.setTime(clock);
+        }
+        return clock;
+    }
+
     /* 拿到 Vue 根实例，便于更新由 vuex store 驱动的列表 */
     function getVm() {
         const root = document.getElementById('app');
@@ -257,33 +253,37 @@
     }
 
     window.__wxConfig = {
-        get() { return { me, peer: peerData, peerPresets: PEER_PRESETS }; },
+        get() { return { me, peer: peerData, peerPresets: {} }; },
         setMe(patch) { Object.assign(me, patch); },
 
         /* 对方资料：整体替换（null = 回到默认）或局部合并 */
-        getPeer() { return peerData || PEER_DEFAULT; },
+        getPeer() { return peerData || genPeerDefaults(); },
         setPeer(data) {
             if (data == null) {
                 peerData = null;
                 return;
             }
             if (typeof data === 'string') {
-                if (PEER_PRESETS[data]) peerData = JSON.parse(JSON.stringify(PEER_PRESETS[data]));
+                /* 预设名一律由 main.py 按 peer_presets.json 解析后再传入；
+                   浏览器内不再内置任何预设，未知名字静默忽略 */
                 return;
             }
             if (typeof data === 'object') {
-                peerData = Object.assign({}, peerData || PEER_DEFAULT, data);
+                peerData = Object.assign({}, peerData || genPeerDefaults(), data);
                 if (data.posts) peerData.posts = data.posts;
                 if (data.momentsThumbs) peerData.momentsThumbs = data.momentsThumbs;
                 if (data.video !== undefined) peerData.video = data.video;
             }
         },
-        getPeerPresets() { return PEER_PRESETS; },
+        getPeerPresets() { return {}; },
         /* 表情包库：main.py 离线解析时注入我方发表情的表情图路径列表（去重）。 */
         setEmojiLib(lib) { me.emojiLib = Array.isArray(lib) ? lib : []; },
         getEmojiLib() { return me.emojiLib || []; },
         /* 时间标注解析：把「HH:MM / 昨天 HH:MM」等换算成 { ts, text }，给消息时间分隔条用 */
         parseTimeSpec(timeStr) { return parseTimeSpec(timeStr); },
+
+        /* 把历史会话最后时刻同步到状态栏时钟（也可由编辑器/脚本手动触发） */
+        syncStatusBarClock(homeItems) { return syncStatusBarClock(homeItems); },
 
         /* 设置头像：替换所有 data-me-avatar 元素并同步 store 列表 */
         setAvatar(url) {
@@ -397,7 +397,7 @@
                                 return {
                                     title: (m.title || m.text || ''),
                                     image: _linkImg,
-                                    source: (m.source || '心灵知行'),
+                                    source: (m.source || '恋爱技巧'),
                                 };
                             })() : null,
                             name: isMe ? (me.name || 'd') :
@@ -458,8 +458,47 @@
                 if (it.read === false && !it.quiet) total += (it.newMsgCount || 1);
             });
             vm.$store.state.newMsgCount = total;
+            // 历史会话带 messages（真实脚本数据）时，把最后时刻同步到状态栏时钟；
+            // 默认参考主页（无 messages 字段）不同步，保留 18:36 复刻。
+            if ((items || []).some(it => it && Array.isArray(it.messages))) {
+                syncStatusBarClock(items);
+            }
             if (vm.$forceUpdate) vm.$forceUpdate();
             this.apply();
+            return true;
+        },
+
+        /* 重建通讯录：items = [{name, avatar, remark?, wxid?, signature?}]。
+           直接替换 vuex allContacts（getter 会按 initial 自动分组排序），
+           字段结构与模板 contacts.js 保持一致，保证详情页不缺数据。 */
+        setContacts(items) {
+            const vm = getVm();
+            if (!vm || !vm.$store || !vm.$store.state) return false;
+            const seen = {};
+            const out = [];
+            (items || []).forEach(it => {
+                if (!it) return;
+                const nm = it.name || it.nickname || '';
+                if (!nm || seen[nm]) return;
+                seen[nm] = 1;
+                out.push({
+                    /* 每个场景联系人自动生成稳定的「女性 8 位微信号 + 大城市地区」，
+                       同名恒定、跨会话不跳变；场景显式给了 wxid/area 则尊重场景 */
+                    wxid: it.wxid || genFemaleWxid(nm),
+                    initial: _pyInitial(nm),
+                    headerUrl: it.avatar || it.headerUrl || '/images/avatar/2_20260831_184618_874.jpg',
+                    nickname: nm,
+                    remark: it.remark || '',
+                    sex: it.sex !== undefined ? it.sex : 0,
+                    signature: it.signature || '',
+                    telphone: '',
+                    album: [],
+                    area: genCityArea(nm),
+                });
+            });
+            if (!out.length) return false;
+            vm.$store.state.allContacts = out;
+            if (vm.$forceUpdate) vm.$forceUpdate();
             return true;
         },
 
@@ -476,16 +515,39 @@
                 });
             }
             const okHome = this.setHomeList(Array.isArray(scene.home) ? scene.home : []);
+            /* 通讯录同步：显式 scene.contacts 优先；否则用主页会话里的人物
+               （与场景编辑器示意稿同一份数据，群聊不算个人联系人）。
+               没有任何场景人物时保留模板通讯录，避免出现空页。 */
+            if (Array.isArray(scene.contacts)) {
+                this.setContacts(scene.contacts);
+                _sceneContactsApplied = true;
+            } else if (Array.isArray(scene.home) && scene.home.length) {
+                /* 注意不透传 home[].remark：编辑器旧数据里 remark 可能是历史模板名
+                   （微信支付/服务号…），而通讯录行优先显示 remark，会把真名盖掉 */
+                this.setContacts(scene.home
+                    .filter(it => it && it.type !== 'group' && (it.name || it.nickname))
+                    .map(it => ({ name: it.name || it.nickname, avatar: it.avatar || it.headerUrl })));
+                _sceneContactsApplied = true;
+            }
             if (Array.isArray(scene.moments)) momentsPosts = scene.moments;
-            if (scene.peer !== undefined) this.setPeer(scene.peer);
+            /* setPeer 只改数据；主页/朋友圈已打开时用 __wxPeer.apply 立即重绘，
+               否则场景编辑器实时预览（和运行中 [应用场景]）会一直显示旧人物 */
+            const peerApply = (data) => {
+                if (data && window.__wxPeer && typeof window.__wxPeer.apply === 'function') {
+                    window.__wxPeer.apply(data);
+                } else {
+                    this.setPeer(data);
+                }
+            };
+            if (scene.peer !== undefined) peerApply(scene.peer);
             else if (Array.isArray(scene.peers) && scene.peers.length) {
                 /* 新格式 scene.peers[]（多人物 × 多方案）：[应用场景] 取第一个人物的当前方案 */
                 const pp = scene.peers[0];
                 const plans = pp && typeof pp.plans === 'object' && !Array.isArray(pp.plans) ? pp.plans : {};
                 const plan = (pp && plans[pp.activePlan]) || Object.values(plans)[0];
-                if (plan) this.setPeer(plan);
+                if (plan) peerApply(plan);
             }
-            if (scene.peerPreset) this.setPeer(scene.peerPreset);
+            if (scene.peerPreset) peerApply(scene.peerPreset);
             this.apply();
             return okHome;
         },
@@ -556,15 +618,24 @@
        让「主页会话列表 / 朋友圈动态 / 我的资料」在每次注入时都呈现参考图，
        不再依赖某个工作流去重建，从而被编辑器或任意流程运行后都保留。 */
     let _defaultsApplied = false;
+    let _sceneContactsApplied = false;        // 场景通讯录已应用 → 默认名单不再覆盖
     function applyPersistentDefaults() {
         if (_defaultsApplied) return;
         const vm = getVm();
         if (!vm || !vm.$store) return;            // Vue 还未就绪，等 apply() 下一次调用再试
         _defaultsApplied = true;                    // 先置位：setHomeList 内部会回调 apply()，避免递归
-        momentsPosts = DEFAULT_MOMENTS;
-        peerData = PEER_DEFAULT;
-        vm.$store.state.msgList.baseMsg = [];      // 先清空，避免默认列表残留
-        window.__wxConfig.setHomeList(DEFAULT_HOME);
+        const s = window.__wxDefaultScene;
+        if (s && (Array.isArray(s.home) || Array.isArray(s.moments) || s.me || s.peer)) {
+            /* 默认界面 = 场景编辑器的 scene.json（main.py 注入 __wxDefaultScene）：
+               主页会话 / 通讯录 / 朋友圈 / 对方人设全部来自场景，旧参考数据已清理。
+               之后工作流显式 [应用场景] 仍会按其数据覆盖，语义不变。 */
+            window.__wxConfig.applyScene(s);
+        } else {
+            /* 没有 scene.json 时的最小兜底：空主页，等场景/工作流填充 */
+            momentsPosts = [];
+            peerData = null;
+            window.__wxConfig.setHomeList([]);
+        }
     }
     // apply() 会被 Vue 组件在 mounted/路由切换等多处调用，这里逐个入口触发默认应用
     const _origApply = window.__wxConfig.apply.bind(window.__wxConfig);

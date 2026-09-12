@@ -49,14 +49,14 @@
         </div>
         <div class="tfd-clock">
             <svg viewBox="0 0 77 77" fill="none">
-                <circle cx="38.5" cy="38.5" r="34" stroke="#0aa5fd" stroke-width="6.5"/>
-                <path d="M38.5 38.5 L38.5 17.5" stroke="#0aa5fd" stroke-width="6.5" stroke-linecap="round"/>
-                <path d="M38.5 38.5 L26 47.5" stroke="#0aa5fd" stroke-width="6.5" stroke-linecap="round"/>
+                <circle cx="38.5" cy="38.5" r="34" stroke="#2da7ef" stroke-width="5"/>
+                <path d="M38.5 38.5 L38.5 17.5" stroke="#2da7ef" stroke-width="5" stroke-linecap="round"/>
+                <path d="M38.5 38.5 L26 47.5" stroke="#2da7ef" stroke-width="5" stroke-linecap="round"/>
             </svg>
         </div>
         <div class="tfd-check">
             <svg viewBox="0 0 40 40" fill="none">
-                <path d="M9 21 L17.5 29 L31 11.5" stroke="#ffffff" stroke-width="4.6"
+                <path d="M2.3 21 L14 32 L37.7 7.6" stroke="#181818" stroke-width="4.6"
                       stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
         </div>
@@ -80,13 +80,16 @@
         </div>
         <div class="tfd-licaitong">
             <div class="tfd-lct-icon">
+                <!-- 零钱通钻石：参考 a_016 实测金色 #f6c531、带白色切面线
+                     （原先只有色块分区、没有白线，且金色偏橙） -->
                 <svg viewBox="0 0 50 50" fill="none">
-                    <path d="M13 7 H37 L47 20 L25 44 L3 20 Z" fill="#ffc300"/>
-                    <path d="M13 7 L20 20 L3 20 Z" fill="#ffd54d"/>
-                    <path d="M37 7 L30 20 L47 20 Z" fill="#f0a500"/>
-                    <path d="M20 20 H30 L25 44 Z" fill="#ffd54d"/>
-                    <path d="M13 7 H25 L20 20 Z" fill="#ffdb33"/>
-                    <path d="M25 7 H37 L30 20 Z" fill="#f5b301"/>
+                    <path d="M13 7 H37 L47 20 H3 Z" fill="#f6c531"/>
+                    <path d="M3 20 H47 L25 44 Z" fill="#f6c531"/>
+                    <path d="M3 20 H47" stroke="#fff" stroke-width="1.6"/>
+                    <path d="M13 7 L20 20 L25 44 L30 20 L37 7" stroke="#fff"
+                          stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+                    <path d="M20 20 H30" stroke="#fff" stroke-width="1.1"/>
+                    <path d="M13 7 L3 20 M37 7 L47 20" stroke="#fff" stroke-width="1.1"/>
                 </svg>
             </div>
             <div class="tfd-lct-body">
@@ -180,7 +183,7 @@
                 void root.offsetWidth;
                 document.body.classList.add('wx-tfd-open');
                 root.classList.add('open');     // 100% -> 0，正常滑入
-                showToast(900);                 // 推入同时「正在加载」（对齐参考 f0048）
+                showToast(700);                 // 推入同时「正在加载」（提速 900→700ms）
             });
         });
         return true;
@@ -189,12 +192,12 @@
     function accept() {
         if (!opened) return false;
         els.recvV.textContent = cnTime();
-        showToast(900);                 // 「正在加载」→ 单帧切换（参考 f0160→f0180）
+        showToast(700);                 // 「正在加载」→ 单帧切换（提速 900→700ms）
         clearTimeout(accept._t);
         accept._t = setTimeout(() => {
             root.classList.add('done');
             markCardAccepted(cardEl);
-        }, 900);
+        }, 700);
         return true;
     }
 
@@ -206,8 +209,8 @@
         root.classList.remove('open');
         document.body.classList.add('wx-tfd-close');
         document.body.classList.remove('wx-tfd-open');
-        setTimeout(() => document.body.classList.remove('wx-tfd-close'), 450);
-        setTimeout(() => root.classList.remove('done'), 450);
+        setTimeout(() => document.body.classList.remove('wx-tfd-close'), 340);
+        setTimeout(() => root.classList.remove('done'), 340);
         return true;
     }
 

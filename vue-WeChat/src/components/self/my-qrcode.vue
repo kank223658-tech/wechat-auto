@@ -11,10 +11,10 @@
         </header>
         <section>
             <div class="clearfix">
-                <div class="header"><img src="/images/header/header01.png" alt="" style="width:40px"></div>
+                <div class="header"><img :src="meInfo.avatar" alt="" style="width:40px"></div>
                 <div class="info">
-                    <p><span>阿荡</span><span class="gender gender-male"></span></p>
-                    <span>上海 普陀</span>
+                    <p><span>{{ meInfo.name }}</span><span class="gender gender-male"></span></p>
+                    <span v-if="meInfo.region">{{ meInfo.region }}</span>
                 </div>
             </div>
             <div id="qrcode-pic" class="clearfix"></div>
@@ -24,16 +24,18 @@
 </template>
 <script>
     export default {
-        // mounted() {
-        //     new QRCode(document.getElementById("qrcode-pic"), {
-        //         text: "https://vue2-wechat.github.io/",
-        //         width: 128,
-        //         height: 128,
-        //         colorDark: "#000000",
-        //         colorLight: "#ffffff",
-        //         correctLevel: QRCode.CorrectLevel.H
-        //     })
-        // }
+        computed: {
+            // 姓名/头像从注入配置读取（scene.json 场景数据），不再硬编码上游演示人物
+            meInfo() {
+                const cfg = (window.__wxConfig && window.__wxConfig.get()) || {}
+                const me = cfg.me || {}
+                return {
+                    name: me.name || '微信用户',
+                    avatar: me.avatar || '/images/avatar/2_20260831_184618_874.jpg',
+                    region: me.region || ''
+                }
+            }
+        }
     }
 </script>
 <style>

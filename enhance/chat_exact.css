@@ -86,7 +86,7 @@ body.wx-chat #ios-statusbar .sb-signal {
     position: absolute !important;
     left: 430px !important;
     top: 34px !important;
-    width: 31px !important;
+    width: 28px !important;
     height: 21px !important;
     color: #f1f1f1 !important;
 }
@@ -296,7 +296,7 @@ body.wx-chat .chat-clip-top img {
 /* ---- 消息行 ---- */
 body.wx-chat .dialogue-section .row {
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-start !important;   /* 真机：气泡顶对齐头像顶（多行气泡向下生长，头像不跟居中） */
     justify-content: flex-start !important;
     width: 100% !important;
     min-height: 62.6px !important;
@@ -353,29 +353,32 @@ body.wx-chat .dialogue-section .row:not(.self) .text::before {
     content: "" !important;
     position: absolute !important;
     left: -8px !important;
-    top: 50% !important;
-    transform: translateY(-50%);
-    border-top: 11px solid transparent;
-    border-bottom: 11px solid transparent;
+    right: auto !important;
+    top: 22px !important;   /* 真机实测：尖角固定距气泡顶 ≈22 画布px（正对 62.6px 头像的中心带），
+                               不随气泡高度居中；多行长气泡时仍在头像一侧 */
+    border-top: 9px solid transparent;
+    border-bottom: 9px solid transparent;
     border-right: 8px solid #2c2c2c;
     border-left: 0;
     width: 0 !important;
     height: 0 !important;
 }
-/* 我方气泡：微信绿 #23ba65 + 深字，右侧小尖角 */
+/* 我方气泡：微信绿 #27b561 + 深字，右侧小尖角 */
 body.wx-chat .dialogue-section .row.self .text {
-    background: #23ba65 !important;
+    background: #27b561 !important;
     color: #07170d !important;
 }
 body.wx-chat .dialogue-section .row.self .text::before {
     content: "" !important;
     position: absolute !important;
     right: -8px !important;
-    top: 50% !important;
-    transform: translateY(-50%);
-    border-top: 11px solid transparent;
-    border-bottom: 11px solid transparent;
-    border-left: 8px solid #23ba65;
+    left: auto !important;   /* 必须显式清掉 dialogue.less 基础样的 left:-12px：
+                                绝对定位 0 宽元素 left/right 同时存在时 LTR 下 left 优先，
+                                漏掉这行尖角会跑到气泡左侧变成脱开的三角 */
+    top: 22px !important;    /* 同对方气泡：固定距顶 22px，正对头像中心带 */
+    border-top: 9px solid transparent;
+    border-bottom: 9px solid transparent;
+    border-left: 8px solid #27b561;
     border-right: 0;
     width: 0 !important;
     height: 0 !important;
@@ -413,10 +416,47 @@ body.wx-chat .dialogue-section .row.self .text.msg-emoji {
     padding: 0 !important;
     min-height: 0 !important;
 }
+/* 图片 / 表情包（无气泡消息）：真实微信没有指向头像的尖角，
+   必须关掉 .text 通用 ::before，否则会渲染出一块悬空的三角碎片 */
+body.wx-chat .dialogue-section .row .text.msg-image::before,
+body.wx-chat .dialogue-section .row.self .text.msg-image::before,
+body.wx-chat .dialogue-section .row .text.msg-emoji::before,
+body.wx-chat .dialogue-section .row.self .text.msg-emoji::before {
+    content: none !important;
+    display: none !important;
+}
 body.wx-chat .dialogue-section .row .text.msg-emoji img,
 body.wx-chat .dialogue-section .row.self .text.msg-emoji img {
     width: 128px !important;
     height: 128px !important;
+    object-fit: contain !important;
+    display: block !important;
+}
+/* ---- emoji（笑脸面板小黄脸）消息：与一行文字同尺寸（参考图实测 55px@3x → 画布 28px），
+   保留气泡底（我方绿 / 对方深灰），恢复尖角；区别于表情包的 128px 无气泡 ---- */
+body.wx-chat .dialogue-section .row:not(.self) .text.msg-wxemoji,
+body.wx-chat .dialogue-section .row.self .text.msg-wxemoji {
+    background: #2c2c2c !important;
+    padding: 14px 21px !important;
+    min-height: 62.6px !important;
+}
+body.wx-chat .dialogue-section .row.self .text.msg-wxemoji {
+    background: #27b561 !important;
+}
+body.wx-chat .dialogue-section .row:not(.self) .text.msg-emoji.msg-wxemoji::before {
+    content: "" !important;      /* 重新生成伪元素（上面无气泡规则 content:none） */
+    display: block !important;
+    border-right-color: #2c2c2c;
+}
+body.wx-chat .dialogue-section .row.self .text.msg-emoji.msg-wxemoji::before {
+    content: "" !important;
+    display: block !important;
+    border-left-color: #27b561;
+}
+body.wx-chat .dialogue-section .row .text.msg-wxemoji img,
+body.wx-chat .dialogue-section .row.self .text.msg-wxemoji img {
+    width: 31px !important;
+    height: 31px !important;
     object-fit: contain !important;
     display: block !important;
 }
@@ -432,8 +472,10 @@ body.wx-chat .dialogue-section .row.self .text.msg-link {
     display: flex !important;
     align-items: stretch !important;
     gap: 14px !important;
+    /* 恒定宽度：不随标题长短伸缩（短标题也占满整卡宽） */
+    width: 368px !important;
+    min-width: 368px !important;
     max-width: 368px !important;
-    min-width: 272px !important;
     min-height: 166px !important;
     box-shadow: none !important;
     border-radius: 6px !important;
@@ -677,7 +719,7 @@ body.wx-chat .component-dialogue-bar-person .chat-txt {
     height: calc(var(--chat-box-base) + var(--chat-grow, 0px)) !important;
     min-height: var(--chat-box-base) !important;
     border: none !important;
-    border-radius: 6px !important;
+    border-radius: 5px !important;   /* 真机实测圆角 ≈10px@3x = 5.1 画布px */
     background: transparent !important;
     color: #d5d5d5 !important;
     caret-color: #07c160 !important;      /* 输入框光标全程微信绿（非白/非回退蓝） */
@@ -705,18 +747,18 @@ body.wx-chat .component-dialogue-bar-person .chat-way.has-text .chat-txt { paddi
 /* 输入框内麦克风 */
 body.wx-chat .component-dialogue-bar-person .chat-mic {
     position: absolute !important;
-    right: 33px !important;
+    right: 23px !important;   /* 真机实测：麦克风右沿距输入框右沿 23 画布px（原图 44px@3x），原 33 偏左 */
     top: 50% !important;
     transform: translateY(-50%);
     width: 21px !important;
-    height: 28px !important;
+    height: 31px !important;
     color: #9c9c9c !important;
     pointer-events: none;
     transition: opacity .2s cubic-bezier(.25, .8, .25, 1);
 }
 /* 有文字时麦克风渐隐（真实微信：打字后右侧语音图标淡出，让输入框铺满） */
 body.wx-chat .component-dialogue-bar-person .chat-way.has-text .chat-mic { opacity: 0 !important; }
-body.wx-chat .component-dialogue-bar-person .chat-mic img { display: block; width: 21px !important; height: 28px !important; object-fit: contain !important; }
+body.wx-chat .component-dialogue-bar-person .chat-mic img { display: block; width: 21px !important; height: 31px !important; object-fit: contain !important; }
 /* 表情按钮：直接铺参考图（图标自带圆环），不再用 CSS 圆环 */
 body.wx-chat .component-dialogue-bar-person .expression {
     position: absolute !important;
@@ -860,6 +902,30 @@ body.wx-chat #wxkb .kb-row:last-child .kb-key { height: auto !important; }
 body.wx-chat #wxkb .kb-key.kb-fn { font-size: 0 !important; }
 body.wx-chat #wxkb .kb-key.kb-space { font-size: 0 !important; background: transparent !important; }
 body.wx-chat #wxkb .kb-key.kb-send { font-size: 0 !important; background: transparent !important; }
+/* 硬切保证：.kb-key 基础规则有 transition: background .05s，组合态切换时灰底会渐出
+   50ms——头 1~2 帧灰底仍不透明盖住贴图（键面全空帧）、随后半透明（鬼影帧）。
+   真机（发送按键的变化规律.mp4）是相邻帧硬切，贴图模式两键必须零过渡。 */
+body.wx-chat #wxkb .kb-key.kb-space,
+body.wx-chat #wxkb .kb-key.kb-send { transition: none !important; }
+/* ---- 组合态（拼音候选未选定）：空格键文字变「选定」、发送键变深灰「确认」。
+   参考视频「发送按键的变化规律.mp4」逐帧实测：切换为 1 帧硬切无动画；
+   空格键面不变(贴图 rgb 112,112,112 = #707070)仅换文字；发送键从贴图蓝
+   整体变为功能键灰(贴图 rgb 78,78,78 = #4e4e4e，与 123/退格键同色)。
+   文字字号 25px = 视频字形高 22px(592宽) 换算画布 ≈21.4px ÷ 雅黑字面比 0.85。 ---- */
+body.wx-chat #wxkb.kb-composing .kb-key.kb-space {
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    color: #fff !important;
+    background: #707070 !important;
+    border-radius: 6px !important;   /* 贴图键帽圆角 12tex ÷1.965 ≈ 6 */
+}
+body.wx-chat #wxkb.kb-composing .kb-key.kb-send {
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    color: #fff !important;
+    background: #4e4e4e !important;
+    border-radius: 6px !important;
+}
 /* ---- 字母网格(第一个 .kb-grid)：按键热区按贴图(kb_body.png)逐键坐标绝对定位，
    使按下高亮(.kb-press)与上浮气泡(.kb-pop)精确落在贴图真实键位上。
    数字/符号网格不应用这些坐标规则，仍走上方 flex 布局(暂不处理)。 ---- */
@@ -978,7 +1044,7 @@ body.wx-chat #wxkb .kb-cand-item {
     min-width: 0 !important;
     height: 76px !important;
     margin: 0 !important;
-    padding: 0 9px !important;        /* 左右留白决定候选间距/个数（对齐参考视频约24px字间距） */
+    padding: 0 6px !important;        /* 左右留白决定候选间距/个数：收紧到 6px，一行可容 8 个候选（JS cap=8） */
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -997,7 +1063,7 @@ body.wx-chat #wxkb .kb-cand-item:first-child b {
     color: #fff !important;
     background: #3f3f42 !important;
     border-radius: 9px !important;
-    padding: 8px 16px !important;
+    padding: 8px 12px !important;
 }
 body.wx-chat #wxkb .kb-cand-item {
     position: relative !important;
@@ -1011,6 +1077,9 @@ body.wx-chat #wxkb .kb-cand-item.kb-cand-emoji img {
     height: 30px !important;
 }
 body.wx-chat #wxkb .kb-cand-item.kb-cand-emoji .kb-emoji-text { font-size: 26px !important; }
+/* 词候选（2/3/4字）空间设计：留白统一 6px 按宽度自然裁个数（2字~7/3字~5/4字~4），
+   间距由 space-between 落在 9~13px 同一档；首项强调框水平收到 8px，避免比同 row 词大一圈。 */
+body.wx-chat #wxkb .kb-cand-item.kb-cand-multi:first-child b { padding: 8px 8px !important; }
 body.wx-chat #wxkb .kb-cand-item.kb-cand-symbol {
     flex: 0 0 auto !important;
     padding: 0 5px !important;
@@ -1088,6 +1157,24 @@ body.wx-on-moments #wxkb .kb-row:last-child .kb-key { height: auto !important; }
 body.wx-on-moments #wxkb .kb-key.kb-fn { font-size: 0 !important; }
 body.wx-on-moments #wxkb .kb-key.kb-space { font-size: 0 !important; background: transparent !important; }
 body.wx-on-moments #wxkb .kb-key.kb-send { font-size: 0 !important; background: transparent !important; }
+/* 同聊天页：组合态切换零过渡（真机硬切），避免灰底渐出产生空帧/鬼影帧 */
+body.wx-on-moments #wxkb .kb-key.kb-space,
+body.wx-on-moments #wxkb .kb-key.kb-send { transition: none !important; }
+/* 组合态（拼音候选未选定）：空格「选定」+ 深灰「确认」，同聊天页（参考视频实测） */
+body.wx-on-moments #wxkb.kb-composing .kb-key.kb-space {
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    color: #fff !important;
+    background: #707070 !important;
+    border-radius: 6px !important;
+}
+body.wx-on-moments #wxkb.kb-composing .kb-key.kb-send {
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    color: #fff !important;
+    background: #4e4e4e !important;
+    border-radius: 6px !important;
+}
 /* ---- 字母网格(第一个 .kb-grid)：按键热区按贴图(kb_body.png)逐键坐标绝对定位，
    使按下高亮(.kb-press)与上浮气泡(.kb-pop)精确落在贴图真实键位上。
    数字/符号网格不应用这些坐标规则，仍走上方 flex 布局(暂不处理)。 ---- */
@@ -1206,7 +1293,7 @@ body.wx-on-moments #wxkb .kb-cand-item {
     min-width: 0 !important;
     height: 76px !important;
     margin: 0 !important;
-    padding: 0 9px !important;        /* 左右留白决定候选间距/个数（对齐参考视频约24px字间距） */
+    padding: 0 6px !important;        /* 左右留白决定候选间距/个数：收紧到 6px，一行可容 8 个候选（JS cap=8） */
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -1225,7 +1312,7 @@ body.wx-on-moments #wxkb .kb-cand-item:first-child b {
     color: #fff !important;
     background: #3f3f42 !important;
     border-radius: 9px !important;
-    padding: 8px 16px !important;
+    padding: 8px 12px !important;
 }
 body.wx-on-moments #wxkb .kb-cand-item {
     position: relative !important;
@@ -1239,6 +1326,9 @@ body.wx-on-moments #wxkb .kb-cand-item.kb-cand-emoji img {
     height: 30px !important;
 }
 body.wx-on-moments #wxkb .kb-cand-item.kb-cand-emoji .kb-emoji-text { font-size: 26px !important; }
+/* 词候选（2/3/4字）空间设计：留白统一 6px 按宽度自然裁个数（2字~7/3字~5/4字~4），
+   间距由 space-between 落在 9~13px 同一档；首项强调框水平收到 8px，避免比同 row 词大一圈。 */
+body.wx-on-moments #wxkb .kb-cand-item.kb-cand-multi:first-child b { padding: 8px 8px !important; }
 body.wx-on-moments #wxkb .kb-cand-item.kb-cand-symbol {
     flex: 0 0 auto !important;
     padding: 0 5px !important;
@@ -1253,3 +1343,139 @@ body.wx-on-moments #wxkb .kb-cand-item.kb-cand-symbol b {
 
 /* ---- 底部地球/麦克风：整张贴图已自带，隐藏 DOM 层避免重复 ---- */
 body.wx-on-moments #wxkb .kb-dict { display: none !important; }
+
+/* ============================================================
+   数字/符号页（打数字功能复原，2026-09-11）：
+   切到数字页时 #wxkb 挂 .kb-num 换贴图 kb_body_num.png（1179x1008，
+   行几何/配色与 kb_body.png 完全一致，键位按 参考图片/打数字功能.mp4 实测）。
+   数字网格热区逐键绝对定位：坐标 = 贴图键位 ÷1.965，行 top/高与字母页同。
+   ============================================================ */
+body.wx-chat #wxkb.kb-num {
+    background-image: url('/images/chatbar/kb_body_num.png') !important;
+}
+/* 数字网格(第二个 .kb-grid)：热区逐键绝对定位，坐标=kb_body_num.png 键位(与参考视频实测一致) */
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+}
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    display: block !important;
+    gap: 0 !important;
+    flex: none !important;
+    align-items: stretch !important;
+}
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) { top: 4.9px;  height: 65.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) { top: 87.4px; height: 65.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) { top: 169.8px; height: 65.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) { top: 252.2px; height: 65.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-key {
+    position: absolute !important;
+    top: 0 !important;
+    height: 65.6px !important;
+    margin: 0 !important;
+    flex: none !important;
+    box-sizing: border-box !important;
+}
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="1"] { left: 6.1px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="2"] { left: 65.6px; width: 50.9px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="3"] { left: 125.7px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="4"] { left: 185.2px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="5"] { left: 244.8px; width: 50.9px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="6"] { left: 304.8px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="7"] { left: 364.4px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="8"] { left: 423.9px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="9"] { left: 483.5px; width: 50.9px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="0"] { left: 543.5px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="-"] { left: 6.1px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="/"] { left: 65.6px; width: 50.9px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key=":"] { left: 125.7px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key=";"] { left: 185.2px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="("] { left: 244.8px; width: 50.9px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key=")"] { left: 304.8px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="￥"] { left: 364.4px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="@"] { left: 423.9px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="“"] { left: 483.5px; width: 50.9px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="”"] { left: 543.5px; width: 50.4px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="#+="] { left: 6.1px; width: 68.2px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="。"] { left: 89.1px; width: 62.1px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key=","] { left: 161.3px; width: 61.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="\\"] { left: 232.1px; width: 62.1px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="?"] { left: 304.3px; width: 60.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="!"] { left: 376.1px; width: 61.1px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="."] { left: 447.8px; width: 60.1px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="backspace"] { left: 525.7px; width: 68.2px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="abc"] { left: 6.1px; width: 65.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="smile"] { left: 80.9px; width: 65.1px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="space"] { left: 155.2px; width: 289.6px; }
+body.wx-chat #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="send"] { left: 453.9px; width: 139.9px; }
+
+body.wx-on-moments #wxkb.kb-num {
+    background-image: url('/images/chatbar/kb_body_num.png') !important;
+}
+/* 数字网格(第二个 .kb-grid)：热区逐键绝对定位，坐标=kb_body_num.png 键位(与参考视频实测一致) */
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+}
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    display: block !important;
+    gap: 0 !important;
+    flex: none !important;
+    align-items: stretch !important;
+}
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) { top: 4.9px;  height: 65.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) { top: 87.4px; height: 65.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) { top: 169.8px; height: 65.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) { top: 252.2px; height: 65.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-key {
+    position: absolute !important;
+    top: 0 !important;
+    height: 65.6px !important;
+    margin: 0 !important;
+    flex: none !important;
+    box-sizing: border-box !important;
+}
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="1"] { left: 6.1px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="2"] { left: 65.6px; width: 50.9px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="3"] { left: 125.7px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="4"] { left: 185.2px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="5"] { left: 244.8px; width: 50.9px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="6"] { left: 304.8px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="7"] { left: 364.4px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="8"] { left: 423.9px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="9"] { left: 483.5px; width: 50.9px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(1) .kb-key[data-key="0"] { left: 543.5px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="-"] { left: 6.1px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="/"] { left: 65.6px; width: 50.9px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key=":"] { left: 125.7px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key=";"] { left: 185.2px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="("] { left: 244.8px; width: 50.9px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key=")"] { left: 304.8px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="￥"] { left: 364.4px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="@"] { left: 423.9px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="“"] { left: 483.5px; width: 50.9px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(2) .kb-key[data-key="”"] { left: 543.5px; width: 50.4px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="#+="] { left: 6.1px; width: 68.2px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="。"] { left: 89.1px; width: 62.1px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key=","] { left: 161.3px; width: 61.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="\\"] { left: 232.1px; width: 62.1px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="?"] { left: 304.3px; width: 60.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="!"] { left: 376.1px; width: 61.1px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="."] { left: 447.8px; width: 60.1px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(3) .kb-key[data-key="backspace"] { left: 525.7px; width: 68.2px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="abc"] { left: 6.1px; width: 65.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="smile"] { left: 80.9px; width: 65.1px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="space"] { left: 155.2px; width: 289.6px; }
+body.wx-on-moments #wxkb .kb-grid:nth-of-type(2) .kb-row:nth-child(4) .kb-key[data-key="send"] { left: 453.9px; width: 139.9px; }

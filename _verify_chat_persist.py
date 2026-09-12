@@ -141,7 +141,7 @@ def main():
         M._pump_wait(1.2)
         do_step(bot, "对方表情", {"表情": IMG0}, "s7")
         M._pump_wait(0.5)
-        if not do_step(bot, "我方发链接", {"标题": "今晚吃什么？好文分享", "来源": "心灵知行"}, "s8"):
+        if not do_step(bot, "我方发链接", {"标题": "今晚吃什么？好文分享", "来源": "恋爱技巧"}, "s8"):
             return 1
         M._pump_wait(0.5)
         if not do_step(bot, "转账上屏", {"金额": "1.00", "备注": "吃饭"}, "s9"):

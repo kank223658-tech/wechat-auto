@@ -1,0 +1,20 @@
+C:\Users\mik\AppData\Local\Programs\Python\Python314\Lib\site-packages\jieba\_compat.py:18: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+[表情包库] 自定义表情目录 G:\weixin-auto\表情包图片 里还没有图片，已跳过（丢图进去后自动生效）。
+[工作流] 共载入 5 条动作（来源：_snd/_candbar_demo_wf.json）。
+[音效] 已就绪（continuous_type、delete、send、type），实时播放=True
+[缓存] 已启用磁盘缓存 profile：G:\weixin-auto\.cache\chrome-profile
+[引擎] 已注入 Rime WASM 引擎引导，等待雾凇就绪……
+[引擎] 雾凇引擎就绪（真实候选可用）。
+[启动] 页面已打开，开始执行剧本……
+[预热] 已预热 1 个会话 + 1 条文案的输入管线，首个字符及后续每一步打字都将即时渲染。
+[预热] 已预载 71 个静态资源并预热字体，视频从就绪画面开始。
+  [执行   1/5] [编辑主页] {'数据': [{'name': '小星', 'lastText': '在吗', 'time': '23:20', 'unread': 1, 'messages': []}]}
+  [执行   2/5] [打开聊天] {'联系人': '小星'}
+  [执行   3/5] [等待] {'秒数': '0.6'}
+  [执行   4/5] [打字不发] {'内容': '嗯哈好的不可思议不好意思'}
+  [执行   5/5] [等待] {'秒数': '1.2'}
+[完成] 全部动作执行成功，正在保存视频……
+[BGM] 已铺入背景音乐（视频 9.77s，去重后音量 0.35）
+[音频] 已为成品视频混入音效 1 条与背景音乐。
+[视频] 已保存：G:\weixin-auto\videos\wx_candbar_fix_20260912_000141_959.mp4（1.5 MB）

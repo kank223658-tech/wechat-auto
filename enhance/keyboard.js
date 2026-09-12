@@ -27,9 +27,9 @@
     ];
     const LAYOUT_SYMBOLS = [
         { keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] },
-        { keys: ['-', '/', ':', ';', '(', ')', '￥', '&', '@', '"'] },
-        { keys: ['#+=', ',', '.', '!', '?', 'backspace'], wide: { '#+=': 1.7, backspace: 1.5 } },
-        { keys: ['abc', 'space', 'send'], wide: { 'abc': 1.25, space: 7, send: 1.4 } },
+        { keys: ['-', '/', ':', ';', '(', ')', '￥', '@', '“', '”'] },
+        { keys: ['#+=', '。', ',', '\\', '?', '!', '.', 'backspace'], wide: { '#+=': 1.3, backspace: 1.3 } },
+        { keys: ['abc', 'smile', 'space', 'send'], wide: { 'abc': 1.26, smile: 1.26, space: 5.7, send: 2.62 } },
     ];
     const LAYOUT_SYMBOLS2 = [
         { keys: ['[', ']', '{', '}', '#', '%', '^', '*', '+', '='] },
@@ -38,7 +38,7 @@
         { keys: ['abc', 'space', 'send'], wide: { 'abc': 1.25, space: 7, send: 1.4 } },
     ];
     const KEY_LABEL = {
-        shift: '⇧', backspace: '⌫', space: '\u00a0', '123': '123', abc: 'abc', '#+=': '#+=',
+        shift: '⇧', backspace: '⌫', space: '\u00a0', '123': '123', abc: '拼音', '#+=': '#+=',
         ':': '：', ';': '；', '(': '（', ')': '）',
         ',': '，', '.': '。', '!': '！', '?': '？',
         send: '发送',
@@ -51,7 +51,8 @@
         mic: '/images/chatbar/mic_line.png',
     };
     const LETTER_KEYS = new Set('qwertyuiopasdfghjklzxcvbnm'.split(''));
-    const SYMBOL_KEYS1 = new Set(('1234567890-/:;()￥&@"#+=,.!?').split(''));
+    /* 数字/符号第一页（真机中文键盘「123」页）：数字 + - / : ; ( ) ￥ @ “ ” + 。，\\?!. */
+    const SYMBOL_KEYS1 = new Set(('1234567890-/:;()￥@“”。,\\?!.').split(''));
     const SYMBOL_KEYS2 = new Set(('[]{}#%^*+=_\\|~<>€£¥•123').split(''));
 
     /* ---- 构建键盘 DOM ---- */
@@ -135,27 +136,50 @@
     };
     collectKeys();
 
-    /* 录屏贴图键盘(body.wx-chat)判定：键盘是一整张 kb_body.png(字母) 贴图，
-       数字/符号页( symbols / symbols2 )尚未适配——热区只是透明层、未按坐标对齐贴图，
-       切过去会在字母贴图上叠一层透明热区，露出「白色空格/按键对不上」的穿帮。
-       用户暂不打算做数字面板，故录屏模式下不切换到数字/符号页，仅保留打字能力
-       （数字/符号字符仍由 insertChar / 原生键入直接写入输入框）。 */
+    /* 贴图键盘(body.wx-chat / body.wx-on-moments)判定：键盘是一整张贴图
+       （字母页 kb_body.png / 数字页 kb_body_num.png，由 .kb-num 类切换背景），
+       热区为透明层、按贴图逐键坐标对齐。第二符号页( symbols2 )尚未做贴图，
+       贴图模式下不切过去（避免露字母贴图穿帮）；数字页已完整适配可正常切换。 */
     const isWxChat = () => !!(document.body && document.body.classList.contains('wx-chat'));
+    const isTexKb = () => !!(document.body &&
+        (document.body.classList.contains('wx-chat') ||
+         document.body.classList.contains('wx-on-moments')));
 
-    /* ---- 布局切换（真机「123」/「abc」/「#+=」键行为） ---- */
+    /* ---- 布局切换（真机「123」/「拼音」/「#+=」键行为） ---- */
     function switchLayout(to) {
         if (to === currentLayout) return;
-        /* 录屏(wx-chat)下不切数字/符号页：避免贴图穿帮，字符仍由 insertChar/原生键入写入输入框。 */
-        if (isWxChat() && to !== 'letters') return;
+        /* 贴图模式下第二符号页未适配：拦截，其余页正常切换。 */
+        if (isTexKb() && to === 'symbols2') return;
+        if (_pendingFlipT) { clearTimeout(_pendingFlipT); _pendingFlipT = null; }
         gridSymbols.style.display = 'none';
         gridSymbols2.style.display = 'none';
         gridLetters.style.display = 'none';
         currentLayout = to;
         (to === 'letters' ? gridLetters : (to === 'symbols2' ? gridSymbols2 : gridSymbols)).style.display = 'flex';
+        /* 贴图键盘：数字页换背景贴图（kb_body.png <-> kb_body_num.png） */
+        root.classList.toggle('kb-num', isTexKb() && to === 'symbols');
         collectKeys();
         setShiftState(0);          /* 切到数字/符号时大小写复位（真机行为） */
         applyImeKey();
         applySendState();
+        _syncComposeUI();          /* 数字页空格键文字也要跟随组合态（选定/空白） */
+    }
+
+    /* ---- 布局切换动画节拍：显式按「123」/「拼音」键时，先闪布局键、
+       稍延迟再翻页（真机：按下高亮、松手翻页）。延迟随 holdMs 缩放
+       （打字倍速下被同比例压缩，30x 时近乎硬切，与真机快速连打一致）。
+       自动翻页（打数字/字母时按字符所属布局切换）走 switchLayout 硬切。 ---- */
+    let _pendingFlipT = null;
+    function flipByKey(flipKey, to, holdMs) {
+        if (window.__wxKeyboard && window.__wxKeyboard.visible) {
+            const el = keys[flipKey];
+            if (el) pressFx(el, holdMs || 150);
+        }
+        if (_pendingFlipT) clearTimeout(_pendingFlipT);
+        _pendingFlipT = setTimeout(() => {
+            _pendingFlipT = null;
+            if (currentLayout !== to) switchLayout(to);
+        }, Math.max(50, Math.min(holdMs || 150, 200)));
     }
 
     /* ---- Shift 三态：0=关 1=单次 2=大写锁定 ---- */
@@ -453,6 +477,8 @@
     /* 中文/英文输入模式（不影响英文字母直输；拼音模式下候选行才出现） */
     let imeMode = 'pinyin';
     let pyBuffer = '';       /* 未上屏的拼音字母串（组合区） */
+    let _suppressComposeOnce = false;  /* replaceBuffer 上屏后下一次 input 不重新组字
+        （「确认」原样上屏拼音时，value 结尾仍是 [a-z]，不抑制会立刻重新进入组合态死循环） */
     let pyStart = -1;        /* 组合区在输入框内的起始下标 */
     /* 主驱动（main.py）预告的"本段目标词"：敲该词拼音时把候选首位对准它将上屏的字词，
        保证候选条第一项 == 上屏文字（候选-上屏首位对齐微调）。commit 后自动清除。 */
@@ -461,10 +487,25 @@
     function applyImeKey() {
         root.classList.toggle('kb-ime-pinyin', imeMode === 'pinyin');
     }
+
+    /* ---- 组合态（拼音候选未选定）同步：#wxkb 挂 .kb-composing ----
+       参考视频「发送按键的变化规律.mp4」逐帧实测：拼音有候选未选定时，
+       空格键文字变「选定」、右下角发送键从蓝色「发送」整体变为深灰「确认」
+       （键面颜色 = 功能键灰）。选定/清空后瞬间切回「空格」+「发送」。
+       切换为 1 帧硬切、无过渡动画（30fps 相邻帧直接切换）。
+       所有 pyBuffer 被赋值/清空、imeMode 切换的路径最终都会走到这里。 */
+    function _syncComposeUI() {
+        const composing = !!(pyBuffer && imeMode === 'pinyin');
+        root.classList.toggle('kb-composing', composing);
+        const sk = keys['space'];
+        if (sk) sk.textContent = composing ? '选定' : '\u00a0';
+        applySendState();   /* 组合态时发送键文字由 applySendState 统一判成「确认」 */
+    }
     function setImeMode(mode) {
         imeMode = (mode === 'english' || mode === 'abc') ? 'english' : 'pinyin';
         if (!pyBuffer) { pyStart = -1; }
         applyImeKey();
+        _syncComposeUI();
     }
     function toggleImeMode() { setImeMode(imeMode === 'pinyin' ? 'english' : 'pinyin'); }
 
@@ -557,15 +598,12 @@
                 /* 命中微信小表情词表：紧跟其词上图（更贴近微信原版小表情），优先于苹果 emoji。 */
                 pushObj({ type: 'wximg', src: wm });
                 deco++;
-            } else if (m) {
-                /* 命中真实表情：紧跟其词（真输入法打词出表情）。此为"有意义"的装饰，计入上限。 */
+            } else if (m && deco < 3) {
+                /* 命中真实表情：紧跟其词（真输入法打词出表情）。此为"有意义"的装饰，计入上限。
+                   ⚠️ 不做「逢 N 位随机补位装饰」：装饰宽度(36~89px)与文字项差异大，且在缺
+                   emoji 字体的录制环境里会渲染成不可见空槽，把文字候选挤得忽远忽近（间距乱）。
+                   纯文字行交给 space-between 均匀铺满，才是真输入法的排布。 */
                 pushObj({ type: 'emoji', code: m.code, emoji: m.emoji });
-                deco++;
-            } else if (i > 0 && i % 3 === 1 && deco < 3 && out.length < 12) {
-                /* 未命中文字候选：每隔 3 位、且装饰未达上限时补 1 个。颜文字/微信小表情图/苹果表情图
-                   三种轮换，靠**大而多变的装饰池**保证每次出现的花样不重复、整排不重样。
-                   微信小表情图以真实 <img> 挂入，候选条图片更丰富。 */
-                pushObj(nextDeco());
                 deco++;
             }
         }
@@ -646,6 +684,12 @@
         candList.innerHTML = '';
         setCandHeight(0);
     }
+    /* 候选条首位的纯文字候选（空格「选定」用）：emoji/颜文字候选不算，取不到返回 '' */
+    function _firstCandidateText() {
+        const first = candList && candList.querySelector('.kb-cand-item:not(.kb-cand-emoji):not(.kb-cand-symbol)');
+        const ch = first && first.dataset ? first.dataset.chars : '';
+        return (typeof ch === 'string' && ch) ? ch : '';
+    }
     function _showCand(pinyin, chars) {
         if (window.__wxKeyboard && window.__wxKeyboard.showCandidates) {
             window.__wxKeyboard.showCandidates(pinyin, chars);
@@ -653,15 +697,29 @@
             setCandHeight(0);
         }
     }
-    /* 真 Rime 引擎候选：引擎就绪时用真实候选替换候选条；拼音已变则丢弃过期结果（提交仍走 commitByPhrase 保证文字一致）。 */
+    /* 真 Rime 引擎候选：引擎就绪时用真实候选替换候选条；拼音已变则丢弃过期结果（提交仍走 commitByPhrase 保证文字一致）。
+       ⚠️ 引擎 process() 是「按键会话式」的：每次调用=向当前会话追加按键，不是无状态查询。
+       必须增量喂键（_engSent 追踪会话内容）：变长只发增量；变短发 {BackSpace}；交叉变更/清空发 {Escape}
+       （my-rime 支持原始按键序列语法）。否则会话里 n/ni/nih 反复叠加，候选全乱
+       （首候选滚成「那你你好你好很好密码」这类拼接串）。 */
+    let _engSent = '';   /* 引擎会话当前持有的拼音串 */
     function refreshFromEngine(prefix) {
         const E = window.__rimeEngine;
-        // #region agent log
-        _dbgD('keyboard.js:refreshFromEngine', 'ENGINE_READY', { hasE: !!E, ready: !!(E && E.ready), snap: prefix });
-        // #endregion
-        if (!E || !E.ready) return;
+        if (!E || !E.ready) { _engSent = ''; return; }
+        if (prefix === _engSent) return;   // 已同步，无需喂键
         const snap = prefix;
-        E.process(prefix).then((txt) => {
+        let p;
+        if (prefix.startsWith(_engSent) && _engSent.length > 0) {
+            p = E.process(prefix.slice(_engSent.length));                       // 变长：只发增量
+        } else if (_engSent.startsWith(prefix) && prefix.length > 0) {
+            p = E.process('{BackSpace}'.repeat(_engSent.length - prefix.length)); // 变短：逐字退格
+        } else if (_engSent.length > 0) {
+            p = E.process('{Escape}');                                          // 交叉变更/清空：清组合区
+        } else {
+            p = E.process(prefix);                                              // 空会话首次：全量
+        }
+        _engSent = prefix;
+        p.then((txt) => {
             if (pyBuffer !== snap) return;      // 用户已继续打字，丢弃过期候选
             let chars = [];
             try {
@@ -671,14 +729,14 @@
             // #region agent log
             _dbgD('keyboard.js:refreshFromEngine', 'ENGINE_RAW', { snap: snap, txtHead: String(txt || '').slice(0, 120), charsLen: chars.length, chars: chars.slice(0, 6), pyNow: pyBuffer });
             // #endregion
-            if (chars.length) { _perfMark('★引擎候选回填(相对首键的延迟)'); 
+            if (chars.length) { _perfMark('★引擎候选回填(相对首键的延迟)');
                 // #region agent log
                 _dbgD('keyboard.js:refreshFromEngine', 'ASYNC_CAND', {
                     snap: snap, chars: chars.slice(0, 6), pyNow: pyBuffer, started: Date.now() % 1e5
                 });
                 // #endregion
                 _showCand(pyBuffer, attachEmoji(_alignHint(chars, pyBuffer))); }
-        }).catch((e) => { _dbgD('keyboard.js:refreshFromEngine', 'ENGINE_ERR', { snap: prefix, err: String(e && e.message || e) }); });
+        }).catch((e) => { _dbgD('keyboard.js:refreshFromEngine', 'ENGINE_ERR', { snap: prefix, err: String(e && e.message || e) }); _engSent = ''; });
     }
     /* ---- 首键 / 打开键盘 性能探针：仅 window.__wxPerf=true 时启用（默认关闭，零开销）----
        定位「键盘打开后前 2 秒打不出字」落到哪一档。只把结果写进 window.__wxPerfLog（不刷 console），
@@ -709,13 +767,13 @@
         }).observe({ entryTypes: ['longtask'] });
     } catch (e) { /* 个别环境不支持 longtask，忽略 */ }
 
-    function tryImeCompose(el) {
+    function tryImeCompose(el, skipCompose) {
         _perfReset();
         const v = el.value || '';
         // #region agent log
         _dbgD('keyboard.js:tryImeCompose', 'KEY_EVT', { valLen: v.length, imeMode: imeMode, hasRime: !!(window.__rimeEngine && window.__rimeEngine.ready), t: Math.round(performance.now()) });
         // #endregion
-        if (imeMode === 'pinyin') {
+        if (imeMode === 'pinyin' && !skipCompose) {
             const m = /([a-z]+)$/.exec(v);
             if (m) {
                 pyBuffer = m[1];
@@ -729,6 +787,7 @@
             }
         }
         pyBuffer = ''; pyStart = -1;
+        refreshFromEngine('');   // 组合消失 -> 同步清引擎会话（{Escape}）
         renderComposition(el);   // 无组合/英文 -> 若聚焦则画空闲绿色光标，未聚焦则隐藏
         _perfMark('renderComposition(无拼音)');
         _showCand('', ensureCandidates(v));   // 无组合/英文 -> 联想或保底，永不空
@@ -736,16 +795,21 @@
     }
     document.addEventListener('input', (e) => {
         const el = e.target;
-        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) tryImeCompose(el);
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+            const skip = _suppressComposeOnce; _suppressComposeOnce = false;
+            tryImeCompose(el, skip);
+        }
     }, true);
     /* 聚焦/失焦：聚焦时绘制空闲绿色光标，失焦时隐藏覆盖层（回到原生隐藏光标状态） */
+    const isComposeTarget = (el) => !!(el && el.classList && (
+        el.classList.contains('chat-txt') || el.id === 'momentCommentInput'));
     document.addEventListener('focusin', (e) => {
         const el = e.target;
-        if (el && el.classList && el.classList.contains('chat-txt')) renderComposition(el);
+        if (isComposeTarget(el)) renderComposition(el);
     }, true);
     document.addEventListener('focusout', (e) => {
         const el = e.target;
-        if (el && el.classList && el.classList.contains('chat-txt')) clearComposition();
+        if (isComposeTarget(el)) clearComposition();
     }, true);
 
     /* 上屏一段文字（可单字也可词组）：把输入框结尾的组合拼音替换为实际文字,
@@ -759,8 +823,10 @@
         const m = /([a-z]+)$/.exec(v);
         const start = m ? m.index : v.length;   /* 没有组合拼音时直接追加 */
         el.value = v.slice(0, start) + text;
+        _suppressComposeOnce = true;   /* 本次上屏不重新组字（确认拼音原样上屏时 value 仍以 [a-z] 结尾） */
         el.dispatchEvent(new Event('input', { bubbles: true }));   // 触发 tryImeCompose(无拼音 -> 清空候选)
         pyBuffer = ''; pyStart = -1;
+        refreshFromEngine('');                                     // 上屏 -> 清引擎组合会话
         _topHint = null;                                           // 已上屏，本段目标词预告失效
         renderComposition(el);                                     // 仍聚焦 -> 重画整段文本 + 空闲绿色光标
         syncSendState();
@@ -776,13 +842,17 @@
         _showCand('', ensureCandidates(text));   // 联想或保底，永不空
     }
 
-    /* ---- 发送键状态：有文字绿色「发送」，无文字灰色「换行」 ---- */
+    /* ---- 发送键状态：有文字绿色「发送」，无文字灰色「换行」 ----
+       组合态（拼音候选未选定，.kb-composing）优先显示「确认」：
+       参考视频「发送按键的变化规律.mp4」——右下角键在打字全程随候选出现/消失
+       在 蓝「发送」↔ 灰「确认」间瞬时切换，空格键文字同步 空白/「空格」↔「选定」。 */
     let sendOn = false;
     function applySendState() {
         const el = keys['send'];
         if (!el) return;
-        el.classList.toggle('kb-send-on', sendOn);
-        el.textContent = sendOn ? '发送' : '换行';
+        const composing = !!(pyBuffer && imeMode === 'pinyin');
+        el.classList.toggle('kb-send-on', sendOn && !composing);
+        el.textContent = composing ? '确认' : (sendOn ? '发送' : '换行');
     }
 
     /* ---- 输入目标：当前聚焦的输入框/文本域 ---- */
@@ -945,26 +1015,35 @@
         if (label === 'smile') {
             pressFx(key, 150);
             // 点键盘笑脸：收起键盘 → 表情面板从底部滑入（真实微信）
-            if (window.__wxEmojiPanel && window.__wxEmojiPanel.open) window.__wxEmojiPanel.open();
+            if (window.__wxEmojiPanel && window.__wxEmojiPanel.open) window.__wxEmojiPanel.open({ view: 'emoji' });
             return;
         }
         if (label === 'mic') { pressFx(key, 150); return; }
         if (label === '123' || label === 'abc' || label === '#+=') {
-            switchLayout(label === 'abc' ? 'letters' : (label === '123' ? 'symbols' : 'symbols2'));
+            /* 显式按布局键：先闪键，稍延迟翻页（flipByKey，倍速下自动压缩） */
+            flipByKey(label, label === 'abc' ? 'letters' : (label === '123' ? 'symbols' : 'symbols2'), 150);
             return;
         }
         if (label === 'backspace') { pressFx(keys['backspace'], 150); deleteLastChar(); return; }
-        if (label === 'space') { pressFx(keys['space'], 150); insertChar(' '); return; }
+        if (label === 'space') {
+            pressFx(keys['space'], 150);
+            /* 组合态按空格 = 「选定」：上屏候选首位（真机行为），非组合才输入空格 */
+            const first = _firstCandidateText();
+            if (imeMode === 'pinyin' && pyBuffer && first) { replaceBuffer(first); return; }
+            insertChar(' '); return;
+        }
         if (label === 'send') {
             pressFx(keys['send'], 170);
             const el = inputTarget();
+            /* 组合态发送键 = 「确认」：把未上屏拼音原样上屏（真机 iOS 行为） */
+            if (imeMode === 'pinyin' && pyBuffer) { replaceBuffer(pyBuffer); return; }
             if (sendOn && el) {
                 el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
                 el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
             }
             return;
         }
-        /* 字母 / 数字 / 符号：写入输入框并切换布局 */
+        /* 字母 / 数字 / 符号：写入输入框并切换布局（自动翻页=硬切，真机同速） */
         let ch = label;
         if (LETTER_KEYS.has(label)) {
             if (currentLayout !== 'letters') switchLayout('letters');
@@ -1097,7 +1176,8 @@
         if (composeEl) { composeEl.innerHTML = ''; composeEl.style.display = 'none'; }
     }
     function renderComposition(el) {
-        if (!el || !el.classList || !el.classList.contains('chat-txt')) { clearComposition(); return; }
+        _syncComposeUI();   /* 组合态(空格「选定」/发送「确认」)随 pyBuffer 即时同步（见 _syncComposeUI） */
+        if (!el || !isComposeTarget(el)) { clearComposition(); return; }
         const py = pyBuffer || '';
         /* 空闲态渲染：输入框聚焦且无组合拼音时，也绘制「整段已上屏文本 + 同一根绿色光标」，
            覆盖 textarea 原生的细光标，让「未打字但聚焦」也显示同一条柔和绿线。 */
@@ -1162,60 +1242,86 @@
            避免 40 倍速下每键弹泡、满屏高速跳动显得眼花缭乱；低速仍保留。 */
         setPopupEnabled(v) { popupOn = !!v; return popupOn; },
 
-        /* 弹出键盘（带动画） */
-        show() {
+        /* 弹出键盘（带动画）
+           opts.instant = true：不做自身动画（不跑 _animKb/_animChatSection，也不写 inline
+           height），只切类与状态。供 panel_switch.js 的「底部面板直接切换」使用——那套切换
+           要给 #wxkb 与输入栏/消息区统一挂 230ms 同一条曲线，键盘自己再跑一套 rAF 会抢同一个
+           transform（inline 覆盖 CSS），并与面板位移脱帧。 */
+        show(opts) {
+            const instant = !!(opts && opts.instant);
             _perfReset(); _perfMark('show() 开始');
             /* 先把消息区高度钉在起点（收起态 1019px），避免类切换瞬间闪现收缩后的高度，
                再交给 _animChatSection 统一逐帧收放。仅「收起→弹出」真过渡才做高度动画；
                若已处于弹出态(连续会话之间键盘常开)则空跑，靠 main 的 _scroll_chat_bottom 贴底。 */
             const wasVisible = this.visible;
             const g0 = _chatSecGeom();
-            if (g0 && !wasVisible) g0.sec.style.setProperty('height', g0.closed + 'px', 'important');
+            if (g0 && !wasVisible && !instant) g0.sec.style.setProperty('height', g0.closed + 'px', 'important');
             root.classList.add('kb-open');
             document.body.classList.add('wxkb-open');
             this.visible = true;
             pyBuffer = ''; pyStart = -1;
+            refreshFromEngine('');   // 键盘弹出 -> 引擎会话清零对齐
+            _syncComposeUI();
             applyImeKey();
             if (sendTimer) clearInterval(sendTimer);
             sendTimer = setInterval(syncSendState, 350);
             syncSendState();
             _showCand('', ensureCandidates(inputTarget() ? inputTarget().value : ''));
             _perfMark('show() 候选渲染');
-            if (g0 && !wasVisible) _animChatSection(g0.closed, g0.open, 180);   // 高度收缩+贴底，单帧一次排版
+            if (g0 && !wasVisible && !instant) _animChatSection(g0.closed, g0.open, 180);   // 高度收缩+贴底，单帧一次排版
             if (!wasVisible) {
-                // 键盘显式上滑（不靠 CSS 过渡，保证一定有动画）；结束后交还 CSS 稳态。
-                _animKb(100, 0, 180, () => {
+                if (instant) {
+                    /* 交还 CSS 稳态：清掉上一次动画可能残留的 inline 值，让 .kb-open 的
+                       translateY(0) + 面板切换层的过渡接管。 */
                     root.style.removeProperty('transform');
                     root.style.removeProperty('transition');
                     root.style.removeProperty('visibility');
-                });
+                } else {
+                    // 键盘显式上滑（不靠 CSS 过渡，保证一定有动画）；结束后交还 CSS 稳态。
+                    _animKb(100, 0, 180, () => {
+                        root.style.removeProperty('transform');
+                        root.style.removeProperty('transition');
+                        root.style.removeProperty('visibility');
+                    });
+                }
             }
             _perfMark('show() 贴底派发');
         },
 
-        /* 收起键盘 */
+        /* 收起键盘
+           opts.keepSection = true：跳过消息区高度动画（由面板接管）
+           opts.instant     = true：不做自身动画，只切类与状态（同 show） */
         hide(opts) {
             const keepSection = !!(opts && opts.keepSection);   // 表情面板打开时跳过消息区高度动画，由面板接管
+            const instant = !!(opts && opts.instant);
             /* 仅「弹出→收起」真过渡才做高度动画；已收起则不空跑。 */
             const wasVisible = this.visible;
             const g = _chatSecGeom();
-            if (g && wasVisible && !keepSection) g.sec.style.setProperty('height', g.open + 'px', 'important');
+            if (g && wasVisible && !keepSection && !instant) g.sec.style.setProperty('height', g.open + 'px', 'important');
             root.classList.remove('kb-open');
             document.body.classList.remove('wxkb-open');
             this.visible = false;
             if (sendTimer) { clearInterval(sendTimer); sendTimer = null; }
             pyBuffer = ''; pyStart = -1;
+            refreshFromEngine('');   // 键盘收起 -> 清引擎组合会话
             _topHint = null;
+            _syncComposeUI();
             clearComposition();
             setShiftState(0);
-            if (g && wasVisible && !keepSection) _animChatSection(g.open, g.closed, 180);   // 高度恢复+贴底，单帧一次排版
+            if (g && wasVisible && !keepSection && !instant) _animChatSection(g.open, g.closed, 180);   // 高度恢复+贴底，单帧一次排版
             if (wasVisible) {
-                // 键盘显式下滑；结束后交还 CSS 稳态(translateY(100%) + visibility:hidden)。
-                _animKb(0, 100, 180, () => {
+                if (instant) {
                     root.style.removeProperty('transform');
                     root.style.removeProperty('transition');
                     root.style.removeProperty('visibility');
-                });
+                } else {
+                    // 键盘显式下滑；结束后交还 CSS 稳态(translateY(100%) + visibility:hidden)。
+                    _animKb(0, 100, 180, () => {
+                        root.style.removeProperty('transform');
+                        root.style.removeProperty('transition');
+                        root.style.removeProperty('visibility');
+                    });
+                }
             }
             /* 候选词延后清空：让候选条随键盘整体下滑（与弹出时候选条随键盘上升对称），
                等键盘滑出屏幕(过渡仅 .18s)后再 clear，避免收起瞬间候选行突兀消失的拼接感。 */
@@ -1246,7 +1352,8 @@
         pressKey(label, holdMs) {
             label = String(label);
             holdMs = (typeof holdMs === 'number' && holdMs > 0) ? holdMs : 150;
-            /* 先切换布局：字母→letters，数字/符号→symbols（或第二页） */
+            /* 先切换布局：字母→letters，数字/符号→symbols（或第二页）。
+               自动翻页=硬切（真机同速，翻页后当帧即可高亮目标键）。 */
             let target = null;
             if (/^[a-zA-Z]$/.test(label)) target = 'letters';
             else if (SYMBOL_KEYS1.has(label)) target = 'symbols';
@@ -1258,7 +1365,7 @@
             if (label === 'globe') { toggleImeMode(); return Date.now(); }
             if (label === 'smile') {
                 pressFx(keys[label], holdMs);
-                if (window.__wxEmojiPanel && window.__wxEmojiPanel.open) window.__wxEmojiPanel.open();
+                if (window.__wxEmojiPanel && window.__wxEmojiPanel.open) window.__wxEmojiPanel.open({ view: 'emoji' });
                 return Date.now();
             }
             if (label === 'mic') { pressFx(keys[label], holdMs); return Date.now(); }
@@ -1267,7 +1374,8 @@
                 return Date.now();
             }
             if (label === '123' || label === 'abc' || label === '#+=') {
-                switchLayout(label === 'abc' ? 'letters' : (label === '123' ? 'symbols' : 'symbols2'));
+                /* 显式按布局键：先闪键，稍延迟翻页（flipByKey，倍速下自动压缩） */
+                flipByKey(label, label === 'abc' ? 'letters' : (label === '123' ? 'symbols' : 'symbols2'), holdMs);
                 return Date.now();
             }
             /* 字母：若传入大写，表示该键在大写状态下按下（确保 shift 生效） */
@@ -1275,8 +1383,7 @@
                 setShiftState(1);
             }
             const el = keys[label.toLowerCase()] || keys[label];
-            /* 数字/符号键在录屏(wx-chat)下不再切换布局（switchLayout 守卫），
-               对应按键不在当前字母布局的 keys 里 → pressFx(null) 静默跳过即可；
+            /* 目标布局里没有的键（如第一页没有 & "）：pressFx(null) 静默跳过；
                这里仍返回视觉时刻，保证打字声锚点不因跳页而漂移。 */
             const ok = el ? pressFx(el, holdMs) : true;
             /* 大写单次：按完一个字母后自动回弹小写 */
@@ -1298,7 +1405,13 @@
             else if (SYMBOL_KEYS2.has(label)) target = 'symbols2';
             if (target && target !== currentLayout) switchLayout(target);
 
-            if (label === 'space') { pressFx(keys['space'], holdMs); insertChar(' '); return Date.now(); }
+            if (label === 'space') {
+                pressFx(keys['space'], holdMs);
+                /* 组合态按空格 = 「选定」：上屏候选首位（真机行为），与点击路径一致 */
+                const first = _firstCandidateText();
+                if (imeMode === 'pinyin' && pyBuffer && first) { replaceBuffer(first); return Date.now(); }
+                insertChar(' '); return Date.now();
+            }
             if (label === 'backspace') { pressFx(keys['backspace'], holdMs); deleteLastChar(); return Date.now(); }
             if (label === 'send' || label === 'shift' || label === 'globe' ||
                 label === 'smile' || label === 'mic' || label === '123' ||
@@ -1309,8 +1422,7 @@
                 setShiftState(1);
             }
             const el = keys[label.toLowerCase()] || keys[label];
-            /* 数字/符号键在录屏(wx-chat)下不再切换布局（switchLayout 守卫），
-               按键不在当前字母布局的 keys 里时只写入字符、跳过按键高亮。 */
+            /* 目标布局里没有的键：只写入字符、跳过按键高亮。 */
             const ok = el ? pressFx(el, holdMs) : true;
             let ch = label;
             if (LETTER_KEYS.has(label)) ch = shiftState !== 0 ? label.toUpperCase() : label;
@@ -1331,7 +1443,7 @@
             const el = inputTarget();
             if (!el) return { ok: false, n: 0 };
             if (hintWord && hintPy) _topHint = { py: String(hintPy), word: String(hintWord) };
-            /* 首批含字母则确保字母布局（等价 pressType 里的布局切换，只做一次） */
+            /* 首批含字母则确保字母布局（自动翻页=硬切） */
             if (letters.length && /^[a-z]$/.test(String(letters[0])) && currentLayout !== 'letters') {
                 switchLayout('letters');
             }
@@ -1454,10 +1566,11 @@
             candList.innerHTML = '';
             candBar.classList.remove('has-cand');
             setCandHeight(0);   /* 候选栏为绝对定位叠放，不再撑高键盘，变量置0 */
-            /* 真机容量：候选条尽量出满 7 个（引擎页大小 10），不再随已敲拼音变长而缩到 4 个。
-               - 拼音越长候选越聚焦，但为保持候选条饱满，上限统一 7；
-               - 首个（整句/最贴合）候选恒保留；超出容量的由右侧「翻页箭头」暗示（不自动截词义）。 */
-            let cap = 7;
+            /* 真机容量：候选条尽量出满 8 个（引擎页大小 10），不再随已敲拼音变长而缩到 4 个。
+               - 单字候选（一个拼音）一行 8 个；多字词候选字符更宽，同上限下按宽度自然
+                 裁到 ~7 个（正常间距，不强行挤 8 个）——超出容量的由右侧「翻页箭头」暗示；
+               - 首个（整句/最贴合）候选恒保留。 */
+            let cap = 8;
             /* 候选条可视宽度（left:0/right:0 铺满整屏，约 viewport-左右 padding） */
             const listW = () => candList.clientWidth
                 || (candList.parentElement ? candList.parentElement.clientWidth : 0);
@@ -1465,6 +1578,13 @@
             let shown = 0;
             for (let i = 0; i < chars.length && shown < cap; i++) {
                 const ch = chars[i];
+                /* 引擎会返回 emoji 字符候选（🈴️/🆗️ 等）：以文字渲染，在缺彩色 emoji 字体的
+                   录制环境里是「看不见的宽空槽」，把文字候选挤得忽远忽近（间距乱）。一律跳过，
+                   让后续文字候选自然顶上（cap 之前过滤，行内只留真实文字，space-between 均匀铺满）。 */
+                if (typeof ch === 'string' && ch.length > 0 &&
+                    /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/u.test(ch)) {
+                    continue;
+                }
                 const b = document.createElement('button');
                 b.className = 'kb-cand-item';
                 b.dataset.candIndex = String(i);
@@ -1486,9 +1606,10 @@
                     img.alt = '';
                     img.src = isWxImg ? ch.src : ('/images/emoji/' + ch.code + '.png');
                     img.onerror = function () {
-                        /* 微信小表情图已由 preheat 预载，此处仅兜底：缺图直接隐藏，避免破图占位 */
-                        if (isWxImg) { this.remove(); }
-                        else { this.outerHTML = '<span class="kb-emoji-text">' + ch.emoji + '</span>'; }
+                        /* 微信小表情图已由 preheat 预载，此处仅兜底：缺图整槽隐藏（display:none
+                           保留 DOM 占位、tapCandidate 按子节点序号取用不串位），不留空槽破坏间距 */
+                        if (isWxImg) { this.closest('.kb-cand-item').style.display = 'none'; }
+                        else { this.outerHTML = '<span class="kb-emoji-text">(＾▽＾)</span>'; }
                     };
                     b.appendChild(img);
                 } else if (isSymbol) {
@@ -1498,6 +1619,9 @@
                     b.innerHTML = '<b>' + ch.text + '</b>';
                 } else {
                     b.dataset.chars = ch;
+                    /* 多字词候选（两个拼音/三字词）挂 .kb-cand-multi 作为标记位：
+                       当前不做特殊收紧（词行按宽度自然 ~7 个），留着方便以后按需定向调整样式。 */
+                    if (ch.length > 1) b.classList.add('kb-cand-multi');
                     b.innerHTML = '<b>' + ch + '</b>';
                 }
                 frag.appendChild(b);

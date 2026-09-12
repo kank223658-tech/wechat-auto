@@ -32,8 +32,13 @@ if errorlevel 1 (
     %PY_CMD% -m pip install playwright imageio-ffmpeg pypinyin -q
 )
 
-:: ---- 3. 确保 Chromium 内核已下载 ----
-%PY_CMD% -m playwright install chromium
+:: ---- 3. 确保 Chromium 内核已下载（已装则跳过，不再每次都检查安装）----
+set "PW_BROWSER_DIR=%LOCALAPPDATA%\ms-playwright"
+dir /b "%PW_BROWSER_DIR%\chromium-*" >nul 2>&1
+if errorlevel 1 (
+    echo [依赖] 首次运行，正在下载 Chromium 内核（约 100MB，只需一次）...
+    %PY_CMD% -m playwright install chromium
+)
 
 :: ---- 4. 根据参数分发 ----
 if /i "%1"=="record" goto run_record

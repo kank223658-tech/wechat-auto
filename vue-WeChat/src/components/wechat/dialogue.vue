@@ -19,13 +19,16 @@
         </header>
         <section class="dialogue-section clearfix" v-on:click="MenuOutsideClick">
             <template v-for="(item,index) in msgInfo.msg">
+                <!-- ★ 时间分隔条独立渲染（v-if），不再占消息行的 v-else 槽位：
+                     否则带时间标注的消息（[发送表情]|[发送emoji] 时间参数）只显示灰条、
+                     气泡本体被吞掉。分隔条在前、行在后，两者同时出现。 -->
                 <div class="msg-time" v-if="showTime(index, item)" :key="'t'+index">{{dividerText(item)}}</div>
                 <!-- 系统提示（撤回/群公告等）：无头像的居中灰字条 -->
-                <div class="msg-system" v-else-if="item.system" :key="'s'+index">{{item.system}}</div>
+                <div class="msg-system" v-if="item.system" :key="'s'+index">{{item.system}}</div>
                 <div class="row clearfix" v-else :class="{self: isSelf(item.name)}" :key="index">
                     <img :src="item.headerUrl" class="header">
                     <p class="text msg-image" v-if="item.image"><img :src="item.image"></p>
-                    <p class="text msg-emoji" v-else-if="item.emoji"><img :src="item.emoji"></p>
+                    <p class="text msg-emoji" :class="{'msg-wxemoji': item.emoji && item.emoji.indexOf('/wxemoji3d/') > -1}" v-else-if="item.emoji"><img :src="item.emoji"></p>
                     <p class="text msg-voice" v-else-if="item.voice" v-html="voiceBars(item.voice)"></p>
                     <!-- 转账卡片：内层 HTML 由 chat_extra.js 的 transferCardHtml 生成
                          （与运行时 DOM 直插版结构/配色/金额字号规则一致） -->
@@ -38,7 +41,9 @@
                         <span class="lk-img" v-if="item.link.image"><img :src="item.link.image"></span>
                         <span class="lk-img lk-img-empty" v-else></span>
                     </p>
-                    <p class="text" v-else v-more>{{item.text}}</p>
+                    <!-- 文本气泡：v-html 渲染富文本（文本内 [名称] 内嵌 3D emoji）。
+                         richText 先整体 HTML 转义再替换 emoji 标记，天然防注入。 -->
+                    <p class="text" v-else v-more v-html="richText(item.text)"></p>
                 </div>
             </template>
             <span class="msg-more" id="msg-more">
@@ -95,6 +100,8 @@
     </div>
 </template>
 <script>
+    import WXEMOJI3D_MAP from "../../assets/wxemoji3d_map.js";
+
     export default {
         data() {
             return {
@@ -242,6 +249,26 @@
             }
         },
         methods: {
+            /* 文本内嵌 3D emoji：把 [名称]/【名称】（名称来自 names.json 的名称+别名）
+               替换成行内小图，与真实微信「文字里带表情」一致。
+               先整体 HTML 转义再做替换（替换产物是我们自己拼的 <img>，不受转义影响），
+               看不懂的方括号词原样保留为文字。整体包一层 <span class="wx-rt">：
+               气泡是 display:flex，多个子节点会被拆成并列 flex 项（不换行、顺序错乱），
+               包成单个 inline 容器才能让文字+表情像普通行内内容一样自然换行混排。 */
+            richText(text) {
+                const raw = String(text == null ? '' : text);
+                let html = raw
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+                html = html.replace(/[[【]([^[\]】【]{1,8})[\]】]/g, (m, name) => {
+                    const file = WXEMOJI3D_MAP[name];
+                    if (!file) return m;
+                    return '<img class="wx-inline-emoji" src="/images/wxemoji3d/' + file + '" alt="' + name + '">';
+                });
+                return '<span class="wx-rt">' + html + '</span>';
+            },
             // 判断该消息是否是「我」发的：按名字与配置里的我的昵称比较，决定气泡靠右(绿色)
             isSelf(name) {
                 let meName = 'd';
@@ -322,5 +349,20 @@
 
     .say-active {
         background: #c6c7ca;
+    }
+
+    /* ---- 文本气泡内嵌 3D emoji（[微笑] 写法）----
+       尺寸 1.24em：与单独发送的 emoji 消息气泡（31px@25px 字号）一致；
+       vertical-align 微调让小图压在文字基线上，混排不把行高撑高。 */
+    .wx-rt {
+        display: inline;
+    }
+    .wx-inline-emoji {
+        width: 1.24em;
+        height: 1.24em;
+        object-fit: contain;
+        vertical-align: -0.22em;
+        margin: 0 2px;
+        display: inline-block;
     }
 </style>

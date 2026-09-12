@@ -15,7 +15,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #000;
+    background: transparent;   /* 黑底由 .iv-backdrop 负责：共享元素飞入时背景要能单独淡入淡出 */
     overflow: hidden;
     opacity: 0;
     visibility: hidden;
@@ -30,6 +30,10 @@
     background: #000;
 }
 
+/* 图片查看器打开时隐藏 iOS 状态栏（真机全屏沉浸：时间/电量被图片盖住不可见，关闭后恢复） */
+#ios-statusbar { transition: opacity .18s ease; }
+#ios-statusbar.sb-iv-hidden { opacity: 0; }
+
 /* 舞台：承载放大进入 / 退出动画（width/height 即「点开不放大」时的默认显示大小） */
 #imageViewer .iv-stage {
     position: relative;
@@ -40,11 +44,12 @@
     align-items: center;
     justify-content: center;
 }
-#imageViewer .iv-stage.iv-zoom-in { animation: ivZoom .3s ease; }
-#imageViewer .iv-stage.iv-zoom-out { animation: ivZoomOut .22s ease; }
+#imageViewer .iv-stage.iv-zoom-in { animation: ivZoom .32s cubic-bezier(.2, .75, .3, 1); }
+#imageViewer .iv-stage.iv-zoom-out { animation: ivZoomOut .24s cubic-bezier(.4, 0, .7, .4); }
 
 @keyframes ivZoom {
     from { transform: scale(.68); opacity: 0; }
+    70%  { opacity: 1; }
     to   { transform: scale(1); opacity: 1; }
 }
 @keyframes ivZoomOut {

@@ -1,0 +1,155 @@
+/* ============================================================
+   「我」Tab 像素级复刻（main.py 注入，参考图：参考图片/我界面.jpg）
+   ------------------------------------------------------------
+   参考图 1179×2556（iPhone 3x，逻辑 393×852）；画布 600×1300，
+   换算系数 = 600/393 ≈ 1.5267。仅作用于「我」Tab：
+   由 self.vue 的 activated/deactivated 切换 body.wx-on-self。
+   与其他 Tab 差异：无标题栏（.app-header 隐藏）、状态栏底色 #191919、
+   内容区自画布 83px（状态栏下）直通底部 Tab（1162）。
+
+   关键规格（逻辑px → 画布px，以下 top 均为画布系）：
+   - 头像 101×101 @ (41,179)；名字 34px @ (171,185)；微信号 23px #adadad
+   - 扫一扫贴图 32×46 @ (543,179)；状态胶囊 150×43 @ (166,279)
+   - 7 行菜单：图标左 21；行文字中心 y = 341/438/525/609/696/780/878
+   - 行分隔线 1px #313131 左缩进 84（y=481/566/652/737）
+   - 分组间隙贴图（裁自原图）y=381 与 y=821，各 600×20
+   ============================================================ */
+
+/* ---- 壳层：无标题栏，底色 #191919 ---- */
+body.wx-on-self { background: #191919 !important; }
+body.wx-on-self .app-header { display: none !important; }
+body.wx-on-self .app-content { background: #191919 !important; }
+body.wx-on-self #self { background: #191919 !important; position: relative !important; height: 1079px !important; overflow: hidden !important; }
+body.wx-on-self #self,
+body.wx-on-self #ios-statusbar {
+    font-family: "PingFang SC", "DengXian", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+}
+/* 状态栏底色：#191919（通讯录/主页为 #111） */
+body.wx-on-self #ios-statusbar { background: #191919 !important; }
+
+/* ---- 头像区 ---- */
+#self .self-profile { position: absolute !important; display: block !important; left: 0 !important; top: 0 !important; width: 280px !important; height: 140px !important; margin: 0 !important; padding: 0 !important; }
+#self .self-profile .self-header {
+    position: absolute !important;
+    left: 41px !important;
+    top: 96px !important;
+    width: 101px !important;
+    height: 101px !important;
+    border-radius: 5px !important;
+    object-fit: cover !important;
+    margin: 0 !important;
+}
+#self .self-profile .self-nickname {
+    position: absolute !important;
+    left: 171px !important;
+    top: 103px !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    font-size: 34px !important;
+    font-weight: 500 !important;
+    color: #eeeeee !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+#self .self-profile .self-wxid {
+    position: absolute !important;
+    left: 171px !important;
+    top: 156px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 23px !important;
+    font-weight: 400 !important;
+    letter-spacing: 1.5px !important;
+    color: #adadad !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    white-space: nowrap !important;
+}
+/* 右上角扫一扫（→我的二维码） */
+#self .self-scan { position: absolute !important; display: block !important; left: 543px !important; top: 96px !important; width: 32px !important; height: 46px !important; }
+#self .self-scan img { width: 32px !important; height: 46px !important; display: block !important; }
+/* 状态胶囊（+状态 / 状态圆圈） */
+#self .self-status-pills { position: absolute !important; left: 166px !important; top: 196px !important; width: 150px !important; height: 43px !important; }
+#self .self-status-pills img { width: 150px !important; height: 43px !important; display: block !important; }
+
+/* ---- 菜单行：7 行绝对定位（图标 44 宽，文字 26px #e7e7e7 左 86） ---- */
+#self .self-row { position: absolute !important; display: block !important; left: 0 !important; width: 600px !important; height: 84px !important; margin: 0 !important; padding: 0 !important; background: transparent !important; }
+#self .self-row .self-row-ic { position: absolute !important; left: 21px !important; width: 44px !important; margin: 0 !important; display: block !important; }
+#self .self-row .self-row-txt {
+    position: absolute !important;
+    left: 86px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    font-size: 26px !important;
+    font-weight: 400 !important;
+    color: #e7e7e7 !important;
+    white-space: nowrap !important;
+}
+#self .self-row .self-row-arrow { position: absolute !important; left: 559px !important; width: 11px !important; height: 17px !important; margin: 0 !important; display: block !important; }
+
+/* 各行纵向（行内图标 top 与文字/箭头中心按参考图逐行标定） */
+#self .self-row.row-0 { top: 316px !important; }
+#self .self-row.row-1 { top: 413px !important; }
+#self .self-row.row-2 { top: 501px !important; }
+#self .self-row.row-3 { top: 582px !important; }
+#self .self-row.row-4 { top: 672px !important; }
+#self .self-row.row-5 { top: 753px !important; }
+#self .self-row.row-6 { top: 852px !important; }
+
+/* 行内图标 top（行相对）：图标画布顶 - 行顶 */
+#self .row-0 .self-row-ic { top: 10px !important; height: 29px !important; }
+#self .row-1 .self-row-ic { top: 9px !important;  height: 32px !important; }
+#self .row-2 .self-row-ic { top: 10px !important; height: 28px !important; }
+#self .row-3 .self-row-ic { top: 10px !important; height: 34px !important; }
+#self .row-4 .self-row-ic { top: 10px !important; height: 28px !important; }
+#self .row-5 .self-row-ic { top: 10px !important; height: 35px !important; }
+#self .row-6 .self-row-ic { top: 10px !important; height: 32px !important; }
+
+/* 行内文字 top：中心y - 行顶 - 15 */
+#self .row-0 .self-row-txt { top: 9.6px !important; }
+#self .row-1 .self-row-txt { top: 10.4px !important; }
+#self .row-2 .self-row-txt { top: 8.6px !important; }
+#self .row-3 .self-row-txt { top: 11.6px !important; }
+#self .row-4 .self-row-txt { top: 8.6px !important; }
+#self .row-5 .self-row-txt { top: 12.3px !important; }
+#self .row-6 .self-row-txt { top: 11.1px !important; }
+
+/* 行内箭头 top：中心y - 行顶 - 8.5 */
+#self .row-0 .self-row-arrow { top: 16.1px !important; }
+#self .row-1 .self-row-arrow { top: 16.9px !important; }
+#self .row-2 .self-row-arrow { top: 15.1px !important; }
+#self .row-3 .self-row-arrow { top: 18.1px !important; }
+#self .row-4 .self-row-arrow { top: 15.1px !important; }
+#self .row-5 .self-row-arrow { top: 18.8px !important; }
+#self .row-6 .self-row-arrow { top: 17.6px !important; }
+
+/* 作品行附加：右侧提示文字 + 红点 */
+#self .self-row .self-row-hint {
+    position: absolute !important;
+    right: 82px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    font-size: 20px !important;
+    font-weight: 400 !important;
+    color: #a0a0a0 !important;
+    white-space: nowrap !important;
+}
+#self .row-3 .self-row-hint { top: 12px !important; }
+#self .self-row .self-row-dot { position: absolute !important; left: 531px !important; width: 18px !important; height: 18px !important; margin: 0 !important; display: block !important; }
+#self .row-3 .self-row-dot { top: 18px !important; }
+
+/* ---- 行分隔线（1px #313131，左缩进 84） ---- */
+#self .self-sep { position: absolute !important; left: 84px !important; right: 0 !important; height: 1px !important; background: #313131 !important; display: block !important; margin: 0 !important; }
+#self .self-sep.sep-0 { top: 481px !important; }
+#self .self-sep.sep-1 { top: 566px !important; }
+#self .self-sep.sep-2 { top: 652px !important; }
+#self .self-sep.sep-3 { top: 737px !important; }
+
+/* ---- 分组间隙贴图（含发丝线+浅线+深色带+浅线完整结构） ---- */
+#self .self-gap { position: absolute !important; left: 0 !important; width: 600px !important; height: 20px !important; display: block !important; margin: 0 !important; }
+#self .self-gap.gap-0 { top: 381px !important; }
+#self .self-gap.gap-1 { top: 821px !important; }
+
+/* ---- 右缘悬浮胶囊为主页专属，「我」页不显示 ---- */
+body.wx-on-self #wx-home-pill,
+body.wx-on-self #wx-home-plus { display: none !important; }

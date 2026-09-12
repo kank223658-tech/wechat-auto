@@ -66,6 +66,11 @@ body.wx-chat.wxp-open .dialogue-footer {
 body.wx-chat.wxp-open .component-dialogue-bar-person {
     height: calc(var(--chat-bar-base, 86px) + var(--chat-grow, 0px)) !important;
 }
+/* 瞬时复位态（openAmount 用，对齐真机「面板+输入栏硬切复位」）：
+   输入栏回落不走 0.26s 过渡，面板下滑同样被 JS 置 transition:none，二者同帧瞬移。 */
+body.wxp-instant .dialogue-footer {
+    transition: none !important;
+}
 
 #wxTransferPanel .tp-grid {
     display: grid;
@@ -111,6 +116,9 @@ body.wx-chat.wxp-open .component-dialogue-bar-person {
     color: #858585;
     line-height: 1;
 }
+/* 瓦片点按反馈：图标块瞬时压暗（真机 touch 高亮）。由 JS 加/摘 .tap
+   （如 [发送图片] 流程点「照片」），~0.2s 后自动摘除。 */
+#wxTransferPanel .tp-item.tap .tp-icon { background: #3d3d3d; }
 
 /* 底部两个分页点：10px、行2标签下 36px */
 #wxTransferPanel .tp-dots {

@@ -54,6 +54,16 @@
         { id: 'voicein', label: '语音输入' },
     ];
 
+    /* 「+」面板的瓦片图标同样是面板新建时才取图 → 滑入过程中会空白一段时间。
+       登记给 chat_extra.js 的统一预热（见其 _panelImageUrls / preWarmPanelImages）。 */
+    if (window.__wxPreWarmAdd) {
+        window.__wxPreWarmAdd(PANEL_ITEMS.map((it) => '/images/wxpanel/tp_' + it.id + '.png')
+            .concat(['/images/wxpanel/amt_back.png', '/images/wxpanel/amt_del.png',
+                     '/images/wxpanel/amt_yen.png',
+                     /* getPeerAvatar() 兜底头像（对方行头图缺失时金额页用它），一并预热防首开闪图 */
+                     '/images/peer/peer_avatar.jpg']));
+    }
+
     /* ============================================================
        一、构建 DOM
        ============================================================ */
@@ -238,10 +248,10 @@
         const grid = document.createElement('div');
         grid.className = 'tkr-grid-inner';
 
-        const addKey = (text, key, cls) => {
+        const addKey = (html, key, cls) => {
             const k = document.createElement('div');
             k.className = 'tkr-key' + (cls ? ' ' + cls : '');
-            k.textContent = text;
+            k.innerHTML = html;
             k.dataset.key = key;
             grid.appendChild(k);
         };
@@ -253,18 +263,12 @@
         digitRow('7', '8', '9');
         addKey('', '', 'tkr-hide');
         addKey('0', '0');
-
-        // 动作列：退格
-        const actionCol = document.createElement('div');
-        actionCol.className = 'tkr-action-col';
-        const del = document.createElement('div');
-        del.className = 'tkr-key tkr-del tkr-action';
-        del.textContent = '⌫';
-        del.dataset.key = 'del';
-        actionCol.appendChild(del);
+        // 退格键：与「0」同一行、第 3 列（对齐参考 b_018 的「(空) 0 ⌫」）。
+        // 原先它被放进独立的动作列（.tkr-action-col 无任何 CSS，退化成块级），
+        // 结果掉到整个网格下方并居中，位置与参考完全不符。
+        addKey('<img src="/images/wxpanel/amt_del.png" alt="删除">', 'del', 'tkr-del');
 
         container.appendChild(grid);
-        container.appendChild(actionCol);
     }
 
     /* 金额键盘 + 密码键盘 */
@@ -276,7 +280,20 @@
     /* ============================================================
        三、数字键盘点击分发（即支持真机 pointerdown，也支持程序化 click 驱动）
        ============================================================ */
+    /* 真人一次点击会先派发 pointerdown、再派发 click，两个都进 handleKeyEvent，
+       导致金额/密码多输一位（实测鼠标点「1」得到 "11"）。
+       去重规则：pointerdown 落下时置旗；紧随其后的那个 click 被吃掉并落旗。
+       程序化 click（main.py / 编辑器预览）前面没有 pointerdown，照常执行。
+       兜底：按下后在别处松手不会产生 click，pointerup 后 80ms 自动落旗，
+       不会把后续的程序化 click 一起吞掉。 */
+    let pdPending = false;
     function handleKeyEvent(e) {
+        if (e.type === 'pointerdown') {
+            pdPending = true;
+        } else if (e.type === 'click' && pdPending) {
+            pdPending = false;
+            return;
+        }
         const key = e.target.closest('.tkr-key');
         if (!key || !key.dataset.key) {
             // 非键盘区域：处理「+」面板条目点击（之前被提前 return 挡成死代码）
@@ -297,6 +314,7 @@
         }
         e.preventDefault();
         const k = key.dataset.key;
+        pressFx(key);
 
         // 付款面板密码输入
         if (paySheet.classList.contains('open')) {
@@ -346,6 +364,9 @@
     // pointerdown 负责真人点击；click 负责被 main.py/编辑器程序化驱动
     root.addEventListener('pointerdown', handleKeyEvent);
     root.addEventListener('click', handleKeyEvent);
+    const clearPd = () => setTimeout(() => { pdPending = false; }, 80);
+    root.addEventListener('pointerup', clearPd);
+    root.addEventListener('pointercancel', clearPd);
 
     /* ============================================================
        四、内部工具
@@ -366,7 +387,7 @@
             const av = document.querySelector('.dialogue-section .row:not(.self) .header');
             if (av && av.getAttribute('src')) return av.getAttribute('src');
         } catch (e) { /* 忽略 */ }
-        return '/images/header/yehua.jpg';
+        return '/images/peer/peer_avatar.jpg';
     }
     function syncAmountInput() {
         taInput.value = amount;
@@ -375,6 +396,20 @@
         /* ¥ 与金额同色：空态灰色占位、有值变白（对齐真机） */
         const row = taInput.closest('.ta-amount-row');
         if (row) row.classList.toggle('has-amt', !!(amount && amount !== '.'));
+    }
+    /* 按键「落指」反馈：加 .tkr-press → 动画跑完自动摘掉。
+       pointerdown 与 click 会成对触发（真人一次点击），150ms 内忽略第二次；
+       程序化 click 只有一次，照样有反馈。 */
+    function pressFx(el) {
+        if (!el) return;
+        const now = (window.performance && performance.now) ? performance.now() : Date.now();
+        if (el._fxAt && now - el._fxAt < 60) return;
+        el._fxAt = now;
+        el.classList.remove('tkr-press');
+        void el.offsetWidth;                 // 强制回流：同一个键连点也能重放动画
+        el.classList.add('tkr-press');
+        clearTimeout(el._fxTimer);
+        el._fxTimer = setTimeout(() => el.classList.remove('tkr-press'), 160);
     }
     function refreshPwDots() {
         payBoxes.forEach((d, i) => d.classList.toggle('filled', i < password.length));
@@ -405,13 +440,21 @@
     function closePanel() {
         panel.classList.remove('open');
         document.body.classList.remove('wxp-open');
-        setTimeout(() => { if (!amountPage.classList.contains('open') && !paySheet.classList.contains('open')) { root.style.display = 'none'; } }, 340);
+        setTimeout(() => { if (!amountPage.classList.contains('open') && !paySheet.classList.contains('open')) { root.style.display = 'none'; } }, 270);
     }
     function openAmount(name, wxid) {
         activeFlow = true;
         recipient = name || recipient;
         recipientWxId = wxid || recipientWxId;
+        /* 真机（参考视频 74.2s 处逐帧实测）：点「转账」后面板与输入栏「瞬间复位」——
+           无滑出、无淡出，硬切回纯聊天页；停一拍后金额页才从右滑入。
+           旧实现面板走 0.26s 滑下 + 金额页同时盖上，面板残留半程 → 观感「渐渐隐去」。 */
+        document.body.classList.add('wxp-instant');     // 输入栏同步免过渡复位
+        panel.style.transition = 'none';
         panel.classList.remove('open');
+        document.body.classList.remove('wxp-open');
+        void panel.offsetWidth;                          // 锁定瞬时复位态
+        panel.style.transition = '';
         taTitleName.textContent = recipient + ' (**康)';
         taWxId.textContent = '微信号：' + (recipientWxId || 'AAi' + (recipient || 'd').charCodeAt(0).toString(16).toUpperCase() + '201');
         taAvatar.src = getPeerAvatar();
@@ -422,13 +465,18 @@
         payToast.classList.remove('show');
         paySuccess.classList.remove('open');
         taKeyboardEl.classList.remove('kb-down', 'kb-up');
-        // 与 openPanel 同理：先渲染初始态（右侧屏外）再推入，保证滑入动画不被跳过
-        root.style.display = 'block';
-        void amountPage.offsetWidth;
-        amountPage.classList.add('open');
-        // 真机时序：页面先滑入(~260ms)→停顿→键盘单独升起(~300ms)
+        // 与 openPanel 同理：先渲染初始态（右侧屏外）再推入，保证滑入动画不被跳过。
+        // 真机只隔 1 帧（~30ms，参考 74.65→74.67s）页面就推入，停久了会出现
+        // 「键盘完全消失」的真空期（页面没到、聊天键盘又已被面板复位带走）。
         clearTimeout(kbTimer);
-        kbTimer = setTimeout(() => { taKeyboardEl.classList.add('kb-up'); }, 430);
+        kbTimer = setTimeout(() => {
+            document.body.classList.remove('wxp-instant');
+            root.style.display = 'block';
+            void amountPage.offsetWidth;
+            amountPage.classList.add('open');
+            // 真机时序：页面滑入(~180ms)落位后 ~0.15s 键盘升起(~220ms)
+            kbTimer = setTimeout(() => { taKeyboardEl.classList.add('kb-up'); }, 180);
+        }, 30);
         // 聚焦金额输入框（配合数字键盘）
         requestAnimationFrame(() => { try { taInput.focus(); } catch (e) { /* ignore */ } });
         return true;
@@ -436,7 +484,7 @@
     function closeAmount() {
         amountPage.classList.remove('open');
         activeFlow = false;
-        setTimeout(() => { if (!paySheet.classList.contains('open')) root.style.display = 'none'; }, 320);
+        setTimeout(() => { if (!paySheet.classList.contains('open')) root.style.display = 'none'; }, 240);
     }
     /* 金额格式化：'1' → '1.00' */
     function fmtAmount(v) {
@@ -463,7 +511,7 @@
         setTimeout(() => {
             payToast.classList.remove('show');
             paySheet.classList.add('open');         // 面板滑起
-        }, 1800);
+        }, 1200);
         return true;
     }
     /* 密码输满 6 位：停 0.35s → 面板加载态 0.95s → 面板下滑 → 成功页滑入 */
@@ -473,8 +521,8 @@
             setTimeout(() => {
                 paySheet.classList.remove('open', 'loading');
                 paySuccess.classList.add('open');
-            }, 950);
-        }, 350);
+            }, 680);
+        }, 200);
     }
     /* 「完成」：成功页下滑 + 金额页右滑退出 → 聊天页上屏橙色卡片 */
     function finishSuccess() {
@@ -494,7 +542,7 @@
                 }
             } catch (e) { /* 忽略 */ }
             console.warn('[转账] 未找到 __wxChatExt.selfTransfer，无法上屏。');
-        }, 330);
+        }, 280);
     }
     function amtOr(v) { return v && /[0-9.]/.test(v) ? v : '1.00'; }
 

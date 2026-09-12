@@ -125,6 +125,10 @@ def init_db():
             _migrate_v4()
             _migrate_v5()
             _migrate_v6()
+            _migrate_v7()
+            _migrate_v8()
+            _migrate_v9()
+            _migrate_v10()
             _initialized = True
         finally:
             _initializing = False
@@ -279,6 +283,8 @@ def _ref_row_to_dict(row):
     d = dict(row)
     d["topics"] = _json_load(d.get("topics"), [])
     d["tags"] = _json_load(d.get("tags"), [])
+    d["kind"] = d.get("kind") or "full"      # full=整篇风格模板 / snippet=片段示例
+    d["note"] = d.get("note") or ""
     rated = int(d.get("rated_count") or 0)
     d["score"] = round(float(d.get("score_sum") or 0) / rated, 2) if rated else 0
     return d
@@ -307,13 +313,20 @@ def get_references_by_ids(ids):
     return [items[i] for i in wanted if i in items]
 
 
-def add_reference(title="", text="", category="", topics=None, tags=None, summary="", created_at=None):
-    """新增参考剧本。标题为空或是旧的「[历史会话]…」时，自动生成可辨识标题。"""
+def add_reference(title="", text="", category="", topics=None, tags=None, summary="",
+                  created_at=None, kind="", note=""):
+    """新增参考剧本。标题为空或是旧的「[历史会话]…」时，自动生成可辨识标题。
+
+    kind：'full'=整篇（当风格模板）/ 'snippet'=片段示例（当能力示范）。
+    留空时按内容自动判定：短小且不含 [历史会话] 的算片段。
+    """
     init_db()
     body = (text or "").strip()
     clean_title = (title or "").strip()
     if not clean_title or _REF_TITLE_BAD.match(clean_title) or clean_title in ("未命名", "未命名参考"):
         clean_title = derive_reference_title(body)
+    lines = [x for x in body.splitlines() if x.strip()]
+    auto_kind = "snippet" if (len(lines) <= 14 and "[历史会话]" not in body) else "full"
     item = {
         "id": _new_id("ref"),
         "title": clean_title,
@@ -322,14 +335,17 @@ def add_reference(title="", text="", category="", topics=None, tags=None, summar
         "tags": _as_list(tags) if tags else derive_reference_tags(body),
         "summary": (summary or "").strip() or derive_reference_summary(body),
         "text": body,
+        "kind": (kind or "").strip() or auto_kind,
+        "note": (note or "").strip(),
         "created_at": float(created_at or _now()),
     }
     with _db() as conn:
         conn.execute(
-            "INSERT INTO ref_scripts(id,title,category,topics,tags,summary,text,created_at,updated_at)"
-            " VALUES(?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO ref_scripts(id,title,category,topics,tags,summary,text,created_at,updated_at,"
+            "kind,note) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (item["id"], item["title"], item["category"], _json_dump(item["topics"]),
-             _json_dump(item["tags"]), item["summary"], item["text"], item["created_at"], item["created_at"]))
+             _json_dump(item["tags"]), item["summary"], item["text"], item["created_at"],
+             item["created_at"], item["kind"], item["note"]))
     return item
 
 
@@ -344,6 +360,10 @@ def update_reference(ref_id, patch):
         if key in patch:
             fields.append("%s=?" % key)
             values.append(_json_dump(_as_list(patch.get(key))))
+    for key in ("kind", "note"):
+        if key in patch:
+            fields.append("%s=?" % key)
+            values.append(str(patch.get(key) or "").strip())
     if not fields:
         return get_reference(ref_id)
     fields.append("updated_at=?")
@@ -430,6 +450,13 @@ def search_references(query, limit=3):
                 score += 3
             score += min(hay_text.count(t), 5) * 0.5
         if score > 0:
+            # 效果分 / 被采用次数一起参与排序：被评过 5 星、被反复采用的好参考优先。
+            # 旧版只看关键词命中，用户辛苦评的分完全不参与挑选。
+            score += float(ref.get("score") or 0) * 1.5
+            score += min(int(ref.get("use_count") or 0), 10) * 0.3
+            # 整篇参考当风格模板更有效；片段只在关键词高度命中时才顶上来
+            if (ref.get("kind") or "full") == "full":
+                score += 1.0
             scored.append((score, ref))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [r for _, r in scored[:limit]]
@@ -461,6 +488,9 @@ RULE_KINDS = (
     "max_same_emoji",       # 同一个表情最多重复几次
     "max_wait_ratio",       # 紧跟 [等待] 的我方消息占比上限
     "min_burst",            # 实时对白里至少一方连发几条
+    "max_emoji_total",      # 整份剧本发出的表情总数上限（含 3D emoji）
+    "max_time_marks",       # 时间分隔条处数上限
+    "max_history_two_sided",  # 历史会话里最多几个会话带「我：」的回复
 )
 
 _KIND_LABELS = {
@@ -485,6 +515,9 @@ _KIND_LABELS = {
     "max_same_emoji": "同一个表情最多重复几次",
     "max_wait_ratio": "紧跟[等待]的我方消息占比上限",
     "min_burst": "至少一方连发几条",
+    "max_emoji_total": "整份表情数量上限",
+    "max_time_marks": "时间分隔条数量上限",
+    "max_history_two_sided": "历史会话带「我：」回复的会话数上限",
 }
 
 
@@ -855,6 +888,47 @@ def _migrate_v5():
                      "例如「你牵着那个妹妹是谁」「泰国果冻干嘛的」「小狗项圈给你买一个」"
                      "「鸡要八毛什么意思」；禁止「在吗」「吃了吗」「哈哈」「晚安」这类没信息量的寒暄",
                      1, _json_dump([]), "系统默认规则（按你的目标样本调整）", now, now))
+
+
+def _migrate_v7():
+    """一次性：治理规则库的重复 / 冲突 / 语义错位（实现在 create_migrations.run_v7）。
+
+    为什么单独成文件：本文件已有 6 个内联迁移，「治理型」迁移（消解历史遗留冲突）
+    逐条都要写清楚为什么改，几百行塞进来会越来越难读。改动全部只落在规则库，
+    不动任何生成结果，每条都在 source_note 里说明原因。
+    """
+    try:
+        import create_migrations
+        create_migrations.run_v7()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _migrate_v8():
+    """一次性：参考剧本库分层（整篇 / 片段）+ 把新功能片段示例入库。"""
+    try:
+        import create_migrations
+        create_migrations.run_v8()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _migrate_v9():
+    """一次性：修补 v7 首次执行的顺序 bug 造成的两处残留（详见 create_migrations.run_v9）。"""
+    try:
+        import create_migrations
+        create_migrations.run_v9()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _migrate_v10():
+    """每次启动：把动作表新加的能力卡片段补进参考库（幂等，只补缺）。"""
+    try:
+        import create_migrations
+        create_migrations.run_v10()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _migrate_v6():

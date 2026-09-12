@@ -75,3 +75,27 @@ settings.json
 
 # ============ 工具本地状态 ============
 .freebuff
+
+# ============ 预热/浏览器磁盘缓存 ============
+.cache/
+
+# ============ 录制/调试帧图大目录（只留代码，媒体不入库） ============
+_emoji_cut2/
+_numvid/
+_fix7/
+_vg/
+_numref/
+_ek/
+_ekold/
+_sticker_pack/
+_snd/_bs/
+_snd/backup/
+_snd/*.png
+_snd/*.mp4
+_check_refvideo/
+_cmp_ref_home/
+_fc_scan/
+_mic/
+_panelpeek/
+_panel_switch_out/
+.workbuddy/memory/MEMORY_full_archive.md

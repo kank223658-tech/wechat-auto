@@ -1,0 +1,2 @@
+﻿C:\Users\mik\AppData\Local\Programs\Python\Python314\python.exe editor_server.py
+chrome_count=0

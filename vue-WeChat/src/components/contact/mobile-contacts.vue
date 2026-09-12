@@ -1,5 +1,6 @@
 <template>
-    <!--手机联系人组件-->
+    <!--手机联系人组件：数据来自 vuex allContacts（scene.json 场景人物），
+        不再硬编码上游演示人物（白浅/夜华/三国人物等已移除）-->
     <div :class="{'search-open-contact':!$store.state.headerStatus}">
     <header id="wx-header">
             <div class="center">
@@ -12,84 +13,14 @@
         <!--这里的 search 组件的样式也需要修改一下-->
         <search></search>
         <section>
-            <div class="weui-cells__title">B</div>
-            <div class="weui-cells">
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/baiqian.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        白浅
-                    </div>
-                </div>
-            </div>
-            <div class="weui-cells__title">G</div>
-            <div class="weui-cells">
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/guangyu.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        关羽
-                    </div>
-                </div>
-            </div>
-            <div class="weui-cells__title">H</div>
-            <div class="weui-cells">
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/huangyueying.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        黄月英
-                    </div>
-                </div>
-            </div>
-            <div class="weui-cells__title">L</div>
-            <div class="weui-cells">
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/liubei.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        刘备
-                    </div>
-                </div>
-            </div>
-            <div class="weui-cells__title">S</div>
-            <div class="weui-cells">
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/sunshangxiang.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        孙尚香2
-                    </div>
-                </div>
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/sunquan.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        孙权
-                    </div>
-                </div>
-            </div>
-            <div class="weui-cells__title">Y</div>
-            <div class="weui-cells">
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/yehua.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        夜华
-                    </div>
-                </div>
-            </div>
-            <div class="weui-cells__title">Z</div>
-            <div class="weui-cells">
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/header01.png" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        阿荡
-                    </div>
-                </div>
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/zhugeliang.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        诸葛亮
-                    </div>
-                </div>
-                <div class="weui-cell weui-cell_access">
-                    <div class="weui-cell__hd"><img src="/images/header/zhenji.jpg" class="home__mini-avatar___1nSrW"></div>
-                    <div class="weui-cell__bd">
-                        甄姬
+            <div v-for="letter in letters" :key="'g-' + letter">
+                <div class="weui-cells__title">{{ letter }}</div>
+                <div class="weui-cells">
+                    <div class="weui-cell weui-cell_access" v-for="c in grouped[letter]" :key="c.wxid">
+                        <div class="weui-cell__hd"><img :src="c.headerUrl" class="home__mini-avatar___1nSrW"></div>
+                        <div class="weui-cell__bd">
+                            {{ c.remark || c.nickname }}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -102,6 +33,14 @@
         mixins: [window.mixin],
         components: {
             search
+        },
+        computed: {
+            letters() {
+                return (this.$store && this.$store.getters.contactsInitialList) || []
+            },
+            grouped() {
+                return (this.$store && this.$store.getters.contactsList) || {}
+            }
         },
         data() {
             return {

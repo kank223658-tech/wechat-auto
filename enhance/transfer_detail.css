@@ -27,12 +27,14 @@
     background: #181818;
     z-index: 999983;
     transform: translateX(100%);
-    transition: transform .4s cubic-bezier(.32, .72, .35, 1);
+    transition: transform .28s cubic-bezier(.22, 1, .36, 1);
     will-change: transform;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
                  "HarmonyOS Sans SC", "Helvetica Neue", sans-serif;
     overflow: hidden;
-    color: #e2e2e2;
+    /* 参考帧 a_016 实测：正文主色 ≈ #d4d4d4（rgba(255,255,255,.83)），
+       不是纯白；纯白会让整页偏亮、与参考视频差距明显。 */
+    color: #d4d4d4;
 }
 #wxTfDetail.open { transform: translateX(0); }
 
@@ -43,7 +45,7 @@
 body.wx-tfd-open #wx-header,
 body.wx-tfd-open .dialogue-section { transform: translate3d(-30%, 0, 0); }
 #wx-header, .dialogue-section {
-    transition: transform .4s cubic-bezier(.32, .72, .35, 1);
+    transition: transform .28s cubic-bezier(.22, 1, .36, 1);
     will-change: transform;
 }
 body.wx-tfd-close #wx-header,
@@ -54,7 +56,7 @@ body.wx-tfd-close .dialogue-section { transform: translate3d(0, 0, 0); }
    同时保留 height 过渡不影响键盘开合动画。 */
 body.wx-chat .dialogue .dialogue-section,
 html body.wx-chat .dialogue #wx-header {
-    transition: transform .4s cubic-bezier(.32, .72, .35, 1),
+    transition: transform .28s cubic-bezier(.22, 1, .36, 1),
                 height .22s cubic-bezier(.25, .46, .45, .94);
     will-change: transform;
 }
@@ -94,10 +96,12 @@ html body.wx-chat .dialogue #wx-header {
     left: 0; right: 0; top: 364px;
     text-align: center;
     font-size: 24px; line-height: 27px;
-    color: #d1d1d1;
+    /* 参考 a_006 紧窗口实测「待你收款」#dedede（原 #d1d1d1 偏暗 Δ13） */
+    color: #dedede;
     letter-spacing: .5px;
 }
-#wxTfDetail .tfd-line1 .l-done { display: none; color: #eaeaea; }
+/* 「你已收款，资金已存入零钱」：参考 a_016 实测 #d3d3d3（原 #eaeaea 偏白） */
+#wxTfDetail .tfd-line1 .l-done { display: none; color: #dddddd; }
 #wxTfDetail.done .tfd-line1 .l-wait { display: none; }
 #wxTfDetail.done .tfd-line1 .l-done { display: inline; }
 
@@ -106,7 +110,8 @@ html body.wx-chat .dialogue #wx-header {
     position: absolute;
     left: 0; right: 0; top: 424px;
     text-align: center;
-    color: #f5f5f5;
+    /* 参考 a_005/a_016 实测 ¥1.00 = #d2d2d2（原 #f5f5f5 明显过白） */
+    color: #d2d2d2;
     font-weight: 500;
     line-height: 60px;
     white-space: nowrap;
@@ -124,7 +129,8 @@ html body.wx-chat .dialogue #wx-header {
     left: 0; right: 0; top: 526px;
     text-align: center;
     font-size: 23px; line-height: 26px;
-    color: #576b95;
+    /* 参考 a_016 实测 #7f8a9b：暗色模式下的「链接」色，比 #576b95 更浅更灰 */
+    color: #7f8a9b;
     display: none;
 }
 #wxTfDetail.done .tfd-balance { display: block; }
@@ -153,8 +159,10 @@ html body.wx-chat .dialogue #wx-header {
     font-size: 22px;
     display: flex; justify-content: space-between;
 }
-#wxTfDetail .tfd-row .k { color: #7a7a7a; }
-#wxTfDetail .tfd-row .v { color: #9c9c9c; letter-spacing: .3px; }
+/* 参考 a_016：label #808080、值 #d4d4d4。原值色 #9c9c9c 与参考差 56 级，
+   肉眼可见「值偏暗」。 */
+#wxTfDetail .tfd-row .k { color: #808080; }
+#wxTfDetail .tfd-row .v { color: #d4d4d4; letter-spacing: .3px; }
 #wxTfDetail .tfd-row-recv { display: none; }
 #wxTfDetail.done .tfd-rows { top: 623px; }
 #wxTfDetail.done .tfd-row-recv { display: flex; }
@@ -181,43 +189,51 @@ html body.wx-chat .dialogue #wx-header {
     left: 0; right: 0; top: 1122px;
     text-align: center;
     font-size: 20px; line-height: 24px;
-    color: #7a7a7a;
+    color: #828282;
     letter-spacing: .3px;
 }
-#wxTfDetail .tfd-foot .blue { color: #576b95; }
+/* 参考 a_005 实测 「退还」#828891：略偏蓝的次要色（非 #576b95 深蓝） */
+#wxTfDetail .tfd-foot .blue { color: #828891; }
 #wxTfDetail .tfd-foot .f-done { display: none; }
 #wxTfDetail.done .tfd-foot { top: 1170px; }
 #wxTfDetail.done .tfd-foot .f-wait { display: none; }
 #wxTfDetail.done .tfd-foot .f-done {
     display: inline;
-    color: #576b95;
+    /* 参考 a_016「账单详情」实测 #7f8794 */
+    color: #7f8998;
     font-size: 23px;
 }
 
 /* ---------- 零钱通推广行（已收款态，ref y731-802） ---------- */
 #wxTfDetail .tfd-licaitong {
     position: absolute;
-    left: 0; right: 0; top: 741px;
+    left: 0; right: 0;
+    /* 参考 a_016 实测：白圆 y743-814、文字带 y751-807；原 top:741 整体偏低 8px */
+    top: 733px;
     height: 90px;
     display: none;
     align-items: center;
 }
 #wxTfDetail.done .tfd-licaitong { display: flex; }
 #wxTfDetail .tfd-lct-icon {
-    width: 88px; height: 88px;
-    margin-left: 39px;
+    /* 参考 a_016 实测白圆 72x72 @x39（原 88px 偏大，且把右侧文字挤右 16px） */
+    width: 72px; height: 72px;
+    margin-left: 38px;
     border-radius: 50%;
-    background: #fff;
+    background: #f8f8f8;
     display: flex; align-items: center; justify-content: center;
     flex: none;
 }
-#wxTfDetail .tfd-lct-icon svg { width: 50px; height: 50px; display: block; }
+/* 参考钻石实测 40x35 → svg 46px（viewBox 内钻石约占 40/44 宽） */
+#wxTfDetail .tfd-lct-icon svg { width: 46px; height: 46px; display: block; }
 #wxTfDetail .tfd-lct-body { margin-left: 26px; flex: 1; min-width: 0; }
 #wxTfDetail .tfd-lct-body .l1 {
-    font-size: 20px; line-height: 26px; color: #8a8a8a;
+    /* 参考 a_016 实测 #7f7f7f */
+    font-size: 20px; line-height: 26px; color: #7f7f7f;
 }
 #wxTfDetail .tfd-lct-body .l2 {
-    font-size: 24px; line-height: 32px; color: #e2e2e2;
+    /* 参考 a_016 实测 #d6d6d6 */
+    font-size: 24px; line-height: 32px; color: #d6d6d6;
     margin-top: 4px;
 }
 #wxTfDetail .tfd-lct-btn {
@@ -241,6 +257,8 @@ html body.wx-chat .dialogue #wx-header {
     border-radius: 16px;
     background: #3e3e3e;
     display: none;
+    /* 硬出现 → 轻微弹出，避免「瞬间蹦出」的均质感 */
+    animation: wxtPop .2s cubic-bezier(.2, 1.45, .4, 1);
     flex-direction: column; align-items: center; justify-content: center;
     z-index: 5;
 }
@@ -250,7 +268,7 @@ html body.wx-chat .dialogue #wx-header {
     border-radius: 50%;
     border: 5px solid rgba(255, 255, 255, .22);
     border-top-color: #fff;
-    animation: tfdSpin .9s linear infinite;
+    animation: tfdSpin .7s linear infinite;
 }
 #wxTfDetail .tfd-toast .tx {
     margin-top: 18px;
@@ -258,3 +276,9 @@ html body.wx-chat .dialogue #wx-header {
     letter-spacing: 1px;
 }
 @keyframes tfdSpin { to { transform: rotate(360deg); } }
+
+/* 详情页「正在加载」toast 弹出（2026-09-11 提速补丁） */
+@keyframes wxtPop {
+    0%   { opacity: .4; transform: scale(.9); }
+    100% { opacity: 1;  transform: scale(1); }
+}

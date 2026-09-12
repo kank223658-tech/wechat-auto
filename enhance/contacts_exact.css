@@ -1,0 +1,216 @@
+/* ============================================================
+   通讯录 Tab 像素级复刻（main.py 注入，参考图：参考图片/通讯录界面.jpg）
+   ------------------------------------------------------------
+   参考图 1179×2556（iPhone 3x，逻辑 393×852）；画布 600×1300，
+   换算系数 = 600/393 ≈ 1.5267。仅作用于「通讯录」Tab：
+   由 contact.vue 的 activated/deactivated 切换 body.wx-on-contact。
+   壳层（状态栏/标题栏/搜索框/底部Tab）复用 homepage_exact.css 全局规格；
+   本文件只做通讯录差异化：底色 #191919、加号图标贴图、
+   6 个功能行 + 字母分组联系人列表 + 右侧字母索引条。
+
+   关键规格（逻辑px → 画布px）：
+   - 内容区起始 232（搜索框区 149~232 之后），底色 #191919
+   - 功能行高 85.5（图标左 20 顶(行内)10.7 71.7×65.6；文字左 104 26px #f0f0f0）
+   - 行分隔线 1px #323232 左缩进 104（第 6 行下为通栏线 左缩进 15）
+   - 分组字母 21px/700 #a4a4a4（左 25.5，上距 44.8 下距 16.3）
+   - 联系人行高 77（头像左 21 68.7×68.7），行底通栏分隔线（左缩进 15）
+   ============================================================ */
+
+/* ---- 页面底色 ---- */
+body.wx-on-contact { background: #191919 !important; }
+body.wx-on-contact .app-content { background: #191919 !important; }
+body.wx-on-contact #contact { background: #191919 !important; min-height: 1013px; position: relative; }
+body.wx-on-contact #contact,
+body.wx-on-contact #wx-header,
+body.wx-on-contact .app-header {
+    font-family: "PingFang SC", "DengXian", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif !important;
+}
+
+/* ---- 标题栏：标题 #ebebeb；右侧加号换贴图（裁自参考图） ---- */
+body.wx-on-contact #wx-header .center > span { color: #ebebeb !important; }
+body.wx-on-contact #wx-header .other .icon-tips-add-friend {
+    display: block !important;  /* 压过 homepage_exact 的 .iconfont{display:none} */
+    position: fixed !important;
+    left: 537px !important;
+    top: 100px !important;
+    width: 39px !important;
+    height: 31px !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    background: url("/images/replica/contact_person_add.png") 0 0 / 100% 100% no-repeat !important;
+    z-index: 6;
+}
+body.wx-on-contact #wx-header .other .icon-tips-add-friend::before { display: none !important; }
+
+/* ---- 搜索框：胶囊底色 #1a1a1a（参考图实测），其余沿用 homepage 规格 ---- */
+body.wx-on-contact #search .weui-search-bar__box { background: #1a1a1a !important; }
+
+/* ============================================================
+   功能行（新的朋友/群聊/标签/公众号/服务号/企业微信联系人）
+   行高 85.5，首行图标顶 242.7（行内 10.7），行距均匀
+   ============================================================ */
+body.wx-on-contact #contact .weui-cells_contact-head {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #191919 !important;
+    position: relative !important;
+}
+body.wx-on-contact #contact .weui-cells_contact-head::before { display: none !important; }
+body.wx-on-contact #contact .weui-cells_contact-head .weui-cell {
+    position: relative !important;
+    display: block !important;
+    height: 85.5px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #191919 !important;
+}
+/* 图标：左 20，行内顶 10.7，71.7×65.6 */
+body.wx-on-contact #contact .weui-cells_contact-head .weui-cell .weui-cell_hd {
+    position: absolute !important;
+    left: 20px !important;
+    top: 10.7px !important;
+    width: 72px !important;
+    height: 66px !important;
+    margin: 0 !important;
+}
+body.wx-on-contact #contact .weui-cells_contact-head .weui-cell .weui-cell_hd img {
+    width: 72px !important;
+    height: 66px !important;
+    display: block !important;
+    margin: 0 !important;
+}
+/* 文字：左 104，垂直居中于图标中心（行内 y=43.5） */
+body.wx-on-contact #contact .weui-cells_contact-head .weui-cell .weui-cell_bd {
+    position: absolute !important;
+    left: 104px !important;
+    right: 0 !important;
+    top: 28.5px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    font-size: 26px !important;
+    font-weight: 400 !important;
+    color: #f0f0f0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+body.wx-on-contact #contact .weui-cells_contact-head .weui-cell .weui-cell_bd p {
+    color: #f0f0f0 !important;
+    font-size: 26px !important;
+    line-height: 30px !important;
+    margin: 0 !important;
+}
+/* 行分隔线：1px #323232，左缩进 104；末行（企业微信联系人）为通栏（左缩进 15） */
+body.wx-on-contact #contact .weui-cells_contact-head .weui-cell::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 104px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 1px !important;
+    background: #323232 !important;
+}
+body.wx-on-contact #contact .weui-cells_contact-head .weui-cell:last-child::after {
+    left: 15px !important;
+}
+
+/* ============================================================
+   联系人分组（vuex contactsList 动态渲染）
+   分组字母：21px/700 #a4a4a4，上距 44.8 下距 16.3，左 25.5
+   联系人行：高 77，头像左 21 68.7×68.7，行底通栏分隔线
+   ============================================================ */
+body.wx-on-contact #contact .weui-cells__title {
+    margin: 0 !important;
+    padding: 44.8px 0 16.3px 25.5px !important;
+    font-size: 21px !important;
+    line-height: 21px !important;
+    font-weight: 700 !important;
+    color: #a4a4a4 !important;
+    background: #191919 !important;
+}
+body.wx-on-contact #contact section > .weui-cells {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #191919 !important;
+    position: relative !important;
+}
+body.wx-on-contact #contact section > .weui-cells::before { display: none !important; }
+body.wx-on-contact #contact section > .weui-cells .weui-cell {
+    position: relative !important;
+    display: block !important;
+    height: 77px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #191919 !important;
+    overflow: visible !important;
+}
+body.wx-on-contact #contact section > .weui-cells .weui-cell::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 15px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 1px !important;
+    background: #323232 !important;
+}
+/* 头像：左 21，行内顶 4，68.7×68.7 圆角 4（参考图直角微圆） */
+body.wx-on-contact #contact section > .weui-cells .weui-cell .weui-cell__hd {
+    position: absolute !important;
+    left: 21px !important;
+    top: 4px !important;
+    width: 69px !important;
+    height: 69px !important;
+    margin: 0 !important;
+}
+body.wx-on-contact #contact section > .weui-cells .weui-cell .weui-cell__hd img,
+body.wx-on-contact #contact section > .weui-cells .weui-cell .weui-cell__hd img.home__mini-avatar___1nSrW {
+    width: 69px !important;
+    height: 69px !important;
+    display: block !important;
+    margin: 0 !important;
+    border-radius: 4px !important;
+    object-fit: cover !important;
+}
+/* 联系人名：左 104，行内居中（行高 77 → 文字行 30 顶 23.5） */
+body.wx-on-contact #contact section > .weui-cells .weui-cell .weui-cell__bd {
+    position: absolute !important;
+    left: 104px !important;
+    right: 0 !important;
+    top: 23.5px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    font-size: 26px !important;
+    font-weight: 400 !important;
+    color: #f0f0f0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* ---- 右侧字母索引条 ---- */
+body.wx-on-contact #contact .initial-bar {
+    position: fixed !important;
+    right: 5px !important;
+    top: 462px !important;
+    transform: none !important;
+    width: 16px !important;
+    font-size: 13px !important;
+    line-height: 21.4px !important;
+    color: #8a8a8a !important;
+    z-index: 5;
+    text-align: center !important;
+}
+body.wx-on-contact #contact .initial-bar span {
+    display: block !important;
+    text-align: center !important;
+    color: #8a8a8a !important;
+}
+
+/* ---- 压掉 weui 默认边框（否则出现全宽旧线） ---- */
+body.wx-on-contact #contact .weui-cell::before,
+body.wx-on-contact #contact .weui-cells::before,
+body.wx-on-contact #contact .weui-cells::after,
+body.wx-on-contact #contact .weui-cells_contact-head::before,
+body.wx-on-contact #contact .weui-cells_contact-head::after { display: none !important; }
+
+/* ---- 右缘悬浮胶囊/加号为主页专属，通讯录不显示 ---- */
+body.wx-on-contact #wx-home-pill,
+body.wx-on-contact #wx-home-plus { display: none !important; }

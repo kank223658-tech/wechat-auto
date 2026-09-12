@@ -7,7 +7,7 @@
 
 两条路径：
   1. LLM 路径：调用 DeepSeek chat/completions（OpenAI 兼容，标准库 urllib），
-     由 deepseek-v4.1-flash-expires-on-0910 翻译剧本并自动补全仿真动作；
+     由 deepseek-flash（settings.json 可配）翻译剧本并自动补全仿真动作；
   2. 离线路径：无 API Key / 网络失败 / 解析失败时，
      用规则解析标准剧本格式（复用 main.parse_script_text），保证基础能力可用。
 
@@ -18,8 +18,11 @@ import json
 import os
 import random
 import re
+import time
 import urllib.error
 import urllib.request
+
+import action_registry as _ar
 
 # ============================================================
 # 配置
@@ -30,7 +33,7 @@ SETTINGS_PATH = os.path.join(ROOT, "settings.json")
 # 人物库：人名 -> 头像路径，脚本里写 [会话] 名字时自动套用（可由场景编辑器「保存到人物库」写入）
 PEOPLE_PATH = os.path.join(ROOT, "people.json")
 
-DEFAULT_MODEL = "deepseek-v4.1-flash-expires-on-0910"
+DEFAULT_MODEL = "deepseek-flash"
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 API_TIMEOUT_SEC = 60
 
@@ -116,6 +119,12 @@ ACTION_ALIASES = {
     "切回聊天": "闪回聊天",
     "直接返回聊天": "闪回聊天",
     "剪辑返回": "闪回聊天",
+    # 闪进对方朋友圈（黑幕硬切，跳过资料页）
+    "闪到对方朋友圈": "闪到对方朋友圈",
+    "闪进对方朋友圈": "闪到对方朋友圈",
+    "闪入对方朋友圈": "闪到对方朋友圈",
+    "切到对方朋友圈": "闪到对方朋友圈",
+    "直达对方朋友圈": "闪到对方朋友圈",
     "看视频": "播放视频",
     "点开视频": "播放视频",
     "播放朋友圈视频": "播放视频",
@@ -149,67 +158,10 @@ ACTION_ALIASES = {
 
 # 每个动作的参数清单（参数名 -> 缺省值）。
 # None / "" 表示"必填或由用户提供，缺省不补"；其它值表示可选参数缺省时自动补全。
-ACTION_PARAMS = {
-    "打开聊天": {"联系人": None},
-    "我方打字": {"内容": None, "插话": None, "时间": None},
-    "打字不发": {"内容": None, "停留": 1.5, "插话": None},
-    "删除文字": {"数量": -1},
-    "对方正在输入": {"秒数": 1.2},
-    "对方发消息": {"内容": None, "头像": None, "时间": None},
-    "对方后台发消息": {"联系人": None, "内容": None, "图片": None, "头像": None, "发送者": None, "置顶": None, "时间": None},
-    "后台消息队列": {"数据": None, "时间": None},
-    "查看图片": {"图片": None, "打开": None, "停留": None, "焦点": None, "放大倍率": None},
-    "返回主页": {},
-    "切换Tab": {"Tab": "微信"},
-    "隐藏键盘": {},
-    "进入朋友圈": {},
-    "打开对方主页": {"对方": None},
-    "进入对方朋友圈": {},
-    "打开对方设置": {"对方": None},
-    "加入黑名单": {"确认": "确定", "加载秒": 1.4, "停留": 0.8},
-    "移出黑名单": {"确认": "确定", "加载秒": 1.4, "停留": 0.8},
-    "返回上一页": {},
-    "编辑对方资料": {"数据": None, "data": None, "对方": None},
-    "向下滚动": {"像素": 300},
-    "向上滚动": {"像素": 300},
-    "滚动到": {"位置": "底部"},
-    "播放视频": {"视频": None, "序号": 1, "停留": None},
-    "点开图片": {"序号": "1", "停留": None},
-    "闪回聊天": {"停留": None, "回到": None, "闪白": None},
-    "点赞": {},
-    "评论": {"内容": None},
-    "发朋友圈": {"内容": None, "图片": None},
-    "编辑朋友圈": {"数据": None},
-    "编辑我的资料": {"数据": None},
-    "应用场景": {"场景": None, "scene": None, "数据": None, "data": None},
-    "编辑会话": {"数据": None, "data": None},
-    "设置头像": {"图片": None},
-    "设置背景": {"图片": None},
-    "修改昵称": {"昵称": None},
-    "修改签名": {"签名": None},
-    "编辑主页": {"数据": None},
-    "发送图片": {"图片": None, "打开": None, "停留": None, "焦点": None, "放大倍率": None, "时间": None},
-    "对方发图片": {"图片": None, "打开": None, "停留": None, "焦点": None, "放大倍率": None, "时间": None},
-    # ---- 链接卡片动作（与 main.execute_step / __wxChatExt 对齐） ----
-    "我方发链接": {"标题": None, "图片": None, "来源": "心灵知行", "时间": None},
-    "对方发链接": {"标题": None, "图片": None, "来源": "心灵知行", "时间": None},
-    "发送语音": {"秒数": 3},
-    "对方语音": {"秒数": 3},
-    "撤回我的消息": {},
-    "对方撤回消息": {},
-    "转发消息": {"内容": None},
-    "@成员": {"昵称": None},
-    "等待": {"秒数": 1},
-    # ---- 转账类动作（与 editor_server.ACTIONS / main.execute_step 对齐） ----
-    "打开转账面板": {},
-    "转账金额": {"接收人": None, "金额": None, "备注": None, "密码": None},
-    "转账": {"接收人": None, "金额": None, "备注": None},
-    "对方转账": {"接收人": None, "金额": None, "备注": None},
-    # ---- 表情类动作 ----
-    "发送表情": {"表情": None},
-    "对方表情": {"表情": None},
-    "对方后台发表情": {"联系人": None, "表情": None, "时间": None},
-}
+# ---- 动作表唯一来源：action_registry（见该文件头注释）----
+# 旧版这里手写 56 条，与 editor_server.ACTIONS(60) / ACTION_SCHEMA(47) 三份互有缺失，
+# 导致「发送emoji / 切换底部面板 / 转账」等 15 个动作在生成链路里被判非法。
+ACTION_PARAMS = _ar.param_defaults()
 
 # 这些动作的「秒数/停留」参数应解析为数字（float），而不是字符串，
 # 保证编辑器预览与运行时类型一致，也便于「内联停留 | 秒数」等写法被正确当作数字处理。
@@ -224,66 +176,17 @@ NUMERIC_PARAMS = {
 }
 
 # 内置动作表（未传入 editor_server.ACTIONS 时用这个生成提示词）
-ACTION_SCHEMA = [
-    {"action": "打开聊天", "desc": "从聊天列表点击进入指定会话", "params": [{"key": "联系人", "label": "联系人名称"}]},
-    {"action": "我方打字", "desc": "手机键盘动画逐字打字 + 回车发送；内容以 [链接] 开头时改发一张链接卡片", "params": [{"key": "内容", "label": "消息内容"}, {"key": "插话", "label": "对方插话（边打字边对面发，可空）"}]},
-    {"action": "打字不发", "desc": "打出文字但不发送，停在输入框展示（正文写「给观众看的技巧说明」）", "params": [{"key": "内容", "label": "技巧说明（给观众看）"}, {"key": "停留", "label": "停留秒数"}, {"key": "插话", "label": "对方插话（打字后对面逐条回，可空）"}]},
-    {"action": "删除文字", "desc": "退格删除输入框字符（-1 清空）", "params": [{"key": "数量", "label": "删除字符数"}]},
-    {"action": "对方正在输入", "desc": "聊天头部显示「对方正在输入...」", "params": [{"key": "秒数", "label": "显示秒数"}]},
-    {"action": "对方发消息", "desc": "对方消息以左侧气泡整句上屏；内容以 [链接] 开头时改发一张链接卡片", "params": [{"key": "内容", "label": "消息内容"}, {"key": "头像", "label": "对方头像（可空）"}]},
-    {"action": "对方后台发消息", "desc": "给「当前不在看的会话」投递一条对方消息，画面不变，仅把该会话在主页的预览+未读角标刷新（之后返回主页可看到）；内容以 [图片] 开头时变成图片气泡，以 [链接] 开头时变成链接卡片", "params": [{"key": "联系人", "label": "目标会话联系人"}, {"key": "内容", "label": "消息内容（[图片] 开头=图片消息，[链接] 开头=链接卡片）"}, {"key": "图片", "label": "配图路径（图片消息用，可空）"}, {"key": "链接", "label": "链接卡片参数（{标题,图片,来源}，链接消息用，可空）"}, {"key": "头像", "label": "对方头像（可空）"}, {"key": "发送者", "label": "群聊发送者名（可空）"}, {"key": "置顶", "label": "来消息置顶（是/否，可空默认是）"}]},
-    {"action": "后台消息队列", "desc": "装载一批后台消息并【立刻】在后台发出去：执行到这一行时，队列里每条消息马上投递给对应会话，刷新主页预览+未读角标，之后打开该会话即可看到（不再按秒/步延迟）", "params": [{"key": "数据", "label": "JSON 数组，形如 [{联系,内容,头像,置顶},...]"}]},
-    {"action": "查看图片", "desc": "点开图片放大查看后关闭", "params": [{"key": "图片", "label": "图片路径"}, {"key": "打开", "label": "开法（是=点开并放大/只点开=不放大/可空=不开）"}, {"key": "停留", "label": "停留秒数（可空）"}, {"key": "焦点", "label": "放大位置 x,y（0~1，可空）"}, {"key": "放大倍率", "label": "放大倍率（如 2.0，可空用默认）"}]},
-    {"action": "返回主页", "desc": "切回聊天列表主页", "params": []},
-    {"action": "切换Tab", "desc": "点击底部 Tab（微信/通讯录/发现/我）", "params": [{"key": "Tab", "label": "Tab 名称"}]},
-    {"action": "隐藏键盘", "desc": "收起手机键盘", "params": []},
-    {"action": "进入朋友圈", "desc": "从发现页进入朋友圈", "params": []},
-    {"action": "打开对方主页", "desc": "点对方消息头像 → 打开「对方个人资料页」：头像/昵称/微信号/地区/朋友资料/朋友圈缩略图/视频号/发消息", "params": [{"key": "对方", "label": "人设名（可空，留空用场景配置的对方）"}]},
-    {"action": "进入对方朋友圈", "desc": "从对方资料页点「朋友圈」进入对方朋友圈（全屏封面+动态列表）", "params": []},
-    {"action": "打开对方设置", "desc": "点对方资料页右上角「…」推入联系人设置页（编辑备注/设置权限/星标/加入黑名单/投诉/删除联系人）", "params": [{"key": "对方", "label": "人设名（可空）"}]},
-    {"action": "加入黑名单", "desc": "拉黑全过程动画：设置页拨「加入黑名单」开关变绿 → 底部确认弹窗 → 确定 → 「正在加载」加载动画（确认=取消则演示取消路径）", "params": [{"key": "确认", "label": "确定/取消"}, {"key": "加载秒", "label": "正在加载秒数"}]},
-    {"action": "移出黑名单", "desc": "把已拉黑的联系人移出黑名单（开关关掉 + 确认弹窗 + 加载动画）", "params": [{"key": "确认", "label": "确定/取消"}, {"key": "加载秒", "label": "正在加载秒数"}]},
-    {"action": "返回上一页", "desc": "对方朋友圈 → 对方资料页 → 聊天页（iOS 推出转场）", "params": []},
-    {"action": "编辑对方资料", "desc": "整体替换「对方」的资料与朋友圈数据（昵称/微信号/地区/头像/封面/签名/朋友圈缩略图/视频号/动态）", "params": [{"key": "数据", "label": "预设名 / JSON 对象"}]},
-    {"action": "向下滚动", "desc": "自然滚动指定像素（我的朋友圈/对方朋友圈均可）", "params": [{"key": "像素", "label": "像素值"}]},
-    {"action": "向上滚动", "desc": "向上滚动指定像素（我的朋友圈/对方朋友圈均可）", "params": [{"key": "像素", "label": "像素值"}]},
-    {"action": "滚动到", "desc": "把朋友圈滚到顶部或底部（对方朋友圈优先，没开时用我的朋友圈）", "params": [{"key": "位置", "label": "顶部/底部"}]},
-    {"action": "点开图片", "desc": "点开朋友圈动态里的配图全屏查看（对方朋友圈优先，没开时用我的朋友圈）；序号「2」=第2条第1张，「2,3」=第2条第3张", "params": [{"key": "序号", "label": "第几条动态,第几张图（可空默认 1）"}, {"key": "停留", "label": "停留秒数（可空）"}]},
-    {"action": "播放视频", "desc": "点开朋友圈视频全屏播放（留空视频=点开朋友圈里第 N 个视频动态）", "params": [{"key": "视频", "label": "视频地址（可空）"}, {"key": "序号", "label": "第几个视频（可空）"}, {"key": "停留", "label": "停留秒数（可空=按视频时长）"}]},
-    {"action": "闪回聊天", "desc": "硬切回聊天界面：瞬间隐藏我的朋友圈/对方主页朋友圈（无滑出转场），观感像视频剪辑的一次切镜；「回到」填联系人则闪回后直接进该会话", "params": [{"key": "停留", "label": "停留秒数（可空）"}, {"key": "回到", "label": "闪回后进入的会话（可空）"}, {"key": "闪白", "label": "是否闪一帧白（是/否）"}]},
-    {"action": "点赞", "desc": "给最后一条朋友圈动态点赞", "params": []},
-    {"action": "评论", "desc": "键盘动画打字发表评论", "params": [{"key": "内容", "label": "评论内容"}]},
-    {"action": "发朋友圈", "desc": "发表文字朋友圈", "params": [{"key": "内容", "label": "文案"}, {"key": "图片", "label": "配图（可空）"}]},
-    {"action": "编辑朋友圈", "desc": "重建「我的朋友圈」动态列表（作者/文案/配图/视频/点赞/评论）；也支持 {me:{...},posts:[...]} 对象一次改主页资料+动态", "params": [{"key": "数据", "label": "JSON 数组 / 对象"}]},
-    {"action": "编辑我的资料", "desc": "编辑「我」的主页资料：昵称/头像/朋友圈封面/个性签名", "params": [{"key": "数据", "label": "JSON 对象"}]},
-    {"action": "设置头像", "desc": "修改我的头像（全局同步）", "params": [{"key": "图片", "label": "图片路径"}]},
-    {"action": "设置背景", "desc": "修改朋友圈封面背景", "params": [{"key": "图片", "label": "图片路径"}]},
-    {"action": "修改昵称", "desc": "修改我的昵称（全局同步）", "params": [{"key": "昵称", "label": "新昵称"}]},
-    {"action": "修改签名", "desc": "修改我的个性签名", "params": [{"key": "签名", "label": "个性签名"}]},
-    {"action": "编辑主页", "desc": "按数据重建聊天列表主页（会话列表）", "params": [{"key": "数据", "label": "JSON 数组"}]},
-    {"action": "发送图片", "desc": "我方在聊天里发送一张图片；打开=是 则发送后自动点开放大查看再关闭", "params": [{"key": "图片", "label": "图片路径"}, {"key": "打开", "label": "开法（是=点开并放大/只点开=不放大/否=不开，可空）"}, {"key": "停留", "label": "查看停留秒数（可空）"}, {"key": "焦点", "label": "放大位置 x,y（0~1，可空）"}, {"key": "放大倍率", "label": "放大倍率（如 2.0，可空用默认）"}]},
-    {"action": "对方发图片", "desc": "对方发送一张图片；打开=是 则上屏后自动点开放大查看再关闭", "params": [{"key": "图片", "label": "图片路径"}, {"key": "打开", "label": "开法（是=点开并放大/只点开=不放大/否=不开，可空）"}, {"key": "停留", "label": "查看停留秒数（可空）"}, {"key": "焦点", "label": "放大位置 x,y（0~1，可空）"}, {"key": "放大倍率", "label": "放大倍率（如 2.0，可空用默认）"}]},
-    {"action": "我方发链接", "desc": "我方在聊天里发送一张链接卡片（公众号文章/分享链接）：标题文字自动换行，字多撑高卡片；右侧方形缩略图（可空，缺省显示空占位方框）；左下角来源名可替换（默认「心灵知行」）", "params": [{"key": "标题", "label": "链接标题（必填，可自动换行）"}, {"key": "图片", "label": "卡片缩略图（路径/文件名/关键词，可空；留空按标题自动匹配）"}, {"key": "来源", "label": "左下角来源名（可空默认心灵知行）"}, {"key": "时间", "label": "时间分隔条（如 18:22，可空）"}]},
-    {"action": "对方发链接", "desc": "对方发送一张链接卡片（气泡在左），参数含义同「我方发链接」", "params": [{"key": "标题", "label": "链接标题（必填）"}, {"key": "图片", "label": "卡片缩略图（可空）"}, {"key": "来源", "label": "左下角来源名（可空默认心灵知行）"}, {"key": "时间", "label": "时间分隔条（如 18:22，可空）"}]},
-    {"action": "发送语音", "desc": "我方发送语音消息", "params": [{"key": "秒数", "label": "语音秒数"}]},
-    {"action": "对方语音", "desc": "对方发送语音消息", "params": [{"key": "秒数", "label": "语音秒数"}]},
-    {"action": "撤回我的消息", "desc": "撤回我方最后一条消息", "params": []},
-    {"action": "对方撤回消息", "desc": "对方撤回一条消息", "params": []},
-    {"action": "转发消息", "desc": "我方转发一条消息", "params": [{"key": "内容", "label": "转发内容"}]},
-    {"action": "@成员", "desc": "在输入框 @ 成员", "params": [{"key": "昵称", "label": "成员昵称"}]},
-    {"action": "等待", "desc": "自然等待指定秒数", "params": [{"key": "秒数", "label": "等待秒数"}]},
-]
+ACTION_SCHEMA = _ar.schema()
 
 # 系统不再维护硬编码「默认联系人」名单：人物只有一个来源，即【人物库】people.json，
 # 由场景编辑器「保存到人物库」写入。脚本里引用的人名凡不在人物库中，一律视为「没有」，
 # 由转译逻辑按同类名替换或提示，绝不套用某个内置默认联系人、也不给它头像。
 EXTRA_IMAGES = [
-    "/images/header/header02.png",
-    "/images/bg/cover.jpg",
-    "/images/bg/night.jpg",
-    "/images/bg/mao.jpg",
-    "/images/bg/alarm.jpg",
-    "/images/bg/bg02.jpg",
+    "/images/bg/New Wallpaper｜黑色系壁纸_1_YSM壁纸事务所_来自小红书网页版.jpg",
+    "/images/bg/暗色壁纸_1_Cat_来自小红书网页版.jpg",
+    "/images/bg/黑与留白丨全屏壁纸_1_Dark Tide丨暗潮_来自小红书网页版.jpg",
+    "/images/avatar/2_20260831_184618_874.jpg",
+    "/images/avatar/IMG_0585_20260909-193210_20260908_183342_293.jpg",
 ]
 
 # ---- 人物库分组（用户约定的两类人，绝不混淆）----
@@ -296,14 +199,31 @@ STUDENT_HINTS = ("学员", "学生", "同学", "粉丝")
 # 设置读写
 # ============================================================
 
+_settings_cache = {"mtime": None, "data": None}   # settings.json 按 mtime 的读缓存
+
+
 def load_settings() -> dict:
-    """读取 settings.json；环境变量 DEEPSEEK_API_KEY 优先。"""
-    data = dict(DEFAULT_SETTINGS)
+    """读取 settings.json；环境变量 DEEPSEEK_API_KEY 优先。
+
+    带按 mtime 的进程内缓存：文件没变就不重复读盘（status/生成/转译等
+    每个请求都调它）。save_settings 写盘后 mtime 变化会自动失效。
+    """
     try:
-        with open(SETTINGS_PATH, "r", encoding="utf-8") as fh:
-            data.update(json.load(fh))
-    except (OSError, ValueError):
-        pass
+        mtime = os.path.getmtime(SETTINGS_PATH)
+    except OSError:
+        mtime = None
+    if (mtime is not None and _settings_cache["mtime"] == mtime
+            and _settings_cache["data"] is not None):
+        data = dict(_settings_cache["data"])
+    else:
+        data = dict(DEFAULT_SETTINGS)
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as fh:
+                data.update(json.load(fh))
+        except (OSError, ValueError):
+            pass
+        _settings_cache["mtime"] = mtime
+        _settings_cache["data"] = dict(data)
     env_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if env_key:
         data["deepseek_api_key"] = env_key
@@ -318,6 +238,12 @@ def save_settings(patch: dict) -> dict:
             data[k] = v
     with open(SETTINGS_PATH, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
+    # 写盘后立即刷新缓存（防同秒内 mtime 未变的极端情况）
+    try:
+        _settings_cache["mtime"] = os.path.getmtime(SETTINGS_PATH)
+    except OSError:
+        _settings_cache["mtime"] = None
+    _settings_cache["data"] = dict(data)
     return data
 
 
@@ -389,8 +315,8 @@ def build_system_prompt(actions=None, name_map: dict = None) -> str:
    - 涉及"我方打字 / 打字不发 / 对方发消息 / 对方正在输入 / 查看图片 / 发送图片 / 发送语音"等对话动作时，如果之前还没有进入该会话，先自动补一条"打开聊天"；对话结束后若要切到其它页面，自动补"返回主页"。
    - "对方发消息"之前若剧本**没有**写"对方正在输入"，才自动补一条"对方正在输入"，秒数用 1~2；剧本里一旦写了"对方正在输入 X秒"，就必须输出 X 秒，秒数一丝不改。
    - 页面切换、重要动作之间若剧本**没有**写"等待"，才自动补"等待"（0.3~0.8 秒）；剧本里已明确写出的"等待 X秒"必须原样保留，输出 X 秒。
-   - 剧本里写的"打字不发 内容 | 0.3"表示打字后停留 0.3 秒，停留值必须原样输出（参数 停留=0.3）；未写"| 秒数"时不强制补缺省。
-   - "打字不发 内容 | 0.3 | 对方消息"或"我方打字 内容 | 对方消息"表示在打字间隔/打字后由对方插话：把"对方消息"原样写进该动作的 插话 参数（多句时用"；"分隔，逐字保留，勿改写）；没有"| 插话"时不输出 插话。
+   - "打字不发 内容 | 0.3"表示打字后停留 0.3 秒，停留值必须原样输出（参数 停留=0.3）；未写"| 秒数"时不强制补缺省。注意："打字不发"第 1 段是**打给观众看的教学字幕/博弈内容**（键盘上打出来但不发送，是视频的卖点），必须逐字保留，不得改写成聊天口吻、不得删掉。
+   - "打字不发 内容 | 0.3 | 对方消息"或"我方打字 内容 | 对方消息"表示在打字间隔/打字后由对方插话：把"对方消息"原样写进该动作的 插话 参数（多句时用"；"分隔，逐字保留，勿改写）；没有"| 插话"时不输出 插话。插话支持全部消息格式（行首标记路由）：表情贴纸写"[对方表情] 素材短名"、图片写"[对方图片] 素材短名"、链接卡写"[对方链接] 标题 | 封面 | 来源"、3D黄脸写"[对方emoji] 微笑"、语音写"[对方语音] 秒数"、转账写"[对方转账] 金额 | 备注"；无标记=纯文字。所有标记写法原样保留进 插话 参数。
    - 凡是剧本里已写明时长的动作，一律用剧本给的时长，绝不替换成缺省值。
    - 剧本没写但真实操作必须有前置的动作（例如点赞/评论前要"进入朋友圈"、"切换Tab 发现"）要自动补全。
 4. 人物的唯一来源是【人物库】。剧本里出现的所有人物名，必须且只能从【人物库】中选：
@@ -399,13 +325,14 @@ def build_system_prompt(actions=None, name_map: dict = None) -> str:
    - 替换只换人名；该人物剩下的对话内容、动作节奏全部原样保留，不要改动。同一个未知名在本剧本内无论出现多少次，都必须替换成同一个人，绝不能一会儿换成甲、一会儿换成乙。
    - 绝不把「学员」类换到「美女」类，或反过来。
 5. 剧本里出现的联系人，无论是否在默认名单里，只要它在【人物库】里没有对应头像，就必须在整个动作序列最前面自动生成一条"编辑主页"动作（同样地，若剧本里压根没写"编辑主页"，只要后面有"打开聊天"也补一条）：它的 数据 参数直接给一个 JSON 数组（不要用字符串），为剧本中出现的每个联系人生成一条 {{"name": 联系人名, "text": 一句合理的最近消息, "avatar": 用【人物库】里那个人对应的头像路径}}。注意：之后所有"打开聊天"都要能在这个列表里找到对应联系人。绝不要把人物库里不存在的人名填进 数据。
-6. 如果剧本是自然语言叙述（例如"我和孙权聊了下周聚餐的事，他说周三有空，我回复好的到时候见"），把它翻译成对应的对话动作序列：打开聊天 → 我方打字 → 对方正在输入 → 对方发消息 → ...；人名按规则 4 归一。
+6. 如果剧本是自然语言叙述（例如"我和小明聊了下周聚餐的事，他说周三有空，我回复好的到时候见"），把它翻译成对应的对话动作序列：打开聊天 → 我方打字 → 对方正在输入 → 对方发消息 → ...；人名按规则 4 归一。
 7. 忽略标题、注释、空行（如"## 五、剧本格式规范"、以 # 开头的行）。剧本里已经是标准格式的指令（如"[打开聊天] 小明"）就按原意翻译。
 8. 不要脑补用户没有提到的动作和聊天内容（自动补全规则要求的前置动作、等待除外）。
 9. "编辑主页"和"编辑朋友圈"的 数据 参数直接给嵌套的 JSON 数组（作为参数值），不要包成字符串；"打开聊天"的 联系人、"我方打字"/"对方发消息"的 内容 等参数填实际文本。
 10. 剧本里某条消息以 [图片] / [配图] / 【图片】 / 【配图】 开头（例如「[图片] 一张对镜自拍照」），表示这条消息是一张图片：仍按「对方发消息」或「我方打字」这类消息动作输出，但 内容 参数值必须原样保留 [图片] 前缀（如 内容: "[图片] 一张对镜自拍照"）。系统会把该步自动转成「对方发图片 / 发送图片」并弹出配图面板，让你补上真实图片路径。不要把 [图片] 当作普通聊天文字删掉、改写或丢给「查看图片」动作。
 11. 剧本里某条消息以 [链接] / 【链接】 / 【小程序卡片】 / 【分享】 开头（例如「[链接] 聊天案例解析（必看） 解决聊天一聊就死的千年难题」），表示这条消息是一张链接卡片（类似公众号文章/分享链接：标题文字 + 方形缩略图 + 左下来源名）。仍按对应的消息动作输出，但 内容 参数值必须原样保留 [链接] 前缀（如 内容: "[链接] 聊天案例解析（必看） 解决聊天一聊就死的千年难题"），不要把它当普通文字删掉、改写或转成「查看图片」动作。链接标题里含「| 图片 | 来源」时可一并保留（如 内容: "[链接] 标题 | 图片名 | 来源名"）。
-12. 涉及「个人主页 / 对方资料页 / 对方朋友圈」的说法（例如"点开对方头像看资料""进她朋友圈看看""翻一下她的朋友圈""从聊天进个人主页再进朋友圈"）：
+12. 文本内容里可以【内嵌】3D 黄脸 emoji：把 [名称] 直接写进消息文本里（如 内容: "太开心了[大笑]"、"是嘛[捂脸]"），渲染时名称会自动变成行内小表情，无需也不必为此单独输出一条"发送emoji/对方emoji"。名称必须来自 /images/wxemoji3d/names.json（共 110 个，含黄脸与手势/物品/企鹅两类；名称或别名，如 微笑/捂脸/大笑/爱心/害羞/调皮/点赞/玫瑰/咖啡/狗头/666/裂开…）；内嵌标记要原样保留在 内容 里，不要删掉、不要翻译成英文或 emoji 字符。注意与 [图片]/[链接] 前缀区分：[图片]/[链接] 是消息类型标记，[微笑] 这类表情名才是内嵌 emoji。
+13. 涉及「个人主页 / 对方资料页 / 对方朋友圈」的说法（例如"点开对方头像看资料""进她朋友圈看看""翻一下她的朋友圈""从聊天进个人主页再进朋友圈"）：
    - 先确保已经"打开聊天"（不在聊天页时自动补一条 返回主页 + 打开聊天 对应联系人）；
    - 再看对方资料页用"打开对方主页"；看对方朋友圈用"进入对方朋友圈"（它会自动先补上资料页，无需你再写"打开对方主页"）；
    - 看完要退回聊天页时，用若干条"返回上一页"（朋友圈 → 资料页 → 聊天页），不要用"返回主页"（那会直接跳回微信主页）；
@@ -891,9 +818,9 @@ def _extract_amount(text: str):
 # 会话内「说话人：内容」行 -> 标准消息指令
 # ------------------------------------------------------------
 # 用户在剧本里「打开聊天」后，常直接写对方已有的消息，例如：
-#   [打开聊天] 陆香儿
-#   陆香儿：我今晚好想哭
-#   陆香儿：[图片] 一张自拍照
+#   [打开聊天] 香儿
+#   香儿：我今晚好想哭
+#   香儿：[图片] 一张自拍照
 # 这里负责把「说话人：内容」行（不在历史会话块里）归一成标准消息指令：
 #   - 「我/我方/me/自己」说话人 -> [我方打字]
 #   - 其它说话人（对方）-> [对方发消息]
@@ -1014,11 +941,15 @@ def normalize_narrative_script(text: str):
             else:
                 out.append(f"[对方转账] {amount}")
             continue
-        # [操作]/[步骤] 开头：仅当是「领取转账」时提示不支持，其余原样保留
+        # [操作]/[步骤] 开头：「领取转账」翻译成 转账详情完整链路，其余原样保留
         m = _NARR_OP_LEAD.match(raw)
+        if m and "领取" in m.group("c") and ("转账" in m.group("c") or "收款" in m.group("c")):
+            out.append("[打开转账详情]")
+            out.append("[接收转账]")
+            continue
         if m and "领取" in m.group("c"):
-            warnings.append("「[操作] 领取转账」暂不支持：当前运行时只有「对方发来转账卡片」，"
-                            "没有「点开身份证领取」动作，已跳过该步。")
+            warnings.append(f"「{raw}」含未识别的「领取」操作，已跳过；领取转账请直接写"
+                            f"「[打开转账详情] + [接收转账]」。")
             continue
         # [我方发送图片] X -> 发送图片
         m = _NARR_SEND_IMAGE.match(raw)
@@ -1177,7 +1108,7 @@ _LINK_MARKER_RE = re.compile(
 def convert_link_marker_steps(steps: list) -> list:
     """把「消息动作 + 内容以 [链接] 开头」的步骤，转成链接卡片动作。
 
-    内容形如 `[链接] 标题 | 图片 | 来源`：按 `|` 拆出标题/图片/来源（来源缺省「心灵知行」）；
+    内容形如 `[链接] 标题 | 图片 | 来源`：按 `|` 拆出标题/图片/来源（来源缺省「恋爱技巧」）；
     时间分隔条（params["时间"]）保留。已是「我方发链接/对方发链接」的步骤、以及自带链接分支的
     「对方后台发消息」原样保留。就地改写并返回同一引用。
     """
@@ -1205,7 +1136,7 @@ def convert_link_marker_steps(steps: list) -> list:
         parts = [x.strip() for x in m.group(1).strip().split("|")]
         title = parts[0] if parts else ""
         image = parts[1] if len(parts) > 1 and parts[1] != "-" else ""
-        source = parts[2] if len(parts) > 2 and parts[2] else "心灵知行"
+        source = parts[2] if len(parts) > 2 and parts[2] else "恋爱技巧"
         if not title and not image:
             continue
         # 封面引用（「课程封面图」这类关键词/文件名）先按同一套规则解析成真实 URL，
@@ -1581,25 +1512,40 @@ def translate(text: str, actions=None, api_key: str = None,
     warnings += narr_warnings
 
     if api_key:
-        try:
-            prompt = build_system_prompt(actions, name_map=pre_mapping)
-            raw = call_deepseek(api_key, prompt, text, model, base_url)
-            steps, err = _extract_json_array(raw)
-            if steps is not None:
-                steps, extra = validate_steps(steps)
-                warnings += extra
-                normalize_step_people(steps, pre_mapping)
-                _reassert_source_timings(steps, original_text)
-                _reassert_source_times(steps, original_text)
-                # 「打字不发 内容」紧跟「[等待] X」：把 X 吸收为打字不发的停留，
-                # 不再叠加默认停留，也删掉那条被吸收的 [等待]。
-                steps = merge_typing_waits(steps, original_text)
-                if not steps:
-                    warnings.append("转译结果为空，请检查剧本内容。")
-                return {"steps": steps, "warnings": warnings, "source": "llm"}
-            warnings.append("LLM 返回内容解析失败，已降级为离线解析：" + str(err))
-        except Exception as exc:                                # noqa: BLE001
-            warnings.append(f"调用 DeepSeek 失败，已降级为离线解析：{exc}")
+        # 长剧本转译常超过默认 60s：转译与「生成」对齐——600s 超时 + 网络类错误自动重试 2 次，
+        # 不再一超时就降级离线解析（离线解析对松散自然语言无能为力，体感就是「AI 转译时好时坏」）。
+        prompt = build_system_prompt(actions, name_map=pre_mapping)
+        raw = None
+        _last_exc = None
+        for _attempt in range(3):
+            try:
+                raw = call_deepseek(api_key, prompt, text, model, base_url,
+                                    timeout=600)
+                break
+            except Exception as exc:                        # noqa: BLE001
+                _last_exc = exc
+                if _attempt < 2:
+                    time.sleep(2 + 2 * _attempt)
+        if raw is not None:
+            try:
+                steps, err = _extract_json_array(raw)
+                if steps is not None:
+                    steps, extra = validate_steps(steps)
+                    warnings += extra
+                    normalize_step_people(steps, pre_mapping)
+                    _reassert_source_timings(steps, original_text)
+                    _reassert_source_times(steps, original_text)
+                    # 「打字不发 内容」紧跟「[等待] X」：把 X 吸收为打字不发的停留，
+                    # 不再叠加默认停留，也删掉那条被吸收的 [等待]。
+                    steps = merge_typing_waits(steps, original_text)
+                    if not steps:
+                        warnings.append("转译结果为空，请检查剧本内容。")
+                    return {"steps": steps, "warnings": warnings, "source": "llm"}
+                warnings.append("LLM 返回内容解析失败，已降级为离线解析：" + str(err))
+            except Exception as exc:                        # noqa: BLE001
+                warnings.append(f"LLM 结果处理失败，已降级为离线解析：{exc}")
+        else:
+            warnings.append(f"调用 DeepSeek 失败（已重试 2 次），已降级为离线解析：{_last_exc}")
 
     steps, extra = translate_offline(text)
     warnings += extra
@@ -1774,16 +1720,16 @@ def build_dialogue(text: str, api_key: str = None,
 # 用途：让用户在脚本模式直接写历史会话，无需再进场景编辑器或手写嵌套 JSON。
 # 例：
 #   [历史会话]
-#   [会话] 陆香儿
-#   陆香儿：我今晚好想哭
+#   [会话] 香儿
+#   香儿：我今晚好想哭
 #   我：哭什么呀
-#   陆香儿：[图片] 一张自拍照
+#   香儿：[图片] 一张自拍照
 #   我：[语音] 5秒
 #   [会话] 小明
 #   小明：周末有空吗
 #   我：有的，怎么了
 #   [历史会话结束]
-#   [打开聊天] 陆香儿
+#   [打开聊天] 香儿
 #   ...
 # 解析后 -> [{"action":"编辑主页","params":{"数据":[{name,messages:[...]},...]}}]
 # ============================================================
@@ -1925,7 +1871,7 @@ def _line_to_message(line: str, warnings=None):
                "text": "", "seconds": seconds}
     # 链接卡片消息：[链接]/【链接】/【小程序卡片】开头。
     # 格式：`[链接] 标题 | 图片 | 来源`；标题=标记后内容，图片/来源/时间用 `|` 分隔。
-    # 图片缺省时留空 -> 前端渲染空占位方框（用户要求「图片用占位即可」）；来源缺省「心灵知行」。
+    # 图片缺省时留空 -> 前端渲染空占位方框（用户要求「图片用占位即可」）；来源缺省「恋爱技巧」。
     else:
         lm = _LINK_HEAD_RE.match(body)
         if lm:
@@ -1953,7 +1899,7 @@ def _line_to_message(line: str, warnings=None):
             if len(parts) > 2 and parts[2]:
                 link_msg["source"] = parts[2]
             else:
-                link_msg["source"] = "心灵知行"
+                link_msg["source"] = "恋爱技巧"
             msg = link_msg
         else:
             is_img, desc = _pic_marker(body)

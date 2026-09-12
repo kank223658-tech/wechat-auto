@@ -67,9 +67,17 @@
     mask.id = 'ios-screen-mask';
     document.body.appendChild(mask);
 
-    /* ---- 固定时钟：规格参考图状态栏时间为 18:36，像素级复刻不走真机实时时间 ---- */
+    /* ---- 状态栏时钟：默认 18:36（参考图像素级复刻）。
+       可由 __wxPhoneFrame.setTime() 覆盖（enhance/config.js 应用场景时同步
+       「历史会话」最后时刻，与开场锁屏时钟对齐）；转账场景仍固定 03:14。 ---- */
     const timeEl = sb.querySelector('.sb-time');
-    timeEl.textContent = "18:36";
+    const TRANSFER_TIME = '03:14';
+    let baseTime = '18:36';
+    let transferScene = false;
+    function renderTime() {
+        timeEl.textContent = transferScene ? TRANSFER_TIME : baseTime;
+    }
+    renderTime();
 
     const batteryFill = sb.querySelector('.sb-fill');
     const batteryTxt = sb.querySelector('.sb-battery-txt');
@@ -119,16 +127,32 @@
             this.charging = !!on;
         },
 
+        /* 状态栏时钟：同步「历史会话」最后时刻（HH:MM）。
+           转账场景期间只记录不显示，切回 default 后生效。 */
+        setTime(hhmm) {
+            const s = String(hhmm || '').trim();
+            if (!/^\d{1,2}:\d{2}$/.test(s)) return false;
+            baseTime = s;
+            if (!transferScene) renderTime();
+            return true;
+        },
+
+        /* 当前状态栏时钟（转账场景返回其固定的 03:14） */
+        getTime() {
+            return transferScene ? TRANSFER_TIME : baseTime;
+        },
+
         /* 场景切换：
            'transfer' —— 参考视频《接受转账的画面》：时间 03:14、灵动岛展开
                          （微信绿标 + 录屏红点）、右侧仅信号+电池（无 5G/WiFi）、
                          状态栏加高 61px、满电白电池、隐藏左侧定位图标；
-           'default'  —— 恢复默认（时间 18:36、常规灵动岛）。 */
+           'default'  —— 恢复默认（常规灵动岛；时间为 setTime 同步值或 18:36）。 */
         setScene(mode) {
             const tf = mode === 'transfer';
+            transferScene = tf;
             sb.classList.toggle('sb-scene-tf', tf);
             document.body.classList.toggle('wx-sb-tall', tf);
-            timeEl.textContent = tf ? '03:14' : '18:36';
+            renderTime();
             sb.querySelector('.sb-island-app').innerHTML = tf ? WECHAT_GREEN_SVG : '';
             if (tf) {
                 this.setBattery(100);

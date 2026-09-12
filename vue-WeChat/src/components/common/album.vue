@@ -13,65 +13,35 @@
             <div class="home-pic-base">
                 <div class="top-pic">
                     <div class="top-pic-inner">
-                        <img src="/images/header/header01.png">
+                        <img :src="meInfo.avatar">
                     </div>
                 </div>
-                <div class="top-name _ellipsis">阿荡</div>
+                <div class="top-name _ellipsis">{{ meInfo.name }}</div>
             </div>
-            <p class="sign">填坑小能手</p>
+            <p class="sign">{{ meInfo.signature }}</p>
         </div>
-        <section class="album-box clearfix">
-            <div class="post-date">
-                <b class="day">04</b>
-                <b class="month">3月</b>
-            </div>
+        <section class="album-box clearfix" v-if="!meInfo.name">
             <div class="post-content">
-                <div class="tumb-box">
-                    <img src="/images/header/header01.png" alt="">
-                    <img src="/images/header/header01.png" alt="">
-                    <img src="/images/header/header01.png" alt="">
-                </div>
-                <div class="thumb-desc">
-                    这里字比较多，这里字比较多，这里字比较多，这里字比较多，这里字比较多，这里字比较多，这里字比较多，这里字比较多，这里字比较多，
-                    <p class="number">共3张</p>
-                </div>
-            </div>
-        </section>
-        <section class="album-box clearfix">
-            <div class="post-date">
-                <b class="day">12</b>
-                <b class="month">2月</b>
-            </div>
-            <div class="post-content">
-                <div class="tumb-box">
-                    <img src="/images/header/header01.png" alt="">
-                     <img src="/images/header/header01.png" alt="">
-                </div>
-                <div class="thumb-desc">
-                    装逼如风 常伴吾生
-                    <p class="number">共2张</p>
-                </div>
-            </div>
-        </section>
-        <section class="album-box clearfix">
-            <div class="post-date">
-                <b class="day">23</b>
-                <b class="month">1月</b>
-            </div>
-            <div class="post-content">
-                <div class="tumb-box">
-                    <img src="/images/header/header01.png" alt="">
-                </div>
-                <div class="thumb-desc">
-                    装逼如风 常伴吾生
-                    <p class="number">共1张</p>
-                </div>
+                <div class="thumb-desc">暂无相册内容</div>
             </div>
         </section>
     </div>
 </template>
 <script>
-    export default {}
+    export default {
+        computed: {
+            // 姓名/头像/签名从注入配置读取（scene.json 场景数据），不再硬编码上游演示内容
+            meInfo() {
+                const cfg = (window.__wxConfig && window.__wxConfig.get()) || {}
+                const me = cfg.me || {}
+                return {
+                    name: me.name || '',
+                    avatar: me.avatar || '/images/avatar/2_20260831_184618_874.jpg',
+                    signature: me.signature || ''
+                }
+            }
+        }
+    }
 </script>
 <style lang="less">
     @import "../../assets/less/album.less";

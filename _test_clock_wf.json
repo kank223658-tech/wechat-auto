@@ -1,0 +1,27 @@
+{
+ "name": "时钟同步验证：历史会话最后时刻 → 开场锁屏 + 状态栏",
+ "steps": [
+  {
+   "action": "编辑主页",
+   "params": {
+    "数据": [
+     {
+      "name": "陆香儿",
+      "avatar": "/images/avatar/2_20260831_184618_874.jpg",
+      "read": false,
+      "messages": [
+       { "dir": "peer", "kind": "text", "text": "下午看得怎么样", "time": "14:23" },
+       { "dir": "me", "kind": "text", "text": "刚看完，还不错" },
+       { "dir": "peer", "kind": "text", "text": "晚上一起吃饭吗", "time": "17:58" }
+      ]
+     }
+    ]
+   }
+  },
+  { "action": "打开聊天", "params": { "联系人": "陆香儿" } },
+  { "action": "我方打字", "params": { "内容": "好啊，六点半老地方见" } },
+  { "action": "对方发消息", "params": { "内容": "那就这么说定了" } },
+  { "action": "隐藏键盘" },
+  { "action": "等待", "params": { "秒数": 1.0 } }
+ ]
+}

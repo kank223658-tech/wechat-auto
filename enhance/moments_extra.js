@@ -23,7 +23,7 @@
        真人点击（bindMenu）与脚本 API（openMenu/tapLike/tapComment/
        submitComment）共用同一套实现，动画完全一致。
        ============================================================ */
-    const meName = () => (window.__wxConfig && window.__wxConfig.get().me.name) || '阿荡';
+    const meName = () => (window.__wxConfig && window.__wxConfig.get().me.name) || '微信用户';
 
     let commentTargetCell = null;   // 「评论」时记录目标动态；发送时评论进它的深灰条
 
@@ -90,22 +90,33 @@
         }
     }
 
-    /* 点「评论」：底部输入条滑入 + 键盘弹出（同一节奏，复刻真机） */
+    /* 点「评论」：底部输入条滑入 + 键盘弹出（同一节奏，复刻真机）
+       输入条照搬聊天页打字框：大圆角深色输入框 + 右侧 😊/🖼 图标（无条内发送钮，
+       发送=键盘右下蓝键，Enter 由 main.py 统一提交；组合态绿下划线由 keyboard.js 覆盖层绘制）。 */
+    const CB_SMILE_SVG =
+        '<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<circle cx="24" cy="24" r="20" stroke="#fff" stroke-width="2.6"/>' +
+        '<circle cx="17" cy="19.5" r="2.6" fill="#fff"/>' +
+        '<circle cx="31" cy="19.5" r="2.6" fill="#fff"/>' +
+        '<path d="M14.5 28.5c2.2 3.6 5.5 5.6 9.5 5.6s7.3-2 9.5-5.6" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>';
+    const CB_IMG_SVG =
+        '<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<rect x="6" y="9" width="36" height="30" rx="5" stroke="#fff" stroke-width="2.6"/>' +
+        '<circle cx="17.5" cy="19.5" r="3.4" stroke="#fff" stroke-width="2.4"/>' +
+        '<path d="M9 34.5l10.2-9.8c1-1 2.6-1 3.6 0l7.4 7.2 4.2-4c1-1 2.6-1 3.6 0L42 31.6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     function startComment(cell) {
         closeCommentBarSoft();
         commentTargetCell = cell || null;
         const bar = document.createElement('div');
         bar.id = 'commentBar';
         bar.innerHTML =
-            '<input id="momentCommentInput" type="text" placeholder="评论">' +
-            '<span class="comment-send" id="momentCommentSend">发送</span>';
+            '<div class="cb-way">' +
+                '<input id="momentCommentInput" type="text" placeholder="发表评论:">' +
+            '</div>' +
+            '<span class="cb-ico cb-emoji">' + CB_SMILE_SVG + '</span>' +
+            '<span class="cb-ico cb-img">' + CB_IMG_SVG + '</span>';
         document.body.appendChild(bar);
         const input = bar.querySelector('input');
-        const send = bar.querySelector('.comment-send');
-        const syncSend = () => send.classList.toggle('on', !!(input.value || '').trim());
-        input.addEventListener('input', syncSend);
-        syncSend();
-        send.addEventListener('click', () => { submitComment(); });
         /* 下一帧滑入（transition 由内嵌 CSS #commentBar 提供，.32s 与键盘同节奏）；
            可见后再聚焦 —— visibility:hidden 的元素拿不到焦点，键盘引擎
            （target = activeElement）也就找不到输入框。 */
@@ -314,7 +325,7 @@
         title.className = 'title';
         const nameSpan = document.createElement('span');
         nameSpan.className = 'wx-name';
-        nameSpan.textContent = p.author || '夜华';
+        nameSpan.textContent = p.author || '微信用户';
         title.appendChild(nameSpan);
         // 企业微信来源：昵称后跟金色「@公司名」+ 右侧折叠箭头（真机观感）
         if (p.company) {
@@ -487,7 +498,9 @@
     function onMomentsScroll() {
         if (!_mScrollEl) return;
         const y = _mScrollEl.scrollTop || 0;
-        const a = Math.max(0, Math.min(1, (y - 360) / 120));
+        /* 真机节奏（朋友圈下滑.mp4）：淡入窗口对准「封面底边扫过导航条」——
+           封面底 598、导航底 124 → y=474 时封面彻底离开导航区，窗口取 380..480 */
+        const a = Math.max(0, Math.min(1, (y - 380) / 100));
         _mScrollEl.style.setProperty('--nav-a', a.toFixed(3));
     }
     function syncMomentsChrome() {

@@ -35,11 +35,17 @@ CSS_ORDER = (
     "weui_tokens.css", "wechat_modern.css", "human_actions.css",
     "transfer_ui.css", "homepage_exact.css", "chat_exact.css", "wx_icons.css",
     "moments_exact.css", "discover_exact.css",
+    # 底部三面板「直接切换」联动层：必须晚于 chat_exact.css / transfer_ui.css /
+    # keyboard.css，用更高特异性压过各面板自己的稳态规则（与 main.py 注入顺序一致）。
+    "panel_switch.css",
 )
 JS_ORDER = (
     "config.js", "chat_extra.js", "moments_extra.js", "iphone_frame.js",
     "wxemoji_map.js", "pinyin_data.js", "keyboard.js", "transfer_ui.js",
     "human_actions.js", "homepage.js",
+    # 需在 keyboard.js / chat_extra.js / transfer_ui.js 之后：它调用
+    # __wxKeyboard / __wxEmojiPanel / __wxTransfer 做三面板直切。
+    "panel_switch.js",
 )
 
 

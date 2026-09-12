@@ -155,6 +155,29 @@
   /* 发现 Tab 红点：圆心约 (389,1181) 直径 13 */
   .tabbar .tab-dot { position: absolute; left: 82px; top: 12px; width: 13px; height: 13px; border-radius: 50%; background: #fa5151; z-index: 3; }
 
+  /* ---- 通讯录 / 我 示意稿（2026-09-11 同步新版真机 UI） ---- */
+  .wxc-funcs { position: absolute; left: 0; top: 232px; width: 600px; height: 304px; background: #181818; z-index: 2; }
+  .wxc-func { position: absolute; left: 0; width: 600px; height: 76px; background: #181818; }
+  .wxc-func::after { content: ""; position: absolute; left: 96px; right: 0; bottom: 0; height: 1px; background: #292929; }
+  .wxc-ic { position: absolute; left: 24px; top: 16px; width: 44px; height: 44px; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+  .wxc-flb { position: absolute; left: 96px; top: 50%; transform: translateY(-50%); height: 32px; line-height: 32px; font-size: 25px; color: #d6d6d6; }
+  .wxc-list { position: absolute; left: 0; top: 552px; width: 600px; height: 610px; overflow: hidden; background: #181818; z-index: 2; }
+  .wxc-letter { position: absolute; left: 0; width: 600px; height: 44px; line-height: 44px; padding-left: 24px; font-size: 20px; color: #686868; background: #181818; box-sizing: border-box; }
+  .wxc-row { position: absolute; left: 0; width: 600px; height: 96px; background: #181818; }
+  .wxc-row::after { content: ""; position: absolute; left: 106px; right: 0; bottom: 0; height: 1px; background: #292929; }
+  .wxc-row img.ava2 { position: absolute; left: 24px; top: 16px; width: 64px; height: 64px; border-radius: 7px; object-fit: cover; background: #2c2c2e; }
+  .wxc-row .wxc-nm { position: absolute; left: 106px; top: 50%; transform: translateY(-50%); height: 32px; line-height: 32px; font-size: 25px; color: #d6d6d6; }
+  .wxs-top { position: absolute; left: 0; top: 149px; width: 600px; height: 180px; background: #181818; z-index: 2; }
+  .wxs-top img.wxs-ava { position: absolute; left: 24px; top: 36px; width: 108px; height: 108px; border-radius: 9px; object-fit: cover; background: #2c2c2e; }
+  .wxs-top .wxs-name { position: absolute; left: 152px; top: 46px; height: 40px; line-height: 40px; font-size: 30px; font-weight: 600; color: #d6d6d6; }
+  .wxs-top .wxs-wxid { position: absolute; left: 152px; top: 100px; height: 28px; line-height: 28px; font-size: 21px; color: #686868; }
+  .wxs-top .wxs-qr { position: absolute; right: 74px; top: 72px; }
+  .wxs-top .wxs-arrow { position: absolute; right: 30px; top: 64px; font-size: 36px; color: #555; }
+  .wxs-cells { position: absolute; left: 0; top: 361px; width: 600px; height: 800px; background: #181818; z-index: 2; }
+  .wxs-row { position: absolute; left: 0; width: 600px; height: 96px; background: #181818; }
+  .wxs-row::after { content: ""; position: absolute; left: 96px; right: 0; bottom: 0; height: 1px; background: #292929; }
+
+
   /* ---- 对话气泡（适配 600 宽） ---- */
   .dialogue { position: absolute; left: 0; top: 149px; width: 600px; bottom: 0; background: #111 !important; padding: 16px; overflow-y: auto; }
   .bubble { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -177,7 +200,7 @@
 
   /* ---- 朋友圈 ---- */
   .moments { position: absolute; left: 0; top: 149px; width: 600px; bottom: 0; background: #111; overflow-y: auto; }
-  .m-cover { height: 240px; background: url('/images/bg/cover.jpg') center/cover no-repeat; position: relative; }
+  .m-cover { height: 240px; background: url('/images/peer/peer_cover.jpg') center/cover no-repeat; position: relative; }
   .m-cover::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,.30) 0%, rgba(0,0,0,.05) 40%, rgba(0,0,0,.38) 100%); }
   .m-cover .me { position: absolute; right: 14px; bottom: -26px; width: 70px; height: 70px; border-radius: 8px; border: 2px solid #111; object-fit: cover; background: #2c2c2e; }
   .m-cover .me-name { position: absolute; right: 94px; bottom: 6px; color: #fff; font-weight: 600; font-size: 16px; text-shadow: 0 1px 3px #000; }
@@ -401,6 +424,12 @@
   .lib-item.batch-sel { border-color: var(--accent-border); background: var(--accent-soft); }
   .lib-toolbar button.active { background: linear-gradient(180deg, #15d274, #0cb259); border-color: transparent; color: #ffffff; font-weight: 600; }
   .lib-grid.drop { border-color: var(--accent); box-shadow: inset 0 0 0 2px rgba(10, 172, 95, .3); }
+  /* 拖图到分类按钮 ＝ 搬家；整窗拖入上传高亮 */
+  .lib-typebtn.drop { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); transform: scale(1.06); }
+  .lib-item[draggable="true"] { cursor: grab; }
+  .lib-item[draggable="true"]:active { cursor: grabbing; }
+  .modal.lib.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
+  .modal.lib.drop .lib-grid { border-color: var(--accent); }
   /* 图片库全屏预览 */
   .lib-preview { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .lib-preview[hidden] { display: none; }
@@ -581,6 +610,99 @@
   .live-typebar { border-color: rgba(255, 255, 255, 0.08); }
   .edit-pop { border-color: rgba(255, 255, 255, 0.14); }
   .phone-screen { border-color: #26282e; }
+/* ---------- 卡片折叠控件 ---------- */
+.fold-toolbar { display: flex; gap: 6px; margin: 0 0 10px; }
+.fold-toolbar button {
+  padding: 3px 10px; font-size: 11px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel-2); color: var(--muted);
+}
+.fold-toolbar button:hover { color: var(--accent); border-color: var(--accent-border); }
+.fold-btn {
+  flex: none; width: 22px; height: 22px; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1px solid transparent; border-radius: 7px;
+  background: transparent; color: var(--muted); font-size: 12px; line-height: 1;
+}
+.fold-btn:hover { border-color: var(--line); background: var(--panel-3); color: var(--accent); }
+.card-fold.closed { display: none; }
+
+/* ---------- 说明文字折叠成「?」 ---------- */
+.hint.compacted { display: flex; align-items: flex-start; gap: 7px; }
+.hint-q {
+  flex: none; width: 16px; height: 16px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--panel-2);
+  color: var(--muted); font-size: 10.5px; font-weight: 700; line-height: 1; cursor: help;
+}
+.hint-q:hover { color: var(--accent); border-color: var(--accent-border); background: var(--panel-3); }
+.hint-body { display: none; flex: 1; }
+.hint.compacted.open .hint-body { display: block; }
+
+/* ===== 真机画面（主舞台实时画面：与成片同一套 UI，可点击操作） ===== */
+.phone-live { position: absolute; left: 0; top: 0; width: 600px; height: 1300px; display: block; z-index: 40; background: #000; cursor: pointer; -webkit-user-drag: none; }
+.phone-live[hidden] { display: none; }
+.phone-live.picking { cursor: crosshair; }
+.phone-live.loading { opacity: .55; }
+.phone .live-badge {
+  position: absolute; right: 12px; top: 12px; z-index: 60;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  background: rgba(10, 172, 95, .94); color: #fff;
+  font-size: 11px; font-weight: 600; letter-spacing: .3px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .3);
+}
+.phone .live-badge[hidden] { display: none; }
+.phone .live-badge.off { background: rgba(107, 114, 128, .92); }
+.phone .live-badge i { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: lbPulse 1.6s ease-in-out infinite; }
+.phone .live-badge.off i { animation: none; }
+@keyframes lbPulse { 0%, 100% { opacity: 1; } 50% { opacity: .2; } }
+
+.phone-live-empty {
+  position: absolute; left: 0; top: 0; width: 600px; height: 1300px; z-index: 45;
+  display: grid; place-content: center; justify-items: center; gap: 10px;
+  padding: 0 60px; text-align: center; background: #12141a; color: #e5e7eb;
+}
+.phone-live-empty[hidden] { display: none; }
+.phone-live-empty .ple-ico { font-size: 46px; line-height: 1; }
+.phone-live-empty .ple-t { font-size: 18px; font-weight: 600; }
+.phone-live-empty .ple-d { font-size: 13.5px; line-height: 1.8; color: #9ca3af; }
+.phone-live-empty .ple-btn { margin-top: 8px; padding: 11px 24px; font-size: 14.5px; font-weight: 600; color: #fff; background: #0aac5f; border: 0; border-radius: 999px; cursor: pointer; }
+.phone-live-empty .ple-btn:hover { background: #099455; }
+.phone-live-empty .ple-btn:disabled { opacity: .65; cursor: default; }
+.phone-live-empty .ple-err { font-size: 12px; line-height: 1.7; color: #f3a5a5; max-width: 400px; }
+.phone-live-empty .ple-err[hidden] { display: none; }
+
+.phone .edit-pop { z-index: 80; width: 236px; max-width: none; }
+#stageEditPop[hidden] { display: none; }
+
+/* 舞台底部浮动工具条 */
+.stage-live-bar {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 70;
+  display: flex; align-items: center; gap: 8px; padding: 7px 11px;
+  border-radius: 999px; background: rgba(255, 255, 255, .97);
+  border: 1px solid rgba(17, 24, 39, .1); box-shadow: 0 12px 32px rgba(17, 24, 39, .18);
+  backdrop-filter: blur(8px); font-size: 13px; white-space: nowrap;
+}
+.slb-group { display: inline-flex; background: #f2f3f6; border-radius: 999px; padding: 2px; }
+.slb-group button { height: 26px; padding: 0 13px; border: 0; border-radius: 999px; background: transparent; color: #55606e; font-size: 12.5px; cursor: pointer; }
+.slb-group button.active { background: #fff; color: #111827; font-weight: 600; box-shadow: 0 1px 3px rgba(17, 24, 39, .14); }
+.slb-btn { height: 28px; padding: 0 12px; border: 1px solid rgba(17, 24, 39, .13); border-radius: 999px; background: #fff; color: #374151; font-size: 12.5px; cursor: pointer; }
+.slb-btn:hover { background: #f6f7f9; }
+.slb-btn.on { background: #0aac5f; border-color: #0aac5f; color: #fff; }
+.slb-sep { width: 1px; height: 20px; background: rgba(17, 24, 39, .13); }
+.stage-live-bar input { width: 200px; height: 28px; padding: 0 12px; border: 1px solid rgba(17, 24, 39, .15); border-radius: 999px; font-size: 12.5px; background: #fff; color: #111827; outline: none; }
+.stage-live-bar input:focus { border-color: #0aac5f; }
+.slb-state { font-size: 11.5px; color: #9ca3af; padding-right: 3px; }
+.slb-state.ok { color: #0aac5f; font-weight: 600; }
+
+/* ---- 实时预览（同源嵌入真实前端，与成片同一套 UI）---- */
+.phone-pv { position: absolute; left: 0; top: 0; width: 600px; height: 1300px; border: 0; display: block; z-index: 39; background: #181818; }
+  .phone-pv[hidden] { display: none !important; }  /* 修复：hidden 被 display:block 压掉，导致示意稿被 iframe 盖住、点击全被吃 */
+#stageLiveBar:not(.live) .slb-sep,
+#stageLiveBar:not(.live) #btnStagePick,
+#stageLiveBar:not(.live) #btnStageBack,
+#stageLiveBar:not(.live) #stageTypeInput,
+#stageLiveBar:not(.live) #btnStageSend { display: none; }
 </style>
 <link rel="stylesheet" href="/enhance/peer_pages.css" data-page-node-id="IHZenn7lFeR3EAasu4UNHY">
 </head>
@@ -589,44 +711,44 @@
   <div class="topbar" data-page-node-id="n2xdjBKpmnpWhpFzXrwFL4">
     <div class="brand" data-page-node-id="IEI3KB8HJVzZeRortHTMGF">🎬 场景编辑器 <small data-page-node-id="9cyTmEj0BAHrg3oswbXHtT">· 600×1300 / 点选即改</small></div>
     <div class="view-switch" role="tablist">
-      <button id="btnCamList" class="view-btn active" data-page-node-id="OA9bkwqZn4GGMnUm4fZbXz">会话列表</button>
-      <button id="btnCamMoments" class="view-btn" data-page-node-id="w9t7yX5NBeVDnRQ26Xm7nW">朋友圈</button>
-      <button id="btnCamPeer" class="view-btn" data-page-node-id="CIZFGUlcZCy3W49sHB4nGV">对方主页</button>
-      <button id="btnCamPeerMoments" class="view-btn" data-page-node-id="obfJqISeDtofBZjN03CBON">对方朋友圈</button>
+      <button id="btnCamList" data-tip="切换到会话列表画面：编辑微信首页的会话与联系人" class="view-btn active" data-page-node-id="OA9bkwqZn4GGMnUm4fZbXz">会话列表</button>
+      <button id="btnCamMoments" data-tip="切换到朋友圈画面：编辑自己的朋友圈帖子" class="view-btn" data-page-node-id="w9t7yX5NBeVDnRQ26Xm7nW">朋友圈</button>
+      <button id="btnCamPeer" data-tip="切换到对方主页画面：编辑对方的头像、昵称、背景等资料" class="view-btn" data-page-node-id="CIZFGUlcZCy3W49sHB4nGV">对方主页</button>
+      <button id="btnCamPeerMoments" data-tip="切换到对方朋友圈画面：编辑对方发过的帖子" class="view-btn" data-page-node-id="obfJqISeDtofBZjN03CBON">对方朋友圈</button>
     </div>
-    <button id="btnLib" title="打开图片库：浏览/搜索/上传/重命名/删除/复制路径" data-page-node-id="Zhab7kK8NM1Rd87ajuFNl2">📚 图片库</button>
-    <button id="btnScriptImport" title="从两人对白剧本一键生成完整聊天消息历史（格式有误可用 AI 修正）" data-page-node-id="28pAaLLKnip3Z7fIeO6DhL">📜 剧本导入</button>
-    <button id="btnPeopleLib" title="打开人物库：浏览/搜索/新增人物/改头像/改名/删除；也可把某个联系人直接用人物库头像填充" data-page-node-id="uGwqNxbHNgcPBZynM9oGaZ">👥 人物库</button>
+    <button id="btnLib" data-tip="打开图片库：浏览/搜索/上传/重命名/删除/复制路径" data-page-node-id="Zhab7kK8NM1Rd87ajuFNl2">📚 图片库</button>
+    <button id="btnScriptImport" data-tip="从两人对白剧本一键生成完整聊天消息历史（格式有误可用 AI 修正）" data-page-node-id="28pAaLLKnip3Z7fIeO6DhL">📜 剧本导入</button>
+    <button id="btnPeopleLib" data-tip="打开人物库：浏览/搜索/新增人物/改头像/改名/删除；也可把某个联系人直接用人物库头像填充" data-page-node-id="uGwqNxbHNgcPBZynM9oGaZ">👥 人物库</button>
     <div class="menu-wrap" id="sceneToolMenuWrap">
-      <button type="button" class="menu-btn" id="btnSceneToolMenu">工具<i class="caret">▾</i></button>
+      <button type="button" class="menu-btn" id="btnSceneToolMenu" data-tip="工具菜单：检查图片、同步人物库、使用手册">工具<i class="caret">▾</i></button>
       <div class="menu">
-        <button id="btnCheckImgs" class="menu-item" title="检查场景中所有引用图片能否正常加载，失败项在画面中用红框标出" data-page-node-id="5vlt84fI3AiaU05K97CNhf">🖼 检查图片</button>
-        <button id="btnPeopleSync" class="menu-item" title="把当前会话列表里所有已填头像的人保存到人物库；之后在脚本里写这几个 [会话] 名字会自动带上对应头像" data-page-node-id="AXo0xlylqq1JNY9endKyrN">💾 保存到人物库</button>
-        <button id="btnManual" class="menu-item" title="打开历史会话使用手册：会话列表/消息历史的每个字段与按钮、点选即改、来源图、保存生成运行、剧本导入、常见问题" data-page-node-id="0PhMCCaVjDC3NL1rhp7O7D">📖 使用手册</button>
+        <button id="btnCheckImgs" class="menu-item" data-tip="检查场景中所有引用图片能否正常加载，失败项在画面中用红框标出" data-page-node-id="5vlt84fI3AiaU05K97CNhf">🖼 检查图片</button>
+        <button id="btnPeopleSync" class="menu-item" data-tip="把当前会话列表里所有已填头像的人保存到人物库；之后在脚本里写这几个 [会话] 名字会自动带上对应头像" data-page-node-id="AXo0xlylqq1JNY9endKyrN">💾 保存到人物库</button>
+        <button id="btnManual" class="menu-item" data-tip="打开历史会话使用手册：会话列表/消息历史的每个字段与按钮、点选即改、来源图、保存生成运行、剧本导入、常见问题" data-page-node-id="0PhMCCaVjDC3NL1rhp7O7D">📖 使用手册</button>
       </div>
     </div>
     <span class="spacer" data-page-node-id="1W6kBZ0KFP6FAHJoo3iGiA"></span>
     <div class="menu-wrap" id="sceneFileMenuWrap">
-      <button type="button" class="menu-btn" id="btnSceneFileMenu">文件<i class="caret">▾</i></button>
+      <button type="button" class="menu-btn" id="btnSceneFileMenu" data-tip="文件菜单：载入 / 保存场景、生成工作流、打开视频目录">文件<i class="caret">▾</i></button>
       <div class="menu">
-        <button id="btnLoad" class="menu-item" data-page-node-id="BA1S8ewzCyREOHhnAEqEhU">载入场景</button>
-        <button id="btnSave" class="menu-item" data-page-node-id="GoGBsmHFJPMKTMo2J1aSDv">保存场景</button>
-        <button id="btnToWorkflow" class="menu-item" data-page-node-id="qniAjqWw3nfWBMEVevaU4O">生成工作流</button>
-        <button id="btnVideos" class="menu-item" data-page-node-id="O2iIowqx9FVqFsyBCWospU">📂 打开视频目录</button>
+        <button id="btnLoad" data-tip="重新载入 scene.json，未保存的修改会丢失" class="menu-item" data-page-node-id="BA1S8ewzCyREOHhnAEqEhU">载入场景</button>
+        <button id="btnSave" data-tip="把当前场景保存为 scene.json" class="menu-item" data-page-node-id="GoGBsmHFJPMKTMo2J1aSDv">保存场景</button>
+        <button id="btnToWorkflow" data-tip="按当前场景自动生成工作流步骤（只生成不运行）" class="menu-item" data-page-node-id="qniAjqWw3nfWBMEVevaU4O">生成工作流</button>
+        <button id="btnVideos" data-tip="打开生成视频所在的文件夹" class="menu-item" data-page-node-id="O2iIowqx9FVqFsyBCWospU">📂 打开视频目录</button>
       </div>
     </div>
     <div class="zoom" data-page-node-id="32KdXu33FLMnOtRPdwjhEU">
-      <button id="btnZoomOut" data-page-node-id="7gN1sbcxQGRseIQlRHBxMG">−</button>
+      <button id="btnZoomOut" data-tip="缩小手机画面" data-page-node-id="7gN1sbcxQGRseIQlRHBxMG">−</button>
       <b id="zoomLabel" data-page-node-id="sR5DnCRTCV6ZXWdGAqGOck">100%</b>
-      <button id="btnZoomIn" data-page-node-id="jJacHmEaYuM64AiYVFxnBG">＋</button>
-      <button id="btnZoomFit" data-page-node-id="0W9ub5tsYeYkGtWzky8chH">适应</button>
+      <button id="btnZoomIn" data-tip="放大手机画面" data-page-node-id="jJacHmEaYuM64AiYVFxnBG">＋</button>
+      <button id="btnZoomFit" data-tip="恢复手机画面默认大小" data-page-node-id="0W9ub5tsYeYkGtWzky8chH">适应</button>
     </div>
-    <button id="btnEditMode" title="进入编辑模式：实时画面可点选元素修改文字/头像/背景" data-page-node-id="BXJgVc9752XC2qycx2DaIG">✏️ 编辑模式</button>
-    <button id="btnLive" title="打开/关闭实时手机画面" data-page-node-id="9rjcxCVUwTYBP4GLnqnTEk">🖥 实时画面</button>
-    <button id="btnStop" title="停止当前运行" data-page-node-id="8LJzdGKlk1eNbZwG8xBGdM">⏹ 停止</button>
-    <button id="btnRun" class="primary" title="保存场景 → 生成工作流 → 立即运行并打开实时画面" data-page-node-id="CzCsyRgZXayBPD03VWzkIZ">▶ 生成并运行</button>
+    <button id="btnEditMode" data-tip="进入编辑模式：实时画面可点选元素修改文字/头像/背景" data-page-node-id="BXJgVc9752XC2qycx2DaIG">✏️ 编辑模式</button>
+    <button id="btnLive" data-tip="打开/关闭实时手机画面" data-page-node-id="9rjcxCVUwTYBP4GLnqnTEk">🖥 实时画面</button>
+    <button id="btnStop" data-tip="停止当前运行" data-page-node-id="8LJzdGKlk1eNbZwG8xBGdM">⏹ 停止</button>
+    <button id="btnRun" class="primary" data-tip="保存场景 → 生成工作流 → 立即运行并打开实时画面" data-page-node-id="CzCsyRgZXayBPD03VWzkIZ">▶ 生成并运行</button>
   </div>
-  <div class="hint" style="padding:0 14px 6px" data-page-node-id="MqyVf8GrdeKKJxMEAmhr7N">左：手机画面（固定 600×1300，滚轮缩放、拖拽平移，点任意元素即改）。右：结构化面板编辑联系人与消息。「生成并运行」会保存场景、生成工作流并直接开跑，实时画面随执行自动刷新。</div>
+  <div class="hint" style="padding:0 14px 6px" data-page-node-id="MqyVf8GrdeKKJxMEAmhr7N">左：实时预览——和最终视频完全同一套界面（同一份代码渲染），可直接点击操作（进聊天 / 翻朋友圈 / 切 Tab）；需要打字、键盘、点选改元素时切到「📱 真机运行」。Ctrl 或 Shift + 滚轮缩放画布。右：结构化面板编辑联系人与消息，改动实时同步到左边画面。「生成并运行」会保存场景、生成工作流并直接开跑。</div>
 
   <div class="main" data-page-node-id="zsW1ABs062PElWLtEBLMBE">
     <div class="stage" id="stage" data-page-node-id="nde6tzcYTdlGkMvDjbHfkM">
@@ -634,18 +756,49 @@
         <div class="phone-wrap" id="phoneWrap" data-page-node-id="o0kR7KaXDQ5ygBOh5wGhj9">
           <div class="phone" data-page-node-id="l7DjpI2rnS5Q2KrvwCExv2">
             <div class="phone-inner" id="phoneInner" data-page-node-id="cW6kV9yKwyUzsuEEAWnWEl"></div>
+            <img class="phone-live" id="stageLiveImg" alt="真机实时画面" hidden data-page-node-id="Yz3kLvPq1WmSdR8bTnQxHa">
+            <iframe class="phone-pv" id="stagePv" src="about:blank" title="实时预览（真实界面）"></iframe>
+            <div class="live-badge" id="stageLiveBadge" hidden data-page-node-id="Mv7TpKs2JdQnLcV9ZaWrEy"><i></i>真机 LIVE</div>
+            <div class="edit-pop" id="stageEditPop" hidden data-page-node-id="Jp4RwNc8YbHmTqsZ6LfVdA"></div>
+            <div class="phone-live-empty" id="stageLiveEmpty" hidden data-page-node-id="Qd9XcVm3LbTzRpWsN7JkHy">
+              <div class="ple-ico" data-page-node-id="Rb2WnJx7PcVqLmTs9ZfDkA">📱</div>
+              <div class="ple-t" data-page-node-id="Te5KmQs3NvLxJpRw8BcYdZ">真机画面未连接</div>
+              <div class="ple-d" data-page-node-id="Mw8LsPd4RtQnVbXz2JfKcY">左边这块显示的就是最终生成视频里的那套界面<br data-page-node-id="Xn6TqJr9LdWmVpZb3KcRfA">连接后可以直接点击操作（进聊天 / 翻朋友圈 / 改文字）</div>
+              <button type="button" class="ple-btn" id="btnStageLiveConnect" data-page-node-id="Vf3NqLm6WpTzRsXd8JbKcE">▶ 连接真机画面</button>
+              <div class="ple-err" id="stageLiveErr" hidden data-page-node-id="Lc7VdKx2JmQbTpNs5RfWyH"></div>
+            </div>
+            <div class="phone-live-empty" id="stagePvEmpty" hidden>
+              <div class="ple-ico">🖼</div>
+              <div class="ple-t">实时预览还没就绪</div>
+              <div class="ple-d">左边这块显示的就是最终视频里的那套界面（同一份代码渲染）<br>需要在后台运行「预览渲染器」，点下面按钮启动即可</div>
+              <button type="button" class="ple-btn" id="btnStagePvStart">▶ 启动预览渲染器</button>
+              <div class="ple-err" id="stagePvErr" hidden></div>
+            </div>
           </div>
         </div>
+      </div>
+      <div class="stage-live-bar" id="stageLiveBar" data-page-node-id="Hg4ZtRv8KmXcJpLb6NwYdQ">
+        <div class="slb-group" data-page-node-id="Pd2NvLq7KmZxJbTc5RwYfM">
+          <button type="button" id="btnViewPv" class="active" data-tip="实时预览：与最终视频完全同一套真实界面（同一份代码渲染），可直接点击操作，不用启动额外进程">🖼 实时预览</button>
+          <button type="button" id="btnViewLive" data-tip="真机运行：由渲染器进程驱动，支持键盘打字 / 三面板动画 / 点选改元素" data-page-node-id="Kq6WmJv3NdLxRpZb9TcYfA">📱 真机运行</button>
+          <button type="button" id="btnViewDraft" data-tip="静态示意稿：编辑器内置的离线备用画面（不参与渲染，仅在没有预览渲染器时看结构）" data-page-node-id="Rb8LdPk2NvQmJxTz5WcYfS">🎨 示意稿</button>
+        </div>
+        <span class="slb-sep" data-page-node-id="Tz9NqWd4LmKvJpRx7BcYfG"></span>
+        <button type="button" class="slb-btn" id="btnStagePick" data-tip="点选模式：点画面上的文字 / 头像 / 背景即可直接修改" data-page-node-id="Wj3RmKx9LdPvNqTb6ZcYfH">✎ 点选改</button>
+        <button type="button" class="slb-btn" id="btnStageBack" data-tip="真机返回上一页" data-page-node-id="Lm5TpQv8NdKxJbRz2WcYfJ">← 返回</button>
+        <input id="stageTypeInput" placeholder="先在真机上点一下输入框，再在这里打字" aria-label="向真机输入文字" data-page-node-id="Nq7VdKx3LmPvJbTz9RcYfB">
+        <button type="button" class="slb-btn" id="btnStageSend" data-page-node-id="Px4LmJv9NdQbKtRz7WcYfC">发送</button>
+        <span class="slb-state" id="stageLiveState" data-page-node-id="Qr2NmKx8LdPvJbTz5WcYfD">真机未连接</span>
       </div>
     </div>
 
     <div class="panel" data-page-node-id="SryzE0hEeXmSYmxEUZEgLD">
       <div class="panel-tabs" data-page-node-id="Zeuq9HEDl0tRSp3eva5iTe">
-        <button data-tab="conversations" class="active" data-page-node-id="QxJ5SiKtwp4kYn4Go1bXVf">会话</button>
-        <button data-tab="messages" data-page-node-id="BlCbWK5hyDnBDqOlDBJvoB">消息</button>
-        <button data-tab="moments" data-page-node-id="sk5zwVvNJQcUPWmwgqKMCH">朋友圈</button>
-        <button data-tab="peer" data-page-node-id="C7Uf2SbZMj4WIDk4ULhuGB">对方主页</button>
-        <button data-tab="me" data-page-node-id="DdNbGCyzPW1xwgMaWZa1RH">我的资料</button>
+        <button data-tab="conversations" class="active" data-page-node-id="QxJ5SiKtwp4kYn4Go1bXVf" data-tip="会话列表面板：管理微信首页的会话与联系人">会话</button>
+        <button data-tab="messages" data-page-node-id="BlCbWK5hyDnBDqOlDBJvoB" data-tip="消息历史面板：管理进聊天前就已存在的消息">消息</button>
+        <button data-tab="moments" data-page-node-id="sk5zwVvNJQcUPWmwgqKMCH" data-tip="朋友圈面板：编辑朋友圈的帖子内容">朋友圈</button>
+        <button data-tab="peer" data-page-node-id="C7Uf2SbZMj4WIDk4ULhuGB" data-tip="对方主页面板：编辑对方的资料与主页">对方主页</button>
+        <button data-tab="me" data-page-node-id="DdNbGCyzPW1xwgMaWZa1RH" data-tip="我的资料面板：编辑「我」的头像、昵称等信息">我的资料</button>
       </div>
       <div class="panel-body" id="panelBody" data-page-node-id="6nIe7EDE6gNEEVLWCMh5Xr"></div>
     </div>
@@ -714,17 +867,86 @@ let llmConfigured = false;   // DeepSeek Key 是否已配置（决定 AI 文案�
 let peerTplSel = 'daily';    // 模板一键生成：当前选中的模板 key
 let gallery = [];
 let panelTab = 'conversations';
-let camView = 'list';       // list | moments | peer | peer-moments
+let camView = 'list';       // list | moments | peer | peer-moments | contacts | self
 let selIdx = null;           // 当前会话选中项（home 下标）
 let zoom = 1, panX = 0, panY = 0;
 let pickerPath = null, pickerSel = null, pickerQuery = '';
+let pickerCat = '';   // 内嵌选图弹窗的当前分类（''=全部）
 let pickerOnCommit = null; // 非空时，图片选择确认/双击改为调用它（供人物库选头像复用）
 let pendingSlots = [];           // 剧本导入识别出的图片槽位（含已配图路径）
 let libFiles = [], libFolders = [], libSel = null, libQuery = '', libFolder = '', libRenameMode = false;
-let libCategories = [];   // 分类清单（后端下发 [{key,label,folders}]）
+let libCategories = [];   // 分类清单（后端下发 [{key,label,folders,canUpload}]，可自定义）
 let libCat = '';          // 当前筛选分类（''=全部，'video'=视频素材）
 let libVideos = [];       // 视频素材 [{path,name}]
 let libSelSet = new Set(), libBatchMode = false, libUploading = false;
+let libSort = 'new';      // 排序：new=最新在前 old=最早在前 name=按名称 size=按体积
+let libDragPaths = [];    // 正在从网格拖动的图片路径（拖到分类按钮上＝搬过去）
+
+/* 分类张数（''=全部 / 'video'=视频）。前端现算，永远跟网格一致 */
+function libCatCount(key) {
+  if (key === '') return libFiles.length;
+  if (key === 'video') return libVideos.length;
+  return libFiles.filter(f => f.category === key).length;
+}
+/* 恢复上次所在的分类：没记录过就默认「配图素材」（那类没图退回全部） */
+function libRestoreCat() {
+  let v = null;
+  try { v = localStorage.getItem('wx-lib-cat'); } catch (e) { /* 忽略 */ }
+  const fallback = libCatCount('asset') > 0 ? 'asset' : '';
+  if (v === null) return fallback;
+  if (v === '' || v === 'video') return v;
+  return libCatList().some(c => c.key === v) ? v : fallback;
+}
+function libRestoreSort() {
+  let v = '';
+  try { v = localStorage.getItem('wx-lib-sort') || ''; } catch (e) { /* 忽略 */ }
+  return ['new', 'old', 'name', 'size'].includes(v) ? v : 'new';
+}
+function libSorted(list) {
+  const arr = (list || []).slice();
+  const nm = x => String((x && (x.label || x.name)) || '');
+  arr.sort((a, b) => {
+    if (libSort === 'old') return (a.ctime || a.mtime || 0) - (b.ctime || b.mtime || 0) || nm(a).localeCompare(nm(b), 'zh');
+    if (libSort === 'name') return nm(a).localeCompare(nm(b), 'zh');
+    if (libSort === 'size') return (b.size || 0) - (a.size || 0);
+    return (b.ctime || b.mtime || 0) - (a.ctime || a.mtime || 0) || nm(a).localeCompare(nm(b), 'zh');
+  });
+  return arr;
+}
+/* 「存到」下拉跟随当前分类（可上传的分类才跟） */
+function libSyncUpcat() {
+  const sel = $('libUpcat');
+  if (!sel) return;
+  const ok = libCatList().some(c => c.key === libCat && c.canUpload !== false);
+  if (ok) {
+    sel.value = libCat;
+    try { localStorage.setItem('wx-lib-upcat', libCat); } catch (e) { /* 忽略 */ }
+  }
+}
+/* 当前上传目标分类 */
+function libTargetCat() {
+  const sel = $('libUpcat');
+  return (sel && sel.value) || 'asset';
+}
+/* 把若干张图搬到指定分类（走批量接口，自动同步剧本/场景引用） */
+async function libMovePaths(paths, catKey) {
+  const P = (paths || []).filter(p => p && !String(p).startsWith('/videos/'));
+  if (!P.length) return;
+  if (!catKey || !libCatList().some(c => c.key === catKey && c.canUpload !== false)) {
+    toast('这个分类不能作为搬运目标（「全部 / 🎬视频」不行）');
+    return;
+  }
+  const r = await api('/api/gallery/batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'move', paths: P, category: catKey }) });
+  if (!r.ok) { toast(r.msg || '移动失败'); return; }
+  const moved = (r.results || []).filter(x => x.ok);
+  const failed = (r.results || []).filter(x => !x.ok);
+  if (moved.length === 1 && moved[0].newPath) libSel = moved[0].newPath;
+  libSelSet = new Set();
+  applyGalleryPayload(r.gallery);
+  renderLibCats(); renderLibGrid(); renderLibFolderOptions();
+  toast('已把 ' + moved.length + ' 张搬到「' + libCatLabel(catKey) + '」' +
+    (failed.length ? '（' + failed.length + ' 张失败）' : ''));
+}
 // 人物库管理弹窗状态
 let people = [];            // 完整人物库 [{name, avatar, group}]，按名字字典序
 let peopleQuery = '';       // 当前搜索词
@@ -883,7 +1105,18 @@ function searchHtml() {
 }
 
 function renderPhone() {
+  /* 编辑器预览不是录制端：关掉真机的隐私模糊，昵称/微信号要看得清才好编辑 */
+  document.body.classList.add('wx-peer-no-blur');
   const inner = $('phoneInner');
+  if (stageView === 'pv' && pvReady) {
+    /* 实时预览层盖住画布：示意稿不必整页重建（每次输入全量 innerHTML + MutationObserver
+       全文档扫描是打字卡顿大头）。标脏即可，切回 示意稿/真机运行 时再补渲染 */
+    window.__edDraftDirty = true;
+    pushSceneToLive();
+    pvSyncNav();
+    return;
+  }
+  window.__edDraftDirty = false;
   let html = statusbar();
   if (camView === 'moments') {
     html += subHeader('朋友圈', true);
@@ -892,6 +1125,10 @@ function renderPhone() {
     html += peerProfileHtml();
   } else if (camView === 'peer-moments') {
     html += peerMomentsHtml();
+  } else if (camView === 'contacts') {
+    html += contactsViewHtml();
+  } else if (camView === 'self') {
+    html += selfViewHtml();
   } else if (selIdx != null && scene.home[selIdx]) {
     const it = scene.home[selIdx];
     html += subHeader(it.name || it.group || '会话', true);
@@ -904,6 +1141,9 @@ function renderPhone() {
     html += tabbarHtml();
   }
   inner.innerHTML = html;
+  /* 场景一变就推给真机画面（真机未连接时内部直接返回）与实时预览 */
+  pushSceneToLive();
+  pvSyncNav();
 }
 function homeUnread() {
   let n = 0;
@@ -921,7 +1161,7 @@ function chatListHtml() {
     const msg = it.lastText || lastText(it);
     const time = it.time || lastTime(it);
     h += '<div class="chat-row" data-open="' + i + '" style="top:' + (i * 110) + 'px">' +
-      avatarHtml(it.avatar || '/images/header/header01.png', 'ava', 'home[' + i + '].avatar') +
+      avatarHtml(it.avatar || '/images/avatar/2_20260831_184618_874.jpg', 'ava', 'home[' + i + '].avatar') +
       '<div class="name" data-path="home[' + i + '].name">' + esc(name) + '</div>' +
       '<div class="last" data-path="home[' + i + '].lastText">' + esc(msg) + '</div>' +
       '<div class="time">' + esc(time) + '</div>' +
@@ -933,7 +1173,7 @@ function chatListHtml() {
 function pillHtml() {
   return '<div class="pill"><i></i><i></i><i></i></div>';
 }
-function tabbarHtml() {
+function tabbarHtml(activeName) {
   const tabs = [
     { name: '微信', icon: 'M8 3C4.7 3 2 5.5 2 8.6c0 1.8.9 3.4 2.3 4.5L3.6 16l3-1.6c.5.1.9.1 1.4.1 3.3 0 6-2.5 6-5.9S11.3 3 8 3z', badge: '10', dot: false, active: true },
     { name: '通讯录', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z', badge: '', dot: false, active: false },
@@ -942,7 +1182,7 @@ function tabbarHtml() {
   ];
   let h = '<div class="tabbar">';
   tabs.forEach((t, i) => {
-    h += '<div class="tab' + (t.active ? ' active' : '') + '" data-navtab="' + t.name + '" style="left:' + (i * 150) + 'px">' +
+    h += '<div class="tab' + (t.name === (activeName || '微信') ? ' active' : '') + '" data-navtab="' + t.name + '" style="left:' + (i * 150) + 'px">' +
       '<span class="ic"><svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><path d="' + t.icon + '"/></svg></span>' +
       '<span class="lb">' + t.name + '</span>' +
       (t.badge ? '<span class="tab-badge">' + t.badge + '</span>' : '') +
@@ -950,6 +1190,86 @@ function tabbarHtml() {
       '</div>';
   });
   h += '</div>';
+  return h;
+}
+/* ===== 通讯录 / 我 两页示意稿（2026-09-11 同步新版真机 UI） ===== */
+function wxcIcon(bg, d) {
+  return '<span class="wxc-ic" style="background:' + bg + '">' +
+    '<svg viewBox="0 0 24 24" width="23" height="23" fill="#fff"><path d="' + d + '"/></svg></span>';
+}
+function pinyinInitial(name) {
+  const m = (name || '').replace(/^\s+/, '').charAt(0) || '#';
+  if (/[a-zA-Z]/.test(m)) return m.toUpperCase();
+  if (/[\u4e00-\u9fa5]/.test(m)) {
+    const anchors = [['阿','A'],['芭','B'],['擦','C'],['搭','D'],['鹅','E'],['发','F'],['噶','G'],['哈','H'],['击','J'],['喀','K'],['垃','L'],['妈','M'],['拿','N'],['哦','O'],['啪','P'],['七','Q'],['然','R'],['撒','S'],['塌','T'],['挖','W'],['昔','X'],['压','Y'],['匝','Z']];
+    let cur = '#';
+    anchors.forEach(pr => { try { if (m.localeCompare(pr[0], 'zh-Hans-CN') >= 0) cur = pr[1]; } catch (e) {} });
+    return cur;
+  }
+  return '#';
+}
+function contactsViewHtml() {
+  const funcs = [
+    { name: '新的朋友', bg: '#dfa540', d: 'M15 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-9-3V6h2v3h3v2H8v3H6v-3H3V9zm9 3c-3.3 0-8 1.7-8 5v2h16v-2c0-3.3-4.7-5-8-5z' },
+    { name: '群聊', bg: '#63b45f', d: 'M16 11a3.2 3.2 0 1 0-3.2-3.2A3.2 3.2 0 0 0 16 11zm-8 0a3.2 3.2 0 1 0-3.2-3.2A3.2 3.2 0 0 0 8 11zm0 2c-2.8 0-7 1.4-7 4.2V19h7v-2a6.6 6.6 0 0 1 2-4.6 10 10 0 0 0-2-.4zm8 0a10 10 0 0 0-2 .4 6.6 6.6 0 0 1 2 4.6v2h7v-1.8c0-2.8-4.2-4.2-7-4.2z' },
+    { name: '标签', bg: '#4f94e8', d: 'M21.4 11.6l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .6 1.4l9 9a2 2 0 0 0 2.8 0l7-7a2 2 0 0 0 0-2.8zM7.5 9A1.5 1.5 0 1 1 9 7.5 1.5 1.5 0 0 1 7.5 9z' },
+    { name: '公众号', bg: '#4f94e8', d: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-1.5 14.5L6 12l1.9-1.9 2.6 2.6 5.6-5.6L18 9z' },
+  ];
+  let h = '<div class="wx-header"><div class="c">通讯录</div></div>';
+  h += searchHtml();
+  h += '<div class="wxc-funcs">';
+  funcs.forEach((f, i) => {
+    h += '<div class="wxc-func" style="top:' + (i * 76) + 'px">' + wxcIcon(f.bg, f.d) +
+      '<span class="wxc-flb">' + f.name + '</span></div>';
+  });
+  h += '</div>';
+  /* 联系人 = 场景里的人物（与左侧会话列表同一份场景数据，可点头像换图） */
+  const home = scene.home || [];
+  const items = home.map((it, i) => ({ nm: it.name || '会话', ava: it.avatar || '/images/avatar/2_20260831_184618_874.jpg', p: 'home[' + i + '].avatar' }));
+  items.sort((a, b) => a.nm.localeCompare(b.nm, 'zh-Hans-CN'));
+  let lastL = '', y = 0;
+  h += '<div class="wxc-list">';
+  items.forEach(o => {
+    const L = pinyinInitial(o.nm);
+    if (L !== lastL) { h += '<div class="wxc-letter" style="top:' + y + 'px">' + L + '</div>'; y += 44; lastL = L; }
+    h += '<div class="wxc-row" style="top:' + y + 'px">' + avatarHtml(o.ava, 'ava2', o.p) +
+      '<span class="wxc-nm">' + esc(o.nm) + '</span></div>';
+    y += 96;
+  });
+  h += '</div>';
+  h += tabbarHtml('通讯录');
+  return h;
+}
+function selfViewHtml() {
+  const me = scene.me || {};
+  let h = '<div class="wx-header"><div class="c">我</div></div>';
+  h += '<div class="wxs-top">' +
+    avatarHtml(me.avatar || '/images/avatar/2_20260831_184618_874.jpg', 'wxs-ava', 'me.avatar') +
+    '<div class="wxs-name" data-path="me.name">' + esc(me.name || '未命名') + '</div>' +
+    '<div class="wxs-wxid">微信号：' + esc(me.wxid || 'weixin') + '</div>' +
+    '<span class="wxs-qr"><svg viewBox="0 0 24 24" width="34" height="34" fill="#9a9a9a"><path d="M3 3h8v8H3zm2 2v4h4V5zm10-2h6v6h-6zm2 2v2h2V5zM5 15h6v6H5zm2 2v2h2v-2zm8-2h2v2h-2zm4 0h2v2h-2zm-4 4h2v2h-2zm4 0h2v2h-2z"/></svg></span>' +
+    '<span class="wxs-arrow">›</span></div>';
+  const g1 = [
+    { name: '相册', bg: '#5aa2e8', d: 'M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5z' },
+    { name: '收藏', bg: '#dfa540', d: 'M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z' },
+    { name: '钱包', bg: '#4f94e8', d: 'M21 7h-1V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-2h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1zm-3 10H5V5h13zm-6 6.5A1.5 1.5 0 1 0 10.5 12 1.5 1.5 0 0 0 12 13.5z' },
+    { name: '卡券', bg: '#63b45f', d: 'M20 6H4a2 2 0 0 0-2 2v3a2 2 0 0 1 0 2v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-2V8a2 2 0 0 0-2-2zm-9 9H9v-2h2zm0-4H9V9h2z' },
+  ];
+  const g2 = [
+    { name: '表情', bg: '#dfa540', d: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM8.5 10a1.5 1.5 0 1 1 1.5-1.5A1.5 1.5 0 0 1 8.5 10zm7 0a1.5 1.5 0 1 1 1.5-1.5A1.5 1.5 0 0 1 15.5 10zM12 18a5.5 5.5 0 0 1-5.2-3.6h10.4A5.5 5.5 0 0 1 12 18z' },
+    { name: '设置', bg: '#5aa2e8', d: 'M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.7l-2-3.4a.5.5 0 0 0-.6-.2l-2.5 1a7.7 7.7 0 0 0-1.7-1L14.4 2.4a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9 4.9a7.7 7.7 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.4a.5.5 0 0 0 .1.7L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.7l2 3.4a.5.5 0 0 0 .6.2l2.5-1a7.7 7.7 0 0 0 1.7 1l.4 2.5a.5.5 0 0 0 .5.4h4a.5.5 0 0 0 .5-.4l.4-2.5a7.7 7.7 0 0 0 1.7-1l2.5 1a.5.5 0 0 0 .6-.2l2-3.4a.5.5 0 0 0-.1-.7zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z' },
+  ];
+  const cells = (rows, startTop) => {
+    let s = '<div class="wxs-cells">';
+    rows.forEach((r, i) => {
+      s += '<div class="wxs-row" style="top:' + (startTop + i * 96) + 'px">' + wxcIcon(r.bg, r.d) +
+        '<span class="wxc-flb">' + r.name + '</span></div>';
+    });
+    return s + '</div>';
+  };
+  h += cells(g1, 0);
+  h += cells(g2, 96 * 4 + 16);
+  h += tabbarHtml('我');
   return h;
 }
 function lastText(it) {
@@ -971,7 +1291,7 @@ function dialogueHtml(it) {
   (it.messages || []).forEach((m, j) => {
     const isMe = m.dir === 'me';
     const name = isMe ? meName : (m.sender || it.name || it.group || '对方');
-    const ava = isMe ? (scene.me.avatar || '/images/header/header01.png') : (it.avatar || '/images/header/yehua.jpg');
+    const ava = isMe ? (scene.me.avatar || '/images/avatar/2_20260831_184618_874.jpg') : (it.avatar || '/images/peer/peer_avatar.jpg');
     let body;
     const path = 'home[' + selIdx + '].messages[' + j + ']';
     if (m.kind === 'image') body = '<div class="ta img" data-path="' + path + '.image"><img src="' + esc(m.image) + '" onerror="onImgErr(this)" alt=""></div>';
@@ -1035,7 +1355,7 @@ function momentsHtml() {
     }
     const author = '<div class="author" data-path="moments[' + i + '].author">' + esc(p.author || '') +
       (p.company ? '<span class="co" data-path="moments[' + i + '].company">@' + esc(p.company) + '</span>' : '') + '</div>';
-    h += '<div class="m-post"><div class="row">' + avatarHtml(p.avatar || '/images/header/yehua.jpg', 'ava', 'moments[' + i + '].avatar') +
+    h += '<div class="m-post"><div class="row">' + avatarHtml(p.avatar || '/images/peer/peer_avatar.jpg', 'ava', 'moments[' + i + '].avatar') +
       '<div class="bd">' + author +
       '<div class="txt" data-path="moments[' + i + '].text">' + esc(p.text || '') + '</div>' +
       media +
@@ -1097,6 +1417,23 @@ function peerThumbImgs(list, base, max) {
   return (list || []).slice(0, max).map((s, i) =>
     '<img src="' + esc(s) + '" onerror="onImgErr(this)" data-path="' + base + '[' + i + ']" alt="">').join('');
 }
+/* 主页「朋友圈」展示框取图：与运行端 enhance/peer_pages.js 同一套优先级，
+   保证编辑器预览 = 成品：① 本人物 posts 的配图/视频封面 ② scene.moments 同名 author 的图 ③ momentsThumbs 兜底 */
+function peerProfileThumbs(p) {
+  const out = [];
+  const push = (s) => { s = String(s || ''); if (s && out.indexOf(s) < 0) out.push(s); };
+  (p.posts || []).forEach((post) => {
+    const v = peerPostVideo(post);
+    if (v && v.cover) push(v.cover);
+    (post.images || []).forEach(push);
+  });
+  if (!out.length && p.name) {
+    (scene.moments || []).forEach((m) => {
+      if (String(m.author || '') === p.name) (m.images || []).forEach(push);
+    });
+  }
+  return out;
+}
 /* 解析对方动态里的视频：字符串 或 {src, cover}；无则 null。
    这是「渲染用」的严格版：src 为空视为没有视频，预览里不显示播放角标。 */
 function peerPostVideo(post) {
@@ -1121,6 +1458,14 @@ function peerProfileHtml() {
   const B = PB();
   const gcls = Number(p.gender) === 1 ? 'male' : 'female';
   const v = (p.video && typeof p.video === 'object') ? p.video : null;
+  const genderHtml = (Number(p.gender) === 1 || Number(p.gender) === 2)
+    ? '<i class="wpp-gender ' + gcls + '"></i>' : '';
+  /* 展示框：动态配图联动（同真机）；没配动态时退回 momentsThumbs（可点选改） */
+  const linkedThumbs = peerProfileThumbs(p);
+  const thumbsHtml = linkedThumbs.length
+    ? linkedThumbs.slice(0, 5).map((t) =>
+        '<img src="' + esc(t) + '" onerror="onImgErr(this)" title="来自朋友圈动态配图，改动态配图即自动更新" alt="">').join('')
+    : peerThumbImgs(p.momentsThumbs, B + '.momentsThumbs', 5);
   let h = '<div class="wx-peer-page open">' +
     '<div class="wpp-nav"><span class="wpp-back" data-nav="peer-back"></span>' +
     '<span class="wpp-more"><i></i><i></i><i></i></span></div>' +
@@ -1129,18 +1474,19 @@ function peerProfileHtml() {
         '<img class="wpp-avatar" data-path="' + B + '.avatar" src="' + esc(p.avatar || '') + '" onerror="onImgErr(this)" alt="">' +
         '<div class="wpp-meta">' +
           '<div class="wpp-name"><span class="wpp-name-t" data-path="' + B + '.name">' + esc(p.name || '') + '</span>' +
-          '<i class="wpp-gender ' + gcls + '"></i></div>' +
-          '<div class="wpp-wxid" data-path="' + B + '.wxid">微信号：' + esc(p.wxid || '') + '</div>' +
-          '<div class="wpp-area" data-path="' + B + '.area">地区：' + esc(p.area || '') + '</div>' +
+          genderHtml + '</div>' +
+          (p.nickname ? '<div class="wpp-nick" data-path="' + B + '.nickname">昵称:' + esc(p.nickname) + '</div>' : '') +
+          '<div class="wpp-wxid" data-path="' + B + '.wxid">微信号:' + esc(p.wxid || '') + '</div>' +
+          '<div class="wpp-area" data-path="' + B + '.area">地区:' + esc(p.area || '') + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="wpp-group"><div class="wpp-cell wpp-friend-cell">' +
         '<div class="wpp-cell-main"><div class="wpp-cell-title">朋友资料</div>' +
-        '<div class="wpp-cell-desc">添加朋友的备注名、电话、标签、备忘、照片等，并设置朋友权限。</div></div>' +
+        '<div class="wpp-cell-desc">添加朋友的备注名、电话、标签、备注、照片等，并设置朋友权限。</div></div>' +
         '<span class="wpp-arrow"></span></div></div>' +
       '<div class="wpp-group"><div class="wpp-cell wpp-moments-cell" data-nav="peer-moments">' +
         '<div class="wpp-cell-title wpp-title-fixed">朋友圈</div>' +
-        '<div class="wpp-thumbs">' + peerThumbImgs(p.momentsThumbs, B + '.momentsThumbs', 5) + '</div>' +
+        '<div class="wpp-thumbs">' + thumbsHtml + '</div>' +
         '<span class="wpp-arrow"></span></div></div>';
   if (v && (v.name || (v.thumbs || []).length)) {
     h += '<div class="wpp-group"><div class="wpp-cell wpp-video-cell">' +
@@ -1222,19 +1568,108 @@ function peerMomentsHtml() {
 }
 
 /* ---------- 右侧结构化面板 ---------- */
+/* ---------- 输入体验：文本边打边存，防抖刷新手机预览，不重建面板 ---------- */
+let _phoneRefreshTimer = null;
+function schedulePhoneRefresh() {
+  if (_phoneRefreshTimer) clearTimeout(_phoneRefreshTimer);
+  _phoneRefreshTimer = setTimeout(() => { _phoneRefreshTimer = null; renderPhone(); }, 250);
+}
+
+/* ---------- 卡片折叠：每个卡片可展开/收起，顶部可全部展开/收起 ---------- */
+const cardFoldState = new Map();
+
+/* ---------- 说明性 hint 折叠成小问号（空状态/警告/含控件的保留） ---------- */
+const HINT_KEEP = ['还没有', '先在上方', '这套方案还没有', '⚠', '加载失败', '请确认'];
+function compressHints(root) {
+  (root || document).querySelectorAll('.hint').forEach(h => {
+    if (h.querySelector('.hint-q')) return;
+    if (h.querySelector('button, input, select, textarea, video, a')) return;
+    const t = (h.textContent || '').trim();
+    if (!t || HINT_KEEP.some(k => t.includes(k))) return;
+    if (t.length < 12) return;
+    h.classList.add('compacted');
+    const q = document.createElement('button');
+    q.type = 'button';
+    q.className = 'hint-q';
+    q.title = '点开查看说明';
+    const body = document.createElement('div');
+    body.className = 'hint-body';
+    while (h.firstChild) body.appendChild(h.firstChild);
+    h.appendChild(q);
+    h.appendChild(body);
+    q.onclick = (e) => { e.stopPropagation(); h.classList.toggle('open'); };
+  });
+}
+let _hintObsT = null;
+new MutationObserver(() => {
+  if (_hintObsT) clearTimeout(_hintObsT);
+  _hintObsT = setTimeout(() => compressHints(document.body), 120);
+}).observe(document.body, { childList: true, subtree: true });
+compressHints(document.body);
+function applyCardFolds() {
+  const body = $('panelBody');
+  body.querySelectorAll('.card').forEach((card, ci) => {
+    const head = card.querySelector(':scope > .head');
+    if (!head || head.querySelector('.fold-btn')) return;
+    const fold = document.createElement('div');
+    fold.className = 'card-fold';
+    while (head.nextSibling) fold.appendChild(head.nextSibling);
+    card.appendChild(fold);
+    const key = panelTab + '#' + ci + '#' + (head.textContent || '').trim().slice(0, 10);
+    fold.dataset.foldKey = key;
+    const tog = document.createElement('button');
+    tog.type = 'button';
+    tog.className = 'fold-btn';
+    tog.title = '展开 / 收起这个卡片';
+    const open0 = cardFoldState.has(key) ? cardFoldState.get(key) : true;
+    tog.textContent = open0 ? '▾' : '▸';
+    if (!open0) fold.classList.add('closed');
+    tog.onclick = (e) => {
+      e.stopPropagation();
+      const nowOpen = !fold.classList.contains('closed');
+      cardFoldState.set(key, !nowOpen);
+      fold.classList.toggle('closed', nowOpen);
+      tog.textContent = nowOpen ? '▸' : '▾';
+    };
+    head.insertBefore(tog, head.firstChild);
+  });
+  if (!body.querySelector('.fold-toolbar')) {
+    const bar = document.createElement('div');
+    bar.className = 'fold-toolbar';
+    bar.innerHTML = '<button type="button" data-fold="open">⊟ 全部展开</button><button type="button" data-fold="close">▤ 全部收起</button>';
+    bar.querySelectorAll('button').forEach(b => {
+      b.onclick = () => {
+        const open = b.getAttribute('data-fold') === 'open';
+        body.querySelectorAll('.card .card-fold').forEach(f => {
+          f.classList.toggle('closed', !open);
+          if (f.dataset.foldKey) cardFoldState.set(f.dataset.foldKey, open);
+        });
+        body.querySelectorAll('.card .fold-btn').forEach(t => { t.textContent = open ? '▾' : '▸'; });
+      };
+    });
+    body.insertBefore(bar, body.firstChild);
+  }
+}
+
 function renderPanel() {
   const body = $('panelBody');
+  const keepScroll = body.scrollTop;
   if (panelTab === 'conversations') body.innerHTML = panelConversations();
   else if (panelTab === 'messages') body.innerHTML = panelMessages();
   else if (panelTab === 'moments') body.innerHTML = panelMoments();
   else if (panelTab === 'peer') body.innerHTML = panelPeer();
   else body.innerHTML = panelMe();
+  applyCardFolds();
   bindPanelEvents();
+  body.scrollTop = keepScroll;
 }
 function setPanelTab(tab) {
   panelTab = tab;
+  /* 编辑对方主页时，手机画面自动跟着切到对方主页预览（所见即所得） */
+  if (tab === 'peer' && camView !== 'peer' && camView !== 'peer-moments') camView = 'peer';
   document.querySelectorAll('.panel-tabs button').forEach(x => x.classList.toggle('active', x.getAttribute('data-tab') === tab));
   renderPanel();
+  if (camView === 'peer') renderPhone();
 }
 function btn(html) { return html; }
 function panelConversations() {
@@ -1510,7 +1945,8 @@ function panelPeer() {
 
   /* 基本资料 */
   h += '<div class="card"><div class="head"><span class="t">基本资料（当前方案）</span></div>' +
-    fieldText(B + '.name', '昵称', p.name) +
+    fieldText(B + '.name', '名字（主页大字）', p.name) +
+    fieldText(B + '.nickname', '昵称行（主页「昵称:」一行，留空不显示）', p.nickname || '') +
     fieldText(B + '.wxid', '微信号', p.wxid) +
     fieldText(B + '.area', '地区', p.area) +
     '<div class="field"><label>性别</label><select data-set="' + B + '.gender">' +
@@ -1621,8 +2057,9 @@ function bindPhoneEvents() {
     if (tab) {
       const name = tab.getAttribute('data-navtab');
       if (name === '微信') { camView = 'list'; selIdx = null; }
+      else if (name === '通讯录') { camView = 'contacts'; }
       else if (name === '发现') { camView = 'moments'; }
-      else if (name === '我') { camView = 'moments'; }  // 简化：切朋友圈展示
+      else if (name === '我') { camView = 'self'; }
       renderPhone(); renderPanel();
     }
   };
@@ -1651,13 +2088,22 @@ function handlePeerPact(elm) {
 
 function bindPanelEvents() {
   document.querySelectorAll('#panelBody [data-set]').forEach(el => {
-    el.onchange = () => {
+    const isText = el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.type !== 'number' && el.type !== 'range');
+    const commit = (redrawPanel) => {
       const path = el.getAttribute('data-set');
       const val = el.type === 'checkbox' ? el.checked : el.type === 'number' ? (parseInt(el.value, 10) || 0) : el.value;
       setPath(path, val);
       normalizeLists();
-      renderPhone(); renderPanel();
+      schedulePhoneRefresh();
+      if (redrawPanel) renderPanel();
     };
+    if (isText) {
+      /* 文本输入：边打字边提交 + 防抖刷新手机预览；不重建面板，焦点和滚动位置都不丢 */
+      el.oninput = () => commit(false);
+      el.onchange = () => commit(false);
+    } else {
+      el.onchange = () => commit(true);
+    }
   });
   document.querySelectorAll('#panelBody [data-img]').forEach(el => {
     el.onclick = () => {
@@ -1937,6 +2383,7 @@ function pickerMarkup(path) {
       '<button id="pickerUploadBtn">⬆ 上传图片</button>' +
       '<button id="pickerUrlBtn">🔗 使用链接</button>' +
     '</div>' +
+    '<div class="lib-typebar" id="pickerCats"></div>' +
     '<div class="picker-urlrow" id="pickerUrlRow" style="display:none">' +
       '<input id="pickerUrlInput" placeholder="输入 /images/... 或 http(s):// 图片链接">' +
       '<button id="pickerUrlApply" class="primary">应用</button>' +
@@ -1952,16 +2399,52 @@ function openImagePicker(path) {
   pickerPath = path;
   pickerSel = getPath(path) || '';
   pickerQuery = '';
+  pickerCat = '';
   $('pickerBox').innerHTML = pickerMarkup(path);
   $('pickerMask').classList.add('show');
   bindPickerEvents();
+  renderPickerCats();
   renderPickerGrid();
   updatePickerPreview();
+  if (!libFiles.length) refreshLibData().then(renderPickerGrid).catch(() => { /* 分类筛选退化为全量 */ });
+}
+
+/* 按字段路径推断上传分类：头像字段→头像，封面/背景→背景，其余图片字段→配图素材 */
+function fieldUploadCat(path) {
+  const p = path || '';
+  if (/avatar/i.test(p)) return 'avatar';
+  if (/(^|\.)bg$|cover/i.test(p)) return 'bg';
+  return 'asset';
+}
+
+/* 内嵌选图弹窗的分类 chips（视频不在图片字段里选，不放 🎬视频 chip） */
+function renderPickerCats() {
+  const box = $('pickerCats');
+  if (!box) return;
+  let h = '<span class="lib-typebtn' + (pickerCat === '' ? ' on' : '') + '" data-cat="">全部</span>';
+  libCatList().forEach(c => {
+    h += '<span class="lib-typebtn' + (pickerCat === c.key ? ' on' : '') + '" data-cat="' + esc(c.key) + '">' + esc(c.label) + '</span>';
+  });
+  box.innerHTML = h;
+  box.querySelectorAll('.lib-typebtn').forEach(btn => {
+    btn.onclick = () => {
+      pickerCat = btn.getAttribute('data-cat') || '';
+      box.querySelectorAll('.lib-typebtn').forEach(x => x.classList.toggle('on', x === btn));
+      renderPickerGrid();
+    };
+  });
 }
 
 function pickerFiltered() {
   const q = (pickerQuery || '').toLowerCase();
-  return gallery.filter(g => !q || g.toLowerCase().includes(q));
+  let base = gallery;
+  if (pickerCat) {
+    // 按分类筛选：优先用带 category 元数据的 libFiles；元数据没就绪时退回全量
+    if (libFiles && libFiles.length) {
+      base = libFiles.filter(f => f.category === pickerCat).map(f => f.path);
+    }
+  }
+  return base.filter(g => !q || g.toLowerCase().includes(q));
 }
 
 function renderPickerGrid() {
@@ -2049,22 +2532,24 @@ function triggerUpload(path, fromPicker) {
     pickerUploading = true;
     let idx = 0;
     const total = valid.length;
+    // 上传落哪个分类：弹窗里选了分类用选的；否则按字段类型推断（头像→头像、封面→背景、其余→配图素材）
+    const cat = fromPicker ? (pickerCat || fieldUploadCat(pickerPath)) : fieldUploadCat(path);
     function uploadNext() {
       if (idx >= total) {
         pickerUploading = false;
         if (fromPicker) { renderPickerGrid(); updatePickerPreview(); bindPickerEvents(); }
         else { normalizeLists(); renderPhone(); renderPanel(); }
-        toast('已上传 ' + total + ' 张图片');
+        toast('已上传 ' + total + ' 张图片（存到 · ' + libCatLabel(cat) + '）');
         return;
       }
       const f = valid[idx];
-      toast('上传中 (' + (idx + 1) + '/' + total + ')...');
+      toast('导入中 (' + (idx + 1) + '/' + total + ')...');
       const reader = new FileReader();
       reader.onload = () => {
         api('/api/upload-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: reader.result, name: f.name })
+          body: JSON.stringify({ data: reader.result, name: f.name, category: cat })
         }).then(r => {
           if (r.ok) {
             gallery = r.images || gallery;
@@ -2120,15 +2605,18 @@ function libMarkup() {
     '<div class="lib-toolbar">' +
       '<input id="libSearch" placeholder="🔍 搜索文件名 / 命名...">' +
       '<select id="libFolder"><option value="">📁 全部目录</option></select>' +
-      '<select id="libUpcat" title="上传的图片存入哪个分类"></select>' +
+      '<select id="libSort" title="列表排序方式"></select>' +
+      '<select id="libUpcat" title="上传的图片存入哪个分类（拖进来也存这里）"></select>' +
       '<button id="libUpload" class="primary">⬆ 上传图片</button>' +
       '<button id="libImport">📥 导入文件夹</button>' +
-      '<button id="libBatch">☑ 批量删除</button>' +
+      '<button id="libBatch">☑ 批量操作</button>' +
+      '<button id="libCatMgr" title="给分类改名，或新建自己的分类">⚙ 分类</button>' +
     '</div>' +
     '<div class="lib-typebar" id="libCats"></div>' +
     '<div class="lib-selected"><span class="lib-selpath" id="libSelPath">未选择图片</span><div class="lib-btns" id="libBtns"></div></div>' +
     '<div class="lib-grid" id="libGrid"></div>' +
-    '<div class="lib-action" id="libAction"></div>';
+    '<div class="lib-action" id="libAction"></div>' +
+    '<div style="padding:8px 14px 12px;font-size:11px;color:#8a93a3">💡 把图片拖到窗口任意位置即可上传；把缩略图拖到上面的分类按钮上＝把这张图搬过去。勾选多张后可整批搬走或删除。</div>';
 }
 
 async function openLib() {
@@ -2139,14 +2627,17 @@ async function openLib() {
   libSel = null;
   libSelSet = new Set();
   libBatchMode = false;
-  libCat = '';
-  renderLibCats();
-  renderLibUpcat();
-  renderLibFolderOptions();
+  libCat = libRestoreCat();
+  libSort = libRestoreSort();
+  try { libFolder = localStorage.getItem('wx-lib-folder') || ''; } catch (e) { libFolder = ''; }
   try {
     await refreshLibData();
   } catch (e) { /* 加载失败会在 renderLibGrid 中提示 */ }
+  libCat = libRestoreCat();          // 图库数据到位后再定默认分类（「配图素材」有图才默认它）
   renderLibCats();
+  renderLibUpcat();
+  libSyncUpcat();
+  renderLibSortOptions();
   renderLibFolderOptions();
   renderLibGrid();
 }
@@ -2158,7 +2649,6 @@ function closeLib() {
   libRenameMode = false;
   libSelSet = new Set();
   libBatchMode = false;
-  libCat = '';
 }
 
 async function refreshLibData() {
@@ -2185,31 +2675,60 @@ function libCatLabel(key) {
 function renderLibCats() {
   const box = $('libCats');
   if (!box) return;
-  let h = '<span class="lib-typebtn' + (libCat === '' ? ' on' : '') + '" data-cat="">全部</span>';
-  libCatList().forEach(c => {
-    h += '<span class="lib-typebtn' + (libCat === c.key ? ' on' : '') + '" data-cat="' + esc(c.key) + '">' + esc(c.label) + '</span>';
-  });
-  h += '<span class="lib-typebtn' + (libCat === 'video' ? ' on' : '') + '" data-cat="video">🎬 视频</span>';
+  const mk = (key, label) =>
+    '<span class="lib-typebtn' + (libCat === key ? ' on' : '') + '" data-cat="' + esc(key) + '">' +
+    esc(label) + '<span style="margin-left:5px;font-size:10px;opacity:.75;background:rgba(127,127,127,.15);border-radius:999px;padding:0 5px">' + libCatCount(key) + '</span></span>';
+  let h = mk('', '全部');
+  libCatList().forEach(c => { h += mk(c.key, c.label); });
+  h += mk('video', '🎬 视频');
   box.innerHTML = h;
   box.querySelectorAll('.lib-typebtn').forEach(btn => {
+    const key = btn.getAttribute('data-cat') || '';
     btn.onclick = () => {
-      libCat = btn.getAttribute('data-cat') || '';
-      box.querySelectorAll('.lib-typebtn').forEach(x => x.classList.toggle('on', x === btn));
+      libCat = key;
+      libBatchMode = false;
+      libSelSet = new Set();
+      try { localStorage.setItem('wx-lib-cat', key); } catch (e) { /* 忽略 */ }
+      libSyncUpcat();
+      renderLibCats();
       renderLibGrid();
     };
+    // 把缩略图拖到分类按钮上 = 把这张（批量模式下＝选中的这些）搬过去
+    btn.addEventListener('dragover', e => {
+      if (!libDragPaths.length) return;
+      e.preventDefault(); e.stopPropagation();
+      btn.classList.add('drop');
+    });
+    btn.addEventListener('dragleave', () => btn.classList.remove('drop'));
+    btn.addEventListener('drop', e => {
+      if (!libDragPaths.length) return;
+      e.preventDefault(); e.stopPropagation();
+      btn.classList.remove('drop');
+      const paths = libDragPaths.slice();
+      libDragPaths = [];
+      libMovePaths(paths, key);
+    });
   });
 }
 
-/* 「上传存入分类」下拉（记住上次选择） */
+/* 「上传存入分类」下拉（记住上次选择；只列可上传的分类） */
 function renderLibUpcat() {
   const sel = $('libUpcat');
   if (!sel) return;
-  const allow = ['avatar', 'sticker', 'emoji', 'bg', 'asset'];
+  const cats = libCatList().filter(c => c.canUpload !== false);
   let saved = '';
   try { saved = localStorage.getItem('wx-lib-upcat') || ''; } catch (e) { /* 忽略 */ }
-  if (!allow.includes(saved)) saved = 'avatar';
-  sel.innerHTML = allow.map(k =>
-    '<option value="' + esc(k) + '"' + (k === saved ? ' selected' : '') + '>存到 · ' + esc(libCatLabel(k)) + '</option>').join('');
+  if (!cats.some(c => c.key === saved)) saved = cats.some(c => c.key === 'asset') ? 'asset' : (cats[0] || {}).key || '';
+  sel.innerHTML = cats.map(c =>
+    '<option value="' + esc(c.key) + '"' + (c.key === saved ? ' selected' : '') + '>存到 · ' + esc(c.label) + '</option>').join('');
+}
+
+/* 排序下拉（记住上次选择） */
+function renderLibSortOptions() {
+  const sel = $('libSort');
+  if (!sel) return;
+  const opts = [['new', '⇅ 最新在前'], ['old', '⇅ 最早在前'], ['name', '⇅ 按名称'], ['size', '⇅ 按体积']];
+  sel.innerHTML = opts.map(o => '<option value="' + o[0] + '"' + (o[0] === libSort ? ' selected' : '') + '>' + o[1] + '</option>').join('');
 }
 
 function renderLibFolderOptions() {
@@ -2246,8 +2765,8 @@ function renderLibGrid() {
   if (!grid) return;
   const isVideoTab = libCat === 'video';
   const list = isVideoTab
-    ? libVideos.map(v => ({ path: v.path, label: v.name || v.path, name: v.path, size: 0, isVideo: true }))
-    : libFiltered();
+    ? libSorted(libVideos.map(v => ({ path: v.path, label: v.name || v.path, name: v.path, size: 0, isVideo: true })))
+    : libSorted(libFiltered());
   $('libCount').textContent = '共 ' + (isVideoTab ? libVideos.length + ' 个视频' : libFiles.length + ' 张') +
     ' · 显示 ' + list.length + (isVideoTab ? ' 个' : ' 张') + (libBatchMode ? ' · 已选 ' + libSelSet.size : '');
   let h = '';
@@ -2261,7 +2780,7 @@ function renderLibGrid() {
       ? '<div class="lib-thumb" style="display:flex;align-items:center;justify-content:center;font-size:30px">🎬</div>'
       : '<div class="lib-thumb"><img src="' + esc(f.path) + '" loading="lazy" onerror="onImgErr(this)">' +
           '<span class="lib-type' + (f.category === 'icon' ? ' ic' : ' im') + '">' + typeTag + '</span></div>';
-    h += '<div class="lib-item' + sel + '" data-path="' + esc(f.path) + '">' +
+    h += '<div class="lib-item' + sel + '" data-path="' + esc(f.path) + '"' + (f.isVideo ? '' : ' draggable="true"') + '>' +
       cb +
       thumb +
       '<span class="lib-name" title="' + esc(f.label || f.name) + '">' + esc(f.label || f.name) + '</span>' +
@@ -2271,12 +2790,23 @@ function renderLibGrid() {
   if (!list.length) {
     h = isVideoTab
       ? '<div class="lib-empty">还没有视频素材。在场景编辑器里给朋友圈动态传视频，或把 MP4 放进 vue-WeChat/public/videos/。</div>'
-      : '<div class="lib-empty">没有匹配的图片，试试其它关键词 / 分类 / 目录，或上传一张。</div>';
+      : '<div class="lib-empty">这里还没有图片。把图片拖到窗口任意位置即可上传（存进右上角选的分类），或点「⬆ 上传图片」。</div>';
   }
   grid.innerHTML = h;
   grid.querySelectorAll('.lib-item').forEach(el => {
+    const path = el.getAttribute('data-path');
+    if (el.getAttribute('draggable') === 'true') {
+      el.addEventListener('dragstart', (e) => {
+        libDragPaths = (libBatchMode && libSelSet.has(path) && libSelSet.size) ? Array.from(libSelSet) : [path];
+        el.style.opacity = '.45';
+        try {
+          e.dataTransfer.setData('text/plain', libDragPaths.join('\n'));
+          e.dataTransfer.effectAllowed = 'move';
+        } catch (err) { /* 忽略 */ }
+      });
+      el.addEventListener('dragend', () => { libDragPaths = []; el.style.opacity = ''; });
+    }
     el.onclick = () => {
-      const path = el.getAttribute('data-path');
       if (libBatchMode) {
         if (libSelSet.has(path)) libSelSet.delete(path); else libSelSet.add(path);
         renderLibGrid();
@@ -2313,8 +2843,8 @@ function renderLibActionBar() {
     '<button id="libRename">📄 重命名</button>' +
     '<select id="libMove" title="移动到指定分类（自动更新剧本/场景里的引用）">' +
       '<option value="">📂 移动到分类…</option>' +
-      ['avatar', 'sticker', 'emoji', 'bg', 'asset'].map(k =>
-        '<option value="' + esc(k) + '">' + esc(libCatLabel(k)) + '</option>').join('') +
+      libCatList().filter(c => c.canUpload !== false).map(c =>
+        '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>').join('') +
     '</select>' +
     '<button id="libDelete" class="danger">🗑 删除</button>';
   action.innerHTML = '';
@@ -2358,7 +2888,7 @@ function libToggleBatch() {
   if (!libBatchMode) libSelSet = new Set();
   const btn = $('libBatch');
   if (btn) {
-    btn.textContent = libBatchMode ? '☑ 取消批量' : '☑ 批量删除';
+    btn.textContent = libBatchMode ? '☑ 取消批量' : '☑ 批量操作';
     btn.classList.toggle('active', libBatchMode);
   }
   renderLibGrid();
@@ -2370,16 +2900,27 @@ function renderLibBatchBar() {
   const action = $('libAction');
   if (!selPath || !btns || !action) return;
   const n = libSelSet.size;
-  selPath.textContent = '批量删除：点选图片勾选，已选 ' + n + ' 张';
+  selPath.textContent = '批量操作：点选图片勾选，已选 ' + n + ' 张';
   btns.innerHTML = '';
   action.innerHTML =
     '<div class="lib-rename-row">' +
+      '<select id="libBatchMove"><option value="">📂 整批移到分类…</option>' +
+        libCatList().filter(c => c.canUpload !== false).map(c =>
+          '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>').join('') +
+      '</select>' +
       '<button id="libBatchAll">全选当前列表</button>' +
       '<button id="libBatchClear">清空选择</button>' +
       '<button id="libBatchDel" class="danger">删除选中 (' + n + ')</button>' +
     '</div>';
   $('libBatchAll').onclick = () => { libSelSet = new Set(libFiltered().map(f => f.path)); renderLibGrid(); };
   $('libBatchClear').onclick = () => { libSelSet = new Set(); renderLibGrid(); };
+  $('libBatchMove').onchange = async (e) => {
+    const cat = e.target.value || '';
+    e.target.value = '';
+    if (!cat) return;
+    if (!libSelSet.size) { toast('请先勾选要搬走的图片'); return; }
+    await libMovePaths(Array.from(libSelSet), cat);
+  };
   $('libBatchDel').onclick = libDeleteSelected;
 }
 
@@ -2387,16 +2928,15 @@ async function libDeleteSelected() {
   const paths = Array.from(libSelSet);
   if (!paths.length) { toast('请先选择要删除的图片'); return; }
   if (!confirm('确定删除选中的 ' + paths.length + ' 张图片吗？\n\n删除后无法恢复。')) return;
-  let okCount = 0, fail = 0;
-  for (const p of paths) {
-    const r = await api('/api/gallery/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: p }) });
-    if (r.ok) okCount++; else fail++;
-  }
+  const r = await api('/api/gallery/batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'delete', paths: paths }) });
+  if (!r.ok) { toast(r.msg || '批量删除失败'); return; }
   libSelSet = new Set();
-  try { await refreshLibData(); } catch (e) { /* 静默：renderLibGrid 会提示 */ }
+  libSel = null;
+  applyGalleryPayload(r.gallery);
+  renderLibCats();
   renderLibFolderOptions();
   renderLibGrid();
-  toast('已删除 ' + okCount + ' 张' + (fail ? '，失败 ' + fail + ' 张' : ''));
+  toast('已删除 ' + r.done + ' 张' + (r.failed ? '，失败 ' + r.failed + ' 张' : ''));
 }
 
 function renderLibRename() {
@@ -2433,6 +2973,7 @@ function applyGalleryPayload(payload) {
   gallery = payload.images || gallery;
   libFiles = payload.files || libFiles;
   libFolders = payload.folders || libFolders;
+  if (payload.categories) libCategories = payload.categories;
 }
 
 function previewLib() {
@@ -2452,29 +2993,60 @@ function bindLibEvents() {
   $('libClose').onclick = closeLib;
   $('libMask').onclick = e => { if (e.target === $('libMask')) closeLib(); };
   $('libSearch').oninput = e => { libQuery = e.target.value; renderLibGrid(); };
-  $('libFolder').onchange = e => { libFolder = e.target.value; renderLibGrid(); };
+  $('libFolder').onchange = e => {
+    libFolder = e.target.value;
+    try { localStorage.setItem('wx-lib-folder', libFolder || ''); } catch (err) { /* 忽略 */ }
+    renderLibGrid();
+  };
+  $('libSort').onchange = e => {
+    libSort = e.target.value;
+    try { localStorage.setItem('wx-lib-sort', libSort); } catch (err) { /* 忽略 */ }
+    renderLibGrid();
+  };
   $('libUpcat').onchange = e => {
     try { localStorage.setItem('wx-lib-upcat', e.target.value || ''); } catch (err) { /* 忽略 */ }
   };
-  // 分类 chips 的点击在 renderLibCats() 里自行绑定
+  // 分类 chips 的点击/拖放目标在 renderLibCats() 里自行绑定
   $('libUpload').onclick = libUpload;
   $('libImport').onclick = libImport;
   $('libBatch').onclick = libToggleBatch;
+  $('libCatMgr').onclick = () => {
+    if (window.__wxPick && typeof window.__wxPick.openCategoryManager === 'function') {
+      window.__wxPick.openCategoryManager();
+    } else toast('分类管理组件还没加载好，请刷新页面再试');
+  };
   $('libPvHead').onclick = () => { $('libPreviewLayer').hidden = true; };
   $('libPreviewLayer').onclick = e => { if (e.target === $('libPreviewLayer')) $('libPreviewLayer').hidden = true; };
-  // 拖拽导入：把图片文件拖进网格即可批量上传
-  const grid = $('libGrid');
-  grid.addEventListener('dragover', e => { e.preventDefault(); grid.classList.add('drop'); });
-  grid.addEventListener('dragleave', () => grid.classList.remove('drop'));
-  grid.addEventListener('drop', e => {
+  // 整个弹窗都是「拖图上传」的落点（不只是网格）
+  let depth = 0;
+  const isFileDrag = e => !libDragPaths.length && e.dataTransfer &&
+    Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0;
+  $('libMask').addEventListener('dragenter', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); depth++;
+    $('libBox').classList.add('drop');
+  });
+  $('libMask').addEventListener('dragover', e => {
+    if (!isFileDrag(e)) return;
     e.preventDefault();
-    grid.classList.remove('drop');
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (err) { /* 忽略 */ }
+  });
+  $('libMask').addEventListener('dragleave', e => {
+    if (!isFileDrag(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (!depth) $('libBox').classList.remove('drop');
+  });
+  $('libMask').addEventListener('drop', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    depth = 0;
+    $('libBox').classList.remove('drop');
     const files = Array.from(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : []);
-    if (files.length) libUploadFiles(files);
+    if (files.length) libUploadFiles(files, null, libTargetCat());
   });
 }
 
-function libUploadFiles(files, onDone) {
+function libUploadFiles(files, onDone, category) {
   if (!files || !files.length) return;
   const MAX = 10 * 1024 * 1024;
   const valid = files.filter(f => f.size <= MAX);
@@ -2482,21 +3054,29 @@ function libUploadFiles(files, onDone) {
   if (valid.length < files.length) toast((files.length - valid.length) + ' 张超限已跳过');
   if (libUploading) { toast('正在上传中，请稍候'); return; }
   libUploading = true;
+  const cat = category || libTargetCat();
   let idx = 0;
   const total = valid.length;
   function libNext() {
     if (idx >= total) {
       libUploading = false;
-      refreshLibData()
-        .then(() => { renderLibGrid(); renderLibFolderOptions(); toast('已上传 ' + total + ' 张图片'); if (onDone) onDone(); })
-        .catch(() => { renderLibGrid(); toast('已上传 ' + total + ' 张图片'); if (onDone) onDone(); });
+      const done = () => {
+        libCat = cat;                       // 传完自动切到目标分类，立刻看到刚传的
+        try { localStorage.setItem('wx-lib-cat', cat); } catch (e) { /* 忽略 */ }
+        renderLibCats();
+        renderLibGrid();
+        renderLibFolderOptions();
+        toast('已上传 ' + total + ' 张到「' + libCatLabel(cat) + '」');
+        if (onDone) onDone();
+      };
+      refreshLibData().then(done).catch(done);
       return;
     }
     const f = valid[idx];
     toast('导入中 (' + (idx + 1) + '/' + total + ')...');
     const reader = new FileReader();
     reader.onload = () => {
-      api('/api/upload-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: reader.result, name: f.name }) })
+      api('/api/upload-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: reader.result, name: f.name, category: cat }) })
         .then(r => {
           if (r.ok) { gallery = r.images || gallery; if (idx === 0) libSel = r.path; }
           else toast(r.msg || '上传失败：' + f.name);
@@ -2836,7 +3416,7 @@ function peopleAddForm() {
   box.innerHTML = '<div class="people-head"><b>＋ 新增人物</b><span class="people-count"></span><button id="peopleAddBack" class="people-close" title="返回列表">←</button></div>' +
     '<div class="people-toolbar"></div>' +
     '<div class="field"><label>人物名（脚本 [会话] 里写这个名字会自动带头像）</label>' +
-    '<input id="peopleAddName" placeholder="如：陆香儿"></div>' +
+    '<input id="peopleAddName" placeholder="如：香儿"></div>' +
     '<div class="field"><label>所属类别（学员 / 美女，别弄混）</label>' +
       '<select id="peopleAddGroup">' +
         '<option value="美女">美女女性</option>' +
@@ -2882,12 +3462,15 @@ function peopleAddForm() {
     pickerSel = _peopleInput || '';
     pickerQuery = '';
     pickerPath = null;
+    pickerCat = '';
     pickerOnCommit = (path) => { _peopleInput = path; refreshThumb(); };
     $('pickerBox').innerHTML = pickerMarkup('人物头像');
     $('pickerMask').classList.add('show');
     bindPickerEvents();
+    renderPickerCats();
     renderPickerGrid();
     updatePickerPreview();
+    if (!libFiles.length) refreshLibData().then(renderPickerGrid).catch(() => { /* 退化全量 */ });
   };
   refreshThumb();
   $('paPick').onclick = openPeopleAvatarPicker;
@@ -2957,8 +3540,8 @@ function bindPeopleEvents() {
 function scriptMarkup() {
   const curName = (selIdx != null && scene.home[selIdx]) ? (scene.home[selIdx].name || scene.home[selIdx].group || '当前会话') : '未选中会话';
   return '<div class="script-head"><b>📜 剧本一键注入</b><span class="spacer"></span><button id="scriptClose" class="script-close">×</button></div>' +
-    '<div class="script-hint">粘贴两人的对话剧本，每行一条（如「陆香儿：我今晚好想哭」「我：哭什么」）。格式有误时默认交给 AI 归一修正；也可勾选「离线解析」仅按「说话人：内容」逐行识别。完成后会在左侧画面生成一条完整消息历史，可再进「消息」tab 微调。</div>' +
-    '<textarea id="scriptArea" class="script-area" placeholder="陆香儿：我今晚好想哭，我要哭一晚。\n我：哭什么\n陆香儿：没什么。\n也可以用 [图片] 标记一张图片消息，例如：\n林晚晚：[图片] 一张对镜自拍照\n林晚晚：夏天快到了，刚买的，会不会有点太露了呀？"></textarea>' +
+    '<div class="script-hint">粘贴两人的对话剧本，每行一条（如「香儿：我今晚好想哭」「我：哭什么」）。格式有误时默认交给 AI 归一修正；也可勾选「离线解析」仅按「说话人：内容」逐行识别。完成后会在左侧画面生成一条完整消息历史，可再进「消息」tab 微调。</div>' +
+    '<textarea id="scriptArea" class="script-area" placeholder="香儿：我今晚好想哭，我要哭一晚。\n我：哭什么\n香儿：没什么。\n也可以用 [图片] 标记一张图片消息，例如：\n林晚晚：[图片] 一张对镜自拍照\n林晚晚：夏天快到了，刚买的，会不会有点太露了呀？"></textarea>' +
     '<div id="scriptAttach" style="display:none"></div>' +
     '<div class="script-opts">' +
       '<label>导入到：<select id="scriptTarget">' +
@@ -3078,7 +3661,7 @@ function manualMarkup() {
   B.push('<li><b>点 ‹ 返回键</b>：从详情页回到会话列表。</li>');
   B.push('<li><b>点任意文字</b>（会话名 / 最后一条 / 气泡文字 / 时间 / 群名）：弹出「编辑」框，填新文字点保存。</li>');
   B.push('<li><b>点头像 / 图片 / 封面</b>：弹出图片选择器，从图库挑一张。</li>');
-  B.push('<li><b>点底部 Tab 栏</b>：微信（回到列表）/ 通讯录 / 发现（朋友圈）/ 我（朋友圈，简化演示）。</li>');
+  B.push('<li><b>点底部 Tab 栏</b>：微信（回到列表）/ 通讯录（场景人物分组）/ 发现（朋友圈）/ 我（个人信息示意）。</li>');
   B.push('</ul>');
   B.push('<p><b>缩放平移</b>：滚轮缩放，按住拖拽平移；顶部「适应」恢复 100% 居中，+/− 手动缩放。</p>');
   B.push('<p class="m-warn">点「保存」只改手机画面，<b>没点顶部「保存场景」不会写进 scene.json</b>。要留存记得点「保存场景」。</p>');
@@ -3086,7 +3669,7 @@ function manualMarkup() {
   B.push('<h3>七、图片来源</h3>');
   B.push('<p>所有头像 / 图片 / 封面都是一个<b>图片路径</b>，推荐放在 <code>vue-WeChat/public/images</code> 下，用 <code>/images/...</code> 相对路径引用（也支持 http(s):// 链接）。常见的：</p>');
   B.push('<ul>');
-  B.push('<li><b>📚 图片库</b>：浏览 / 搜索 / 上传 / 重命名 / 删除 / 一键复制图片路径。</li>');
+  B.push('<li><b>📚 图片库</b>：浏览 / 搜索 / 上传 / 重命名 / 删除 / 一键复制图片路径；批量模式下还能整批搬运 / 删除。分类按钮标着每类张数，打开自动停在上次用的分类；图片拖进窗口任意位置即可上传；缩略图拖到分类按钮上＝搬家；「⚙ 分类」可改名 / 新建分类。</li>');
   B.push('<li><b>🖼 检查图片</b>：检查场景里引用的所有图片能否加载，失败的用红框标出。</li>');
   B.push('<li><b>图片字段的三个按钮</b>：📁 选择（从图库挑）、⬆ 上传（本机文件）、✖ 清除（清空这张图）。</li>');
   B.push('</ul>');
@@ -3110,14 +3693,14 @@ function manualMarkup() {
   B.push('</ol>');
   B.push('<h4>剧本怎么写（两种）</h4>');
   B.push('<p><b>1. 标准格式：每行「说话人：内容」</b></p>');
-  B.push('<div class="m-ex">陆香儿：我今晚好想哭，我要哭一晚。\n我：哭什么\n陆香儿：没什么。</div>');
+  B.push('<div class="m-ex">香儿：我今晚好想哭，我要哭一晚。\n我：哭什么\n香儿：没什么。</div>');
   B.push('<p><b>2. 自然叙述（有 DeepSeek Key 时才由 AI 归一）</b></p>');
-  B.push('<div class="m-ex">我和陆香儿聊了下周聚餐的事，她说周三有空，我回复好的到时候见。</div>');
-  B.push('<p>系统把 <code>我</code> / <code>我方</code> / <code>me</code> / <code>自己</code>，以及「我的资料」里填的昵称，都当作<b>「我」这一方</b>生成<i>右侧绿色气泡（dir:me）</i>；其余说话人（如「陆香儿」）都是<b>对方</b>，生成<i>左侧白色气泡（dir:peer）</i>。</p>');
+  B.push('<div class="m-ex">我和香儿聊了下周聚餐的事，她说周三有空，我回复好的到时候见。</div>');
+  B.push('<p>系统把 <code>我</code> / <code>我方</code> / <code>me</code> / <code>自己</code>，以及「我的资料」里填的昵称，都当作<b>「我」这一方</b>生成<i>右侧绿色气泡（dir:me）</i>；其余说话人（如「香儿」）都是<b>对方</b>，生成<i>左侧白色气泡（dir:peer）</i>。</p>');
   B.push('<h4>说话人 → 气泡方向</h4>');
   B.push('<table><tr><th>剧本里的说话人</th><th>显示方式</th></tr>');
   B.push('<tr><td>我 / 我方 / me / 自己 / 我的昵称</td><td>右侧 <b>绿色气泡</b>（dir:me）</td></tr>');
-  B.push('<tr><td>对方名字（如 陆香儿）</td><td>左侧 <b>白色气泡</b>（dir:peer）</td></tr>');
+  B.push('<tr><td>对方名字（如 香儿）</td><td>左侧 <b>白色气泡</b>（dir:peer）</td></tr>');
   B.push('</table>');
   B.push('<h4>导入选项说明</h4>');
   B.push('<table><tr><th>选项</th><th>含义</th></tr>');
@@ -3138,7 +3721,7 @@ function manualMarkup() {
   B.push('<h3>十、单文本剧本格式规范（历史会话块 + 动作指令）</h3>');
   B.push('<p>这是<b>「脚本模式」</b>（编辑器首页）用的<b>一页式智能剧本</b>：把<b>①页面要有的会话与消息历史</b> 和 <b>②要表演的动作</b> 全部写进同一段文本。系统会先把「历史会话块」转成一条 <code>[编辑主页]</code> 插到最前面，把会话与消息精确还原到手机，再按后面的动作指令播放。</p>');
   B.push('<h4>1. 整体结构</h4>');
-  B.push('<div class="m-ex">[历史会话]<br>　[会话] 陆香儿<br>　陆香儿：我今晚好想哭<br>　我：哭什么呀<br>　[会话] 小明<br>　小明：周末有空吗<br>　我：有的，怎么了<br>[历史会话结束]<br>[打开聊天] 陆香儿<br>[等待] 0.5<br>[我方打字] 别哭了</div>');
+  B.push('<div class="m-ex">[历史会话]<br>　[会话] 香儿<br>　香儿：我今晚好想哭<br>　我：哭什么呀<br>　[会话] 小明<br>　小明：周末有空吗<br>　我：有的，怎么了<br>[历史会话结束]<br>[打开聊天] 香儿<br>[等待] 0.5<br>[我方打字] 别哭了</div>');
   B.push('<p>上面<b>前八行</b>是「历史会话块」（页面内容），下面是<b>动作指令</b>（表演）。分界线就是 <code>[历史会话结束]</code> 或第一条以 <code>[</code> 开头的动作行。</p>');
   B.push('<h4>2. 历史会话块</h4>');
   B.push('<ul>');
@@ -3203,7 +3786,7 @@ function manualMarkup() {
   B.push('<h4>8. 图片大批量上传失败 / 画面出现红框？</h4>');
   B.push('<p>把图片放进 <code>vue-WeChat/public/images</code> 再用；或点「🖼 检查图片」定位到具体失败项。「📚 图片库」支持批量导入 / 删除。</p>');
   B.push('<h4>9. 运行时报「联系人不存在」？</h4>');
-  B.push('<p>运行时用 <code>enhance/config.js</code> 的 <code>DEFAULT_HOME</code> 重建首页会话列表，<code>打开聊天</code> 只能填真实存在的名字。场景编辑器「生成工作流」会写 <code>应用场景 / 编辑主页</code> 重建列表，一般没问题；仍报错就先「生成工作流」再运行。</p>');
+  B.push('<p>运行时会话列表只来自「场景 scene.json + 人物库 people.json」——<code>打开聊天</code> 只能填里面真实存在的名字。场景编辑器「生成工作流」会写 <code>应用场景 / 编辑主页</code> 重建列表，一般没问题；仍报错就先「生成工作流」再运行，或把人加进人物库。</p>');
   B.push('<h4>10. AI 归一需要什么？</h4>');
   B.push('<p>需要 DeepSeek API Key（首页「脚本模式」→「⚙ 配置大模型」填入，或环境变量 <code>DEEPSEEK_API_KEY</code>）。没有 Key 会自动降级为离线规则解析，标准格式剧本照样能用。</p>');
 
@@ -3360,7 +3943,17 @@ async function runScriptImport(apply) {
 }
 
 /* ---------- 缩放 / 平移 ---------- */
+/* 实时预览是真实界面 iframe —— 被缩放过会被浏览器渲染成黑屏（实测），
+   所以预览下把缩放锁死在 1:1，靠滚轮上下平移看整台手机 */
+function isPvScaleBlocked() {
+  return stageView === 'pv';
+}
+function warnPvNoZoom() {
+  toast('实时预览是 1:1 的真实界面（缩放会黑屏）：滚轮可上下移动画面，需要缩放请切到「示意稿」');
+}
+
 function applyZoom() {
+  if (isPvScaleBlocked()) zoom = 1;
   const wrap = $('phoneWrap');
   wrap.style.setProperty('--zoom', zoom);
   wrap.style.left = (50 + panX) + '%';
@@ -3371,6 +3964,12 @@ function setupStage() {
   const stage = $('stage');
   stage.addEventListener('wheel', e => {
     e.preventDefault();
+    if (isPvScaleBlocked()) {
+      /* 实时预览：滚轮 = 上下平移（手机 1300 高，舞台只有几百高，移下去才看得到底部 tab 栏） */
+      panY = Math.max(-620, Math.min(60, panY - e.deltaY * 0.6));
+      applyZoom();
+      return;
+    }
     zoom = Math.max(0.2, Math.min(3, zoom + (e.deltaY < 0 ? 0.08 : -0.08)));
     applyZoom();
   }, { passive: false });
@@ -3398,8 +3997,8 @@ function syncGroupFields() {
 /* ---------- 实时画面 / 编辑模式调试（复用 /api/live 与 /api/editmode 接口） ---------- */
 const KIND_META = {
   text:      { label: "文字内容", prop: "text", hint: "直接修改这段文字，切换页面不丢失。" },
-  image:     { label: "图片路径", prop: "src", hint: "如 /images/header/sunquan.jpg" },
-  bg:        { label: "背景图路径", prop: "bg", hint: "如 /images/bg/bg02.jpg" },
+  image:     { label: "图片路径", prop: "src", hint: "如 /images/avatar/2_20260831_184618_874.jpg" },
+  bg:        { label: "背景图路径", prop: "bg", hint: "如 /images/avatar/IMG_0491_20260903_144508_035.png" },
   me_avatar: { label: "我的头像", prop: "me_avatar", hint: "全局同步：头像在所有位置一起变" },
   me_name:   { label: "我的昵称", prop: "me_name", hint: "全局同步：主页/通讯录/朋友圈一起变" },
   me_bg:     { label: "朋友圈封面", prop: "me_bg", hint: "全局同步：朋友圈封面一起变" },
@@ -3473,7 +4072,8 @@ function startLivePolling() {
   $('liveDot').className = 'live-dot on';
   $('liveTitle').textContent = '实时手机画面 · LIVE';
   tickLiveFrame();
-  liveTimer = setInterval(tickLiveFrame, 350);
+  /* 轮询放慢到 1s：主画面的「真机画面」已改为按需抓帧，这里只服务运行监控 */
+  liveTimer = setInterval(tickLiveFrame, 1000);
 }
 function tickLiveFrame() {
   const img = $('liveImg');
@@ -3601,6 +4201,513 @@ async function doType() {
   } catch (err) { toast('输入失败：' + (err && err.message)); }
 }
 
+/* ---------- 真机画面：主舞台 = 真实渲染（与成片同一套 UI，可点击操作） ----------
+   性能约定：**不常驻轮询**。只在「连接成功 / 场景真的变了 / 每次操作后」抓帧，
+   操作后额外补几帧等动画走完；空闲时完全不发请求。 */
+let stageView = 'pv';          // pv = 实时预览（真实界面） / live = 真机运行 / draft = 静态示意稿
+let pvReady = false;           // 实时预览是否已就绪
+let pvBooted = false;          // 是否已挂载过预览 iframe
+let pvStarting = false;        // 预览渲染器是否正在启动
+let _pvPushTimer = null;       // 场景 → 预览 的推送防抖
+let _lastPvSceneJSON = '';     // 上次已应用的场景快照（没变就不推）
+let _lastPvSceneParsed = null; // 上次场景的解析对象（判断是否只有对方数据变了，走快路径）
+let _pvRetryTimer = null;      // 套场景失败后的重试定时器（有限次）
+let _pvRetryLeft = 0;          // 剩余重试次数
+let _pvNavKey = '';            // 上次同步过的导航状态（避免重复跳转）
+let liveUp = false;            // 真机画面是否已连上
+let livePicking = false;       // 点选模式（点画面 = 拾取元素改属性）
+let stageEditInfo = null;
+let _livePushTimer = null;     // 场景推送防抖
+let _liveBurstTimer = null, _liveBurstLeft = 0;
+let _lastLiveSceneJSON = '';   // 上次已推给真机的场景快照（没变就不推）
+let _wheelAcc = 0, _wheelFlush = null;
+
+function probeLive() {
+  return new Promise(resolve => {
+    const im = new Image();
+    let done = false;
+    const fin = v => { if (!done) { done = true; resolve(v); } };
+    im.onload = () => fin(true);
+    im.onerror = () => fin(false);
+    setTimeout(() => fin(false), 4000);
+    im.src = '/api/live?probe=' + Date.now();
+  });
+}
+
+function applyLiveState() {
+  const v = stageView;
+  const pv = (v === 'pv'), on = (v === 'live');
+  $('phoneInner').style.visibility = (v === 'draft') ? '' : 'hidden';
+  $('stagePv').hidden = !pv;
+  $('stagePvEmpty').hidden = !pv || pvReady;
+  $('stageLiveImg').hidden = !on || !liveUp;
+  $('stageLiveBadge').hidden = !on || !liveUp;
+  $('stageLiveEmpty').hidden = !on || liveUp;
+  const bar = $('stageLiveBar');
+  bar.classList.remove('pv', 'live', 'draft');
+  bar.classList.add(v);
+  const b = $('stageLiveBadge');
+  b.innerHTML = '<i></i>' + (liveUp ? '真机 LIVE' : '真机 未连接');
+  b.classList.toggle('off', !liveUp);
+  const st = $('stageLiveState');
+  if (pv) st.textContent = pvReady ? '实时预览 · 与成片同一套界面'
+    : (pvStarting ? '预览渲染器启动中…' : '实时预览未就绪');
+  else if (on) st.textContent = liveUp ? '真机已连接 · 600×1300' : '真机未连接';
+  else st.textContent = '静态示意稿（离线备用）';
+  st.classList.toggle('ok', pv ? pvReady : (on && liveUp));
+  const pb = $('btnStagePvStart');
+  if (pb) { pb.disabled = !!pvStarting; pb.textContent = pvStarting ? '正在启动预览渲染器…' : '▶ 启动预览渲染器'; }
+}
+
+function setStageView(v) {
+  stageView = (v === 'pv') ? 'pv' : ((v === 'draft') ? 'draft' : 'live');
+  $('btnViewPv').classList.toggle('active', stageView === 'pv');
+  $('btnViewLive').classList.toggle('active', stageView === 'live');
+  $('btnViewDraft').classList.toggle('active', stageView === 'draft');
+  applyLiveState();
+  if (stageView === 'live' && liveUp) refreshStageLive(false);
+  if (stageView === 'pv') {
+    if (!pvBooted) stagePvBoot();
+    else { pushSceneToPv(true); pvSyncNav(true); }
+  } else if (window.__edDraftDirty) {
+    window.__edDraftDirty = false;   // pv 期间示意稿被跳过，切回来先补一次全量渲染
+    renderPhone();
+  }
+}
+
+function tickStageLive() {
+  const img = $('stageLiveImg');
+  if (!img) return;
+  img.onload = () => {
+    img.classList.remove('loading');
+    if (!liveUp) { liveUp = true; applyLiveState(); pushSceneToLive(true); }
+  };
+  img.onerror = () => {
+    img.classList.remove('loading');
+    if (liveUp) { liveUp = false; applyLiveState(); }
+  };
+  if (!liveUp) img.classList.add('loading');
+  img.src = '/api/live?t=' + Date.now();
+}
+
+/* 抓帧：burst=true 时补 5 帧（每 260ms），等真机页面的过渡动画走完 */
+function refreshStageLive(burst) {
+  if (stageView !== 'live') return;
+  tickStageLive();
+  if (!burst) return;
+  _liveBurstLeft = 5;
+  if (!_liveBurstTimer) _liveBurstTimer = setTimeout(stepLiveBurst, 260);
+}
+function stepLiveBurst() {
+  _liveBurstTimer = null;
+  if (_liveBurstLeft <= 0) return;
+  _liveBurstLeft -= 1;
+  if (stageView === 'live') tickStageLive();
+  if (_liveBurstLeft > 0) _liveBurstTimer = setTimeout(stepLiveBurst, 260);
+}
+
+async function stageLiveBoot() {
+  liveUp = await probeLive();
+  applyLiveState();
+  if (liveUp) { refreshStageLive(false); pushSceneToLive(true); }
+}
+
+async function stageLiveConnect() {
+  const btn = $('btnStageLiveConnect'), err = $('stageLiveErr');
+  if (btn) { btn.disabled = true; btn.textContent = '正在启动真机画面…（首次约 10 秒）'; }
+  if (err) { err.hidden = true; }
+  try {
+    const r = await api('/api/editmode/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    if (!r.ok) throw new Error(r.msg || '启动失败');
+    toast('真机画面正在启动…');
+    let waited = 0;
+    const wait = setInterval(async () => {
+      waited += 1;
+      const ok = await probeLive();
+      if (ok) {
+        clearInterval(wait);
+        liveUp = true; applyLiveState();
+        _lastLiveSceneJSON = '';
+        if (btn) { btn.disabled = false; btn.textContent = '▶ 连接真机画面'; }
+        pushSceneToLive(true);        // 推送成功后会补帧，这里不再重复刷
+        toast('真机画面已连接，可以直接点击操作');
+      } else if (waited >= 25) {
+        clearInterval(wait);
+        if (btn) { btn.disabled = false; btn.textContent = '▶ 重试连接'; }
+        if (err) { err.hidden = false; err.textContent = '启动超时。请确认前端服务（8080 端口）在运行，稍后重试。'; }
+      }
+    }, 800);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '▶ 连接真机画面'; }
+    if (err) { err.hidden = false; err.textContent = (e && e.message) || '启动失败'; }
+  }
+}
+
+/* 屏幕坐标 → 真机视口坐标（真机画面固定 600×1300，与 .phone 同尺寸，1:1 映射） */
+function stageXY(event) {
+  const rect = $('stageLiveImg').getBoundingClientRect();
+  const x = (event.clientX - rect.left) / rect.width * 600;
+  const y = (event.clientY - rect.top) / rect.height * 1300;
+  return { x: Math.max(0, Math.min(599, x)), y: Math.max(0, Math.min(1299, y)) };
+}
+
+async function onStageLiveClick(event) {
+  if (event.target.closest('#stageEditPop')) return;
+  if (!liveUp) { toast('真机画面未连接，点画面中间的「连接真机画面」'); return; }
+  const p = stageXY(event);
+  if (livePicking) {
+    try {
+      const res = await api('/api/live/pick?x=' + p.x.toFixed(1) + '&y=' + p.y.toFixed(1));
+      if (!res.ok) { toast(res.msg || '该位置没有可改的元素'); return; }
+      showStageEditPop(res, p.x, p.y);
+    } catch (e) { toast('拾取元素失败'); }
+    return;
+  }
+  try {
+    const res = await api('/api/live/tap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: Math.round(p.x), y: Math.round(p.y) }) });
+    if (res.ok) refreshStageLive(true); else toast(res.msg || '点击未生效');
+  } catch (e) { toast('点击失败'); }
+}
+
+function onStageLiveWheel(event) {
+  if (stageView !== 'live' || !liveUp) return;      // 真机没连上：交给舞台缩放
+  if (event.ctrlKey || event.shiftKey) return;      // Ctrl / Shift + 滚轮 = 缩放画布
+  event.preventDefault();
+  event.stopPropagation();                          // 别让舞台的滚轮缩放也处理一次
+  const p = stageXY(event);
+  _wheelAcc += event.deltaY;
+  if (_wheelFlush) return;
+  _wheelFlush = setTimeout(() => {
+    _wheelFlush = null;
+    const dy = Math.round(_wheelAcc);
+    _wheelAcc = 0;
+    if (!dy) return;
+    api('/api/live/scroll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: Math.round(p.x), y: Math.round(p.y), dy: dy, dx: 0 }) })
+      .then(() => refreshStageLive(false)).catch(() => {});
+  }, 110);
+}
+
+function showStageEditPop(info, x, y) {
+  stageEditInfo = info;
+  const meta = KIND_META[info.kind] || KIND_META.text;
+  const value = (info.kind === 'text' || info.kind === 'me_name') ? (info.text || '') : (info.src || '');
+  const pop = $('stageEditPop');
+  pop.innerHTML =
+    '<div class="ep-kind">' + esc(meta.label) + '</div>' +
+    '<input id="sepValue" value="' + esc(value) + '" placeholder="' + esc(meta.label) + '">' +
+    '<div class="ep-actions"><button type="button" class="ep-cancel" id="sepCancel">取消</button>' +
+    '<button type="button" class="ep-save" id="sepSave">保存</button></div>' +
+    '<div class="ep-hint">' + esc(meta.hint || '') + '</div>';
+  pop.hidden = false;
+  let left = x, top = y + 8;
+  const pw = pop.offsetWidth || 236, phh = pop.offsetHeight || 132;
+  if (left + pw > 594) left = 594 - pw;
+  if (left < 6) left = 6;
+  if (top + phh > 1294) top = y - phh - 8;
+  if (top < 6) top = 6;
+  pop.style.left = Math.round(left) + 'px';
+  pop.style.top = Math.round(top) + 'px';
+  const input = $('sepValue'); input.focus(); input.select();
+  $('sepSave').onclick = saveStageEdit;
+  $('sepCancel').onclick = () => { pop.hidden = true; stageEditInfo = null; };
+}
+
+async function saveStageEdit() {
+  if (!stageEditInfo) return;
+  const meta = KIND_META[stageEditInfo.kind] || KIND_META.text;
+  const value = $('sepValue').value.trim();
+  try {
+    const res = await api('/api/live/edit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: stageEditInfo.id, prop: meta.prop, value: value }) });
+    if (res.ok) { toast('已修改' + meta.label + '：' + (value || '（已清空）')); $('stageEditPop').hidden = true; stageEditInfo = null; refreshStageLive(true); }
+    else toast('修改失败：' + (res.msg || '未知错误'));
+  } catch (e) { toast('修改失败'); }
+}
+
+async function stageLiveBack() {
+  if (!liveUp) { toast('真机画面未连接'); return; }
+  try {
+    const res = await api('/api/live/back', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    if (res.ok) refreshStageLive(true); else toast(res.msg || '返回失败');
+  } catch (e) { toast('返回失败'); }
+}
+
+async function stageTypeSend() {
+  const input = $('stageTypeInput'), text = input.value;
+  if (!text) return;
+  if (!liveUp) { toast('真机画面未连接'); return; }
+  try {
+    const res = await api('/api/live/type', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) });
+    if (res.ok) { input.value = ''; refreshStageLive(true); }
+    else { toast(res.msg || '输入失败：先在真机上点一下输入框'); }
+  } catch (e) { toast('输入失败'); }
+}
+
+/* 把当前编辑的场景推给真机。挂在 renderPhone 末尾 + 900ms 防抖，
+   并且**序列化比对**：内容没变就一个请求都不发。
+   于是「右边面板改一个字，左边真机画面跟着变」，但不会打字就卡。 */
+function pushSceneToLive(immediate) {
+  pushSceneToPv(immediate);          // 预览永远跟着场景走（哪怕当前没显示）
+  if (!liveUp) return;
+  if (_livePushTimer) { clearTimeout(_livePushTimer); _livePushTimer = null; }
+  const send = () => {
+    _livePushTimer = null;
+    syncPeerMirror();   // 同上：推送前镜像 peer 数据
+    let snap = '';
+    try { snap = JSON.stringify(scene); } catch (e) { return; }
+    if (snap === _lastLiveSceneJSON) return;      // 场景没变：不推、不刷，零开销
+    _lastLiveSceneJSON = snap;
+    api('/api/live/scene', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scene: scene }) })
+      .then(r => { if (r && r.ok) refreshStageLive(true); })
+      .catch(() => { _lastLiveSceneJSON = ''; });
+  };
+  if (immediate) send(); else _livePushTimer = setTimeout(send, 900);
+}
+
+/* ---------- 实时预览：同源嵌入真实前端（与成片同一套 UI，逐像素同源） ----------
+   性能约定：不常驻轮询、不启动额外进程。只在「iframe 就绪 / 场景真的变了 /
+   右侧选中项变化」时做事；空闲期零请求（实测静置 6 秒 0 请求）。 */
+function pvEl() { return $('stagePv'); }
+function pvWin() {
+  const f = pvEl();
+  try { return f ? f.contentWindow : null; } catch (e) { return null; }
+}
+
+function mountPv() {
+  const f = pvEl();
+  if (!f) return;
+  pvReady = false;
+  applyLiveState();
+  try { f.src = '/wxpv/#/'; } catch (e) { /* 忽略 */ }
+  let waited = 0;
+  const t = setInterval(() => {
+    waited += 350;
+    const w = pvWin();
+    if (w && w.__wxConfig && !_lastPvSceneJSON) {
+      /* 尽早把场景套上，避免先闪一下默认参考数据 */
+      try {
+        const snap = JSON.stringify(scene);
+        if (pvApplyScene(snap) && pvSceneLooksRight(snap)) _lastPvSceneJSON = snap;
+      } catch (e) { /* 忽略 */ }
+    }
+    if (w && w.__wxEmbedReady) {
+      clearInterval(t);
+      pvReady = true;
+      _lastPvSceneJSON = '';
+      _pvRetryLeft = 0;
+      _pvNavKey = '';
+      applyLiveState();
+      pushSceneToPv(true);
+      pvSyncNav(true);
+      return;
+    }
+    if (waited >= 25000) { clearInterval(t); pvReady = false; applyLiveState(); renderPhone(); }
+  }, 350);
+}
+
+async function stagePvBoot() {
+  pvBooted = true;
+  if (pvReady) return;
+  let up = false, conflict = false;
+  try {
+    const r = await api('/api/wxapp/status');
+    up = !!(r && r.up); conflict = !!(r && r.conflict);
+  } catch (e) { up = false; }
+  if (!up) {
+    applyLiveState();   // 渲染器没在跑：显示「启动预览渲染器」按钮
+    // 8080 被其他程序占用：预览永远起不来，必须明确说原因，不能让用户对着空白猜
+    const err = $('stagePvErr');
+    if (conflict && err) {
+      err.hidden = false;
+      err.textContent = '端口 8080 被其他程序占用，预览无法启动。请关闭占用 8080 的程序后重试。';
+    }
+    return;
+  }
+  mountPv();
+}
+
+async function stagePvStart() {
+  if (pvStarting) return;
+  pvStarting = true;
+  const err = $('stagePvErr');
+  if (err) err.hidden = true;
+  applyLiveState();
+  try {
+    const r = await api('/api/wxapp/start', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    if (!r || !r.ok) throw new Error((r && r.msg) || '启动失败');
+    toast('预览渲染器正在启动…（首次编译约 20~60 秒）');
+    let waited = 0;
+    const t = setInterval(async () => {
+      waited += 1;
+      let up = false;
+      try { const s = await api('/api/wxapp/status'); up = !!(s && s.up); } catch (e) { up = false; }
+      if (up) { clearInterval(t); pvStarting = false; mountPv(); toast('预览渲染器已启动'); }
+      else if (waited >= 90) {
+        clearInterval(t); pvStarting = false; applyLiveState();
+        if (err) { err.hidden = false; err.textContent = '启动超时。详情见 vue-WeChat/dev-server.log'; }
+      }
+    }, 1000);
+  } catch (e) {
+    pvStarting = false; applyLiveState();
+    if (err) { err.hidden = false; err.textContent = (e && e.message) || '启动失败'; }
+  }
+}
+
+function pvApplyScene(snap) {
+  const w = pvWin();
+  if (!w || !w.__wxConfig) return false;
+  try { (window.__pvStats = window.__pvStats || {full:0,peerFast:0}).full++; w.__wxConfig.apply(); w.__wxConfig.applyScene(JSON.parse(snap)); return true; }
+  catch (e) { return false; }
+}
+
+/* 除 peer/peers/peerPreset 外其余顶层键都相同 → 只有对方数据变了 */
+function pvOnlyPeerChanged(a, b) {
+  const PEER_KEYS = ['peer', 'peers', 'peerPreset'];
+  const keys = new Set(Object.keys(a || {}).concat(Object.keys(b || {})));
+  for (const k of keys) {
+    if (PEER_KEYS.indexOf(k) >= 0) continue;
+    if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) return false;
+  }
+  return true;
+}
+
+/* 快路径执行体：只把 peer 数据重绘进真实界面（__wxPeer.apply = setPeer+重绘已开页面） */
+function pvFastApplyPeer(cur) {
+  const w = pvWin();
+  if (!w) return false;
+  const data = cur.peer !== undefined ? cur.peer : null;
+  if (!data) return true;                        // peer 相关键都没了：无需渲染，直接收下
+  if (!w.__wxPeer || typeof w.__wxPeer.apply !== 'function') return false;
+  try { w.__wxPeer.apply(data); (window.__pvStats = window.__pvStats || {full:0,peerFast:0}).peerFast++; return true; }
+  catch (e) { return false; }
+}
+
+/* 校验预览里真的是这份场景（首几行名字对得上）。
+   只有「真套上了」才算成功 —— 否则前端在路由切换期会把它覆盖回去。 */
+function pvSceneLooksRight(snap) {
+  const w = pvWin();
+  if (!w) return false;
+  let want = [];
+  try { want = (JSON.parse(snap).home || []).slice(0, 3).map(it => it.name || '').filter(Boolean); }
+  catch (e) { return false; }
+  if (!want.length) return true;
+  try {
+    const names = [...w.document.querySelectorAll('.wechat-list li.list-row .desc-author')]
+      .map(e => e.textContent.trim());
+    if (!names.length) return false;
+    const hit = want.filter(n => names.indexOf(n) >= 0).length;
+    return hit >= Math.min(2, want.length);
+  } catch (e) { return false; }
+}
+
+function pushSceneToPv(immediate, isRetry) {
+  if (!pvReady) return;
+  if (_pvPushTimer) { clearTimeout(_pvPushTimer); _pvPushTimer = null; }
+  if (!isRetry) _pvRetryLeft = 8;               // 新一轮同步：重置重试额度
+  const send = () => {
+    _pvPushTimer = null;
+    if (!pvReady) return;
+    syncPeerMirror();   // 多人物方案 -> scene.peer 镜像：实时预览/成片消费的是 scene.peer，不镜像会一直显示默认人物
+    let snap = '';
+    try { snap = JSON.stringify(scene); } catch (e) { return; }
+    if (snap === _lastPvSceneJSON) return;        // 场景没变：不发请求、不重渲染
+    /* 快路径：只有对方主页/朋友圈数据变了 → 只重绘对方页面。
+       整场景 applyScene 会全量重放主页/通讯录/朋友圈（Vue $forceUpdate），
+       面板打一个字预览卡一下就是它造成的 */
+    let cur = null; try { cur = JSON.parse(snap); } catch (e) {}
+    if (cur && _lastPvSceneParsed && pvOnlyPeerChanged(_lastPvSceneParsed, cur)
+        && pvFastApplyPeer(cur)) {
+      _lastPvSceneJSON = snap; _lastPvSceneParsed = cur; _pvRetryLeft = 0;
+      return;
+    }
+    if (pvApplyScene(snap) && pvSceneLooksRight(snap)) {
+      _lastPvSceneJSON = snap;
+      _lastPvSceneParsed = cur;
+      _pvRetryLeft = 0;
+      return;
+    }
+    /* 没套上（被前端重渲染覆盖）：有限次重试后放弃，绝不退化成轮询 */
+    _lastPvSceneJSON = '';
+    _lastPvSceneParsed = null;
+    if (_pvRetryLeft > 0) {
+      _pvRetryLeft--;
+      if (!_pvRetryTimer) {
+        _pvRetryTimer = setTimeout(() => {
+          _pvRetryTimer = null;
+          if (pvReady) pushSceneToPv(true, true);
+        }, 900);
+      }
+    }
+  };
+  if (immediate) send(); else _pvPushTimer = setTimeout(send, 700);
+}
+
+/* 右侧面板选中项 / 相机工具条 → 驱动左边真实界面导航（和真人点一样） */
+function pvSyncNav(force) {
+  if (!pvReady) return;
+  const w = pvWin();
+  if (!w) return;
+  const key = camView + '|' + (selIdx == null ? '' : selIdx);
+  if (!force && key === _pvNavKey) return;
+  _pvNavKey = key;
+  try {
+    const hash = String(w.location.hash || '#/');
+    const inChat = hash.indexOf('/wechat/dialogue') >= 0;
+    const inSub = hash.indexOf('/contact') >= 0 || hash.indexOf('/explore') >= 0;
+    if (camView === 'moments') {
+      if (hash.indexOf('/explore/moments') < 0) w.location.hash = '#/explore/moments';
+      return;
+    }
+    if (camView === 'peer' || camView === 'peer-moments') {
+      if (w.__wxPeer && w.__wxPeer.openProfile) {
+        const st = (w.__wxPeer.isOpen && w.__wxPeer.isOpen()) || {};
+        if (!st.profile) w.__wxPeer.openProfile();
+        if (camView === 'peer-moments' && !st.moments) {
+          setTimeout(() => { try { w.__wxPeer.openMoments(); } catch (e) { /* 忽略 */ } }, 420);
+        }
+      }
+      if (inSub || inChat) w.location.hash = '#/';
+      return;
+    }
+    if (inSub) {
+      w.location.hash = '#/';
+      if (selIdx != null) setTimeout(() => pvOpenRow(selIdx), 420);
+      return;
+    }
+    if (selIdx == null) { if (inChat) w.location.hash = '#/'; return; }
+    if (inChat) { w.location.hash = '#/'; setTimeout(() => pvOpenRow(selIdx), 420); }
+    else pvOpenRow(selIdx);
+  } catch (e) { /* 忽略：导航失败不影响编辑 */ }
+}
+
+function pvOpenRow(i) {
+  const w = pvWin();
+  if (!w || !pvReady) return;
+  try {
+    const rows = w.document.querySelectorAll('.wechat-list li.list-row');
+    if (rows[i]) rows[i].click();
+  } catch (e) { /* 忽略 */ }
+}
+
+function bindStageLive() {
+  $('btnViewPv').onclick = () => setStageView('pv');
+  $('btnViewLive').onclick = () => setStageView('live');
+  $('btnViewDraft').onclick = () => setStageView('draft');
+  $('btnStagePvStart').onclick = stagePvStart;
+  $('btnStageLiveConnect').onclick = stageLiveConnect;
+  $('btnStageBack').onclick = stageLiveBack;
+  $('btnStageSend').onclick = stageTypeSend;
+  $('stageTypeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); stageTypeSend(); } });
+  $('btnStagePick').onclick = () => {
+    livePicking = !livePicking;
+    $('btnStagePick').classList.toggle('on', livePicking);
+    $('stageLiveImg').classList.toggle('picking', livePicking);
+    toast(livePicking ? '点选模式：点画面上的文字 / 头像 / 背景即可改' : '已切回操作模式：点画面 = 点手机');
+  };
+  $('stageLiveImg').addEventListener('click', onStageLiveClick);
+  $('stageLiveImg').addEventListener('wheel', onStageLiveWheel, { passive: false });
+}
+
 function bindDebug() {
   $('btnRun').onclick = () => generateAndRun();
   $('btnStop').onclick = stopRun;
@@ -3610,14 +4717,17 @@ function bindDebug() {
   $('modeTap').onclick = () => setPickMode(false);
   $('modePick').onclick = () => setPickMode(true);
   $('liveImg').addEventListener('click', onScreenClick);
+  bindStageLive();
   $('btnType').onclick = doType;
   $('liveTypeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doType(); } });
 }
 
 /* ---------- 顶部动作 ---------- */
 function bindTopbar() {
-  $('btnZoomIn').onclick = () => { zoom = Math.min(3, zoom + 0.1); applyZoom(); };
-  $('btnZoomOut').onclick = () => { zoom = Math.max(0.2, zoom - 0.1); applyZoom(); };
+  $('btnZoomIn').onclick = () => { if (isPvScaleBlocked()) { warnPvNoZoom(); return; }
+    zoom = Math.min(3, zoom + 0.1); applyZoom(); };
+  $('btnZoomOut').onclick = () => { if (isPvScaleBlocked()) { warnPvNoZoom(); return; }
+    zoom = Math.max(0.2, zoom - 0.1); applyZoom(); };
   $('btnZoomFit').onclick = () => { zoom = 1; panX = 0; panY = 0; applyZoom(); };
   $('btnCamList').onclick = () => { camView = 'list'; selIdx = null; renderPhone(); renderPanel(); };
   $('btnCamMoments').onclick = () => { camView = 'moments'; renderPhone(); renderPanel(); };
@@ -3679,6 +4789,8 @@ async function init() {
   } catch (e) { sourceVideos = []; }
   renderPhone(); renderPanel(); applyZoom();
   bindPhoneEvents(); bindTopbar(); bindDebug(); setupStage();
+  stageLiveBoot();
+  stagePvBoot();      // 默认视图：实时预览（真实界面）
   setRunningUI(false);
 }
 init();
@@ -3729,5 +4841,103 @@ init();
 })();
 </script>
 <script src="/shared_picker.js"></script>
+<script>
+/* 图片库与选图器共用同一份分类数据：分类被改名/新增后，把本页的图片库一并刷新 */
+(function () {
+  if (!window.__wxPick) return;
+  window.__wxPick.onCategoriesChanged = function () {
+    if (typeof refreshLibData !== 'function') return;
+    refreshLibData().then(function () {
+      renderLibCats();
+      renderLibUpcat();
+      renderLibGrid();
+    }).catch(function () { /* 静默 */ });
+  };
+})();
+</script>
+<style id="qtTipsStyle">
+/* 悬停问号提示 */
+.qt-host { position: relative; }
+.qt-badge {
+  position: absolute; top: 0; right: 2px;
+  color: #b3b9c2; font-size: 10px; line-height: 1.1; font-style: normal;
+  font-weight: 400; pointer-events: none; opacity: .55;
+}
+.qt-host:hover .qt-badge { color: #8a919c; opacity: .85; }
+.qt-pop {
+  position: fixed; z-index: 99999; max-width: 300px;
+  background: #23272e; color: #e8eaee; font-size: 12px; line-height: 1.75;
+  padding: 7px 11px; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  pointer-events: none; opacity: 0; transition: opacity .12s ease;
+}
+.qt-pop.show { opacity: 1; }
+</style>
+<script id="qtTipsJs">
+(function () {
+  var VOID_TAGS = { INPUT: 1, SELECT: 1, TEXTAREA: 1, IMG: 1, BR: 1 };
+  var DYN_IDS = [];
+  function ensureBadge(el) {
+    if (VOID_TAGS[el.tagName]) return;
+    if (!el.querySelector(':scope > .qt-badge')) {
+      var b = document.createElement('i');
+      b.className = 'qt-badge'; b.textContent = '?';
+      el.appendChild(b);
+    }
+  }
+  function decorate(el) {
+    if (!el || !el.classList) return;
+    el.classList.add('qt-host');
+    ensureBadge(el);
+  }
+  function adoptTitles() {
+    DYN_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.hasAttribute('title') && !el.hasAttribute('data-tip')) {
+        el.setAttribute('data-tip', el.getAttribute('title'));
+        el.removeAttribute('title');
+      }
+    });
+  }
+  function scan() {
+    adoptTitles();
+    document.querySelectorAll('[data-tip]').forEach(decorate);
+  }
+  scan();
+  var moT = null;
+  new MutationObserver(function () {
+    clearTimeout(moT); moT = setTimeout(scan, 80);
+  }).observe(document.body, { childList: true, subtree: true });
+  var pop = null, cur = null;
+  function ensure() {
+    if (!pop) { pop = document.createElement('div'); pop.className = 'qt-pop'; document.body.appendChild(pop); }
+    return pop;
+  }
+  function place(host) {
+    var tip = host.getAttribute('data-tip'); if (!tip) return false;
+    var p = ensure(); p.textContent = tip;
+    var r = host.getBoundingClientRect();
+    var pw = p.offsetWidth, ph = p.offsetHeight;
+    var x = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 8);
+    var y = r.bottom + 7;
+    if (y + ph > window.innerHeight - 8) y = r.top - ph - 7;
+    p.style.left = x + 'px'; p.style.top = Math.max(8, y) + 'px';
+    return true;
+  }
+  function show(host) { if (place(host)) { ensure().classList.add('show'); cur = host; } }
+  function hide() { if (pop) pop.classList.remove('show'); cur = null; }
+  document.addEventListener('mouseover', function (e) {
+    var h = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (h !== cur) { h ? show(h) : hide(); }
+  });
+  document.addEventListener('click', hide);
+  window.addEventListener('scroll', function () {
+    if (cur && document.contains(cur) && cur.getBoundingClientRect().height > 0) place(cur);
+    else hide();
+  }, true);
+  window.addEventListener('resize', hide);
+})();
+</script>
+
 </body>
 </html>

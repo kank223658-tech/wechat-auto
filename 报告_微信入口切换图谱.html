@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="wcVdQYbnFXw6iBDi1hIArd">
+<head data-page-node-id="7KUvPDrECr47rxeLMe5Diy">
+<meta charset="UTF-8" data-page-node-id="5vkfOe3TTBhzDXqUY3FxKU">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="ksJaCJfBFN1wCj1EKu4Vb9">
+<title>微信入口切换图谱 · 对照报告</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1c1c1e; --sub:#6b7280;
+    --line:#e5e7eb; --green:#07c160; --blue:#1677ff; --orange:#d97706;
+    --gray:#9ca3af; --red:#fa5151;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65;padding:28px 16px 60px}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:26px;margin-bottom:6px}
+  .meta{color:var(--sub);font-size:13px;margin-bottom:22px}
+  .verdict{background:var(--card);border-left:4px solid var(--green);border-radius:10px;padding:16px 18px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .verdict b{color:var(--green)}
+  .verdict p{font-size:14px;color:var(--ink);margin-top:4px}
+  h2{font-size:18px;margin:34px 0 12px;display:flex;align-items:center;gap:8px}
+  h2 .tag{font-size:11px;font-weight:normal;padding:2px 8px;border-radius:20px;background:#eef4ff;color:var(--blue)}
+  h2 .tag.gray{background:#f3f4f6;color:var(--sub)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{background:#fafafa;text-align:left;padding:10px 14px;font-weight:600;color:var(--sub);border-bottom:1px solid var(--line);font-size:13px}
+  td{padding:11px 14px;border-bottom:1px solid #f1f2f4;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .entry{font-weight:600}
+  .from,.to{color:var(--ink)}
+  .arrow{color:var(--green);font-weight:bold}
+  .st{display:inline-block;font-size:11px;padding:1px 8px;border-radius:10px;white-space:nowrap;margin-top:2px}
+  .st.ok{background:#e7f7ee;color:#0a8a4a}
+  .st.half{background:#fdf3e3;color:var(--orange)}
+  .st.no{background:#f3f4f6;color:var(--gray)}
+  .note{color:var(--sub);font-size:12.5px;margin-top:2px}
+  .flow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 8px 6px;margin-bottom:8px;overflow-x:auto}
+  .flow svg{display:block;margin:0 auto;max-width:100%}
+  ul.tips{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px 14px 34px;font-size:14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  ul.tips li{margin:6px 0}
+  .legend{font-size:12.5px;color:var(--sub);margin:8px 2px 0}
+</style>
+</head>
+<body data-page-node-id="bJDv5ogarmCCMk7eCUCzqx">
+<div class="wrap" data-page-node-id="S0eCkqsTrakm1W8qtV6ZX1">
+  <h1 data-page-node-id="J5utuyi5yLpD0NCeBo2aBC">微信各入口「从什么画面切换过去」图谱</h1>
+  <div class="meta" data-page-node-id="d2PPAFZMYDzUD1pDjybHt3">依据本软件源码核对：vue-WeChat/src/router/index.js 路由表 · 各 Tab 页面组件 · enhance/ 增强层 · action_registry.py 64 动作 · 2026-09-11</div>
+
+  <div class="verdict" data-page-node-id="3k7D3acatIopprbtqPzQRx">
+    <b data-page-node-id="l7MLpayAH0xLnWeYSzqlWl">结论：能分辨。</b>
+    <p data-page-node-id="zqo5UgyZv7rzNEhpfJFDqR">真实微信的导航一共分三层：① 底部 4 个一级 Tab（微信 / 通讯录 / 发现 / 我）；② 每个 Tab 页面上的二级入口（点会话、朋友圈、设置等）；③ 聊天页内部的三面板与资料页。下面每一条都标注了「从哪个画面出发 → 切到哪个画面」，并对照了软件里是否真实现了这个跳转（✅ 已实现 / 🟡 占位 / ⚪ 未实现）。</p>
+  </div>
+
+  <div class="flow" id="flowbox" data-page-node-id="C8FCcnZEdE5b2FxaBR3dkZ"></div>
+  <div class="legend" data-page-node-id="3lApIDlq9I5Oo2R6tDKtDn">■ 绿色 = 底部四个一级 Tab（任何一级页面都能切）；虚线 = 二级入口（只能从所属页面进入）；聊天页里的三面板是第三层。</div>
+
+  <h2 data-page-node-id="cw2K16R2TqJYWBk5Kg7JOI">① 底部四个一级 Tab <span class="tag" data-page-node-id="GlBO8sHtjfsQrX9kdJ0RZW">路由 wx-nav.vue</span></h2>
+  <div class="card" data-page-node-id="pFCrVzMI4h1K6xoLRBEXf9"><table data-page-node-id="IlncxvXWRYn1Yyn7lQyGhd">
+    <tr data-page-node-id="kSCPXtKXlexrzTrbkquTpU"><th style="width:15%" data-page-node-id="jiB7UMuN3Y4IleBdgHX1F9">入口</th><th style="width:28%" data-page-node-id="sJTVOwBdYA45zp3AkBQuIX">从哪个画面</th><th style="width:27%" data-page-node-id="hxE51CYmHBrpeZIf2Ixlzf">切到哪个画面</th><th data-page-node-id="wNq5ot1EgmjIS6A4fpKZlw">软件实现</th></tr>
+    <tr data-page-node-id="wqcP0B8nhcSlragytP0pDP"><td class="entry" data-page-node-id="YFkxniPgtjpsCno41Ef5BG">微信</td><td class="from" data-page-node-id="G6PeBm4kPoDUOuUBEeJjOI">任何一级页面（Tab 栏常驻）</td><td class="to" data-page-node-id="lQ1f36mbgMqZqXG1rlKsDZ">聊天列表 <span class="note" data-page-node-id="dTEbfBEZNhuyNKorPEUgRo">路由 /</span></td><td data-page-node-id="huctIi8jE9HygVx4FzbsEG"><span class="st ok" data-page-node-id="XWRw69wBl9CYZtatIWT0W1">✅ 已实现</span><div class="note" data-page-node-id="gQbQ4lsuJpG3YZjhe7ydQN">带未读数字角标</div></td></tr>
+    <tr data-page-node-id="wiMSjewkHXDHUJ21ekHoQC"><td class="entry" data-page-node-id="wLZcbp5DbicB0hR7mYMfUg">通讯录</td><td class="from" data-page-node-id="DmcfTzMHYdttXzSMKy5Hqu">任何一级页面</td><td class="to" data-page-node-id="PMS0r2rJExizWReYWUeZuC">通讯录列表 <span class="note" data-page-node-id="w680U4sVJo8TkT2ichuAK6">路由 /contact</span></td><td data-page-node-id="bElJ4O1hPZOSOQjIw8qVBW"><span class="st ok" data-page-node-id="uKm86alAkqNRYuNWV9cEGa">✅ 已实现</span></td></tr>
+    <tr data-page-node-id="4DNWRpPJjHCnzcuNUgf4it"><td class="entry" data-page-node-id="DoD7aonwjodK00XeXonnpe">发现</td><td class="from" data-page-node-id="Pto05wlNu6lEIzIK4ltXCD">任何一级页面</td><td class="to" data-page-node-id="TeCnsF4vms1LccTfsJWF48">发现页（深色皮肤） <span class="note" data-page-node-id="BFGHzK1V254HeLrzeFNbES">路由 /explore，body.wx-on-explore 换肤</span></td><td data-page-node-id="D7kdBuNnZfyeUuPVLrxh6n"><span class="st ok" data-page-node-id="Iixh8UnMztVyNYBVcJ30wL">✅ 已实现</span></td></tr>
+    <tr data-page-node-id="dSQDJLkDC04B3NZ6iB5laX"><td class="entry" data-page-node-id="e4foCnbKKxF6nlDwUBHjCh">我</td><td class="from" data-page-node-id="U9HuZ0mwYvZe80WfpBQDDD">任何一级页面</td><td class="to" data-page-node-id="xni46aEFjEnCHHK0GadtTS">「我」页 <span class="note" data-page-node-id="4QGlG2B6i87RSYpQRTtfSb">路由 /self</span></td><td data-page-node-id="DQJMUt8jhpmUL2U7ZMYGJp"><span class="st ok" data-page-node-id="8kiBV9pUCKjE4LPF8LgDtR">✅ 已实现</span></td></tr>
+    <tr data-page-node-id="7A65fqOnpbHiq8F7p28MS8"><td class="entry" data-page-node-id="S5S0a8ZERGEC9VaXCFzTFF">（隐藏规则）</td><td class="from" data-page-node-id="jDuh5xW1IpLGzQAfjbqVas">—</td><td class="to" data-page-node-id="xfaCVxZ9fj7wNnW9gd4ki8">进入二级页（聊天页 / 朋友圈 / 聊天信息）后 Tab 栏消失，只有返回键</td><td data-page-node-id="V2FDYkcT6ENuuxayeOe2Ms"><span class="st ok" data-page-node-id="C1fB8VpGtCVMmwrdQ5ocUz">✅ 已实现</span><div class="note" data-page-node-id="wUMrXVK4OjfBPSuCHYbQ3J">路由用 subPage-only 的写法实现</div></td></tr>
+  </table></div>
+
+  <h2 data-page-node-id="J3DbwV93m6mU7n7dxOl5We">② 微信 Tab（聊天列表）上的入口 <span class="tag" data-page-node-id="dvFco1IKB3VGc4047pnFEl">画面 = 会话列表</span></h2>
+  <div class="card" data-page-node-id="7veFMxLy4zksWQIKOJsKDw"><table data-page-node-id="kXgPehCZLD1z2Ca45akL4f">
+    <tr data-page-node-id="7fc9SkcVFihnCj7XaeDNUC"><th style="width:15%" data-page-node-id="mJ7cTJvv53xhKbRkxAzPwa">入口</th><th style="width:28%" data-page-node-id="7bxBzHBNExdZkP22uKVWWE">从哪个画面</th><th style="width:27%" data-page-node-id="4rWPVZVYxDfGGr4m4ikmph">切到哪个画面</th><th data-page-node-id="OyankyTLAKLaCXDJwmljg8">软件实现</th></tr>
+    <tr data-page-node-id="Z7ff7UYY6uLdnW7AdM76xF"><td class="entry" data-page-node-id="Gn60xVhVQC4FoB56UGWqbS">点任意会话</td><td class="from" data-page-node-id="7yBuw18HHDD7Ats8Mulwc6">聊天列表</td><td class="to" data-page-node-id="uOS9BraeaVxKhPTYECbQmp">聊天页 <span class="note" data-page-node-id="kH1AYMfyMSeAjGyKAQqnOp">/wechat/dialogue，携带会话名</span></td><td data-page-node-id="nOYyONeFndAU4VPph9Wu95"><span class="st ok" data-page-node-id="gb6QvQewNL75p5l1N753d2">✅ 已实现</span><div class="note" data-page-node-id="I4xBRDcEjJpFzIA2RTJpSD">动作表 [打开聊天]，叙事第一步</div></td></tr>
+    <tr data-page-node-id="WbYE8rdXpSBz5xyY73Hbv8"><td class="entry" data-page-node-id="kWFHeErEDrwFc7APwBv0B6">左滑会话</td><td class="from" data-page-node-id="ePAxtkOmyZmU1KNDQC2wpL">聊天列表</td><td class="to" data-page-node-id="OUYW3oemeBODIhTM5brqMd">不切画面，弹出「标为未读 / 删除」</td><td data-page-node-id="VnMcSSRxUOC9eiWjE4LOPJ"><span class="st ok" data-page-node-id="eIFAq7Gww1LIRaWquK0cXd">✅ 已实现</span></td></tr>
+    <tr data-page-node-id="zE5R6EqZrJv3yggHExgFxC"><td class="entry" data-page-node-id="GAwabYhUldZ3nuVQOju7AS">后台来消息</td><td class="from" data-page-node-id="jD9rYXEH0JGKiqKpKGMPnk">停留在当前画面（主页或聊天）</td><td class="to" data-page-node-id="0UBniavlcbzon6OLURwSlq">不切画面：列表预览刷新 + 角标 +1</td><td data-page-node-id="1KmHOny8wSFc70b5BGAaQo"><span class="st ok" data-page-node-id="kHSX3GzzpvHSWaG6fsEIba">✅ 已实现</span><div class="note" data-page-node-id="SknvsKYPmG6eSaFx5HbuAv">[对方后台发消息]</div></td></tr>
+    <tr data-page-node-id="CpcXgfNABzOBhKQHwRyTvu"><td class="entry" data-page-node-id="KEcQHA45dtVZsQs20XLvW3">右上角「+」（加好友 / 发起群聊）</td><td class="from" data-page-node-id="miXCkGoNQHBame0GTKjfa2">聊天列表</td><td class="to" data-page-node-id="l3NYu4Rju7Zb2r0c3jVp2c">添加朋友页</td><td data-page-node-id="lcwFBIKEvoSFr1IPrtunOW"><span class="st half" data-page-node-id="DzApvPNgXrij9sJEOt91uT">🟡 半实现</span><div class="note" data-page-node-id="wnNvgvQrcSnL3o6H0mgE7Z">add-friend 页面和路由存在，但列表页头部「+」本身不可点</div></td></tr>
+  </table></div>
+
+  <h2 data-page-node-id="4nmbwIk1w7xasFAQuYpzzA">③ 通讯录 Tab 上的入口 <span class="tag" data-page-node-id="qIno23VsZtEJGKpakgcxEB">画面 = 通讯录</span></h2>
+  <div class="card" data-page-node-id="6ecF5118w0Ba1JPauZ3C6l"><table data-page-node-id="VEWZZ7mBqo8bfe2cYEH7c2">
+    <tr data-page-node-id="03BzdeUZeN0XsH5Bh4YaGm"><th style="width:15%" data-page-node-id="FdePrOHSvG2FZQA06vvBMN">入口</th><th style="width:28%" data-page-node-id="Elg0KCZfX9tglErGftyoL3">从哪个画面</th><th style="width:27%" data-page-node-id="eQIFlzUGwRSaHy9YYl2WIq">切到哪个画面</th><th data-page-node-id="0QVQ1MV29O5zOODcP0Wp4D">软件实现</th></tr>
+    <tr data-page-node-id="YnGforGfCcJg4WgZJWrXCl"><td class="entry" data-page-node-id="6FBWFzqYIowdeghFEdnkE4">新的朋友 / 标签 / 公众号 / 群聊</td><td class="from" data-page-node-id="TiCzJiyVqaJQK8MdM9lT6p">通讯录列表</td><td class="to" data-page-node-id="cOUWez53fys0CDhcJA08ZE">对应列表页（Tab 栏保留）</td><td data-page-node-id="EuBHGdHoZMc5l7Eqsx3JYl"><span class="st ok" data-page-node-id="CGqQPgH7QCraYcNQniHf8K">✅ 已实现</span><div class="note" data-page-node-id="bffkDa3eGSrnIkY7WSHLki">四个子路由各有一个页面</div></td></tr>
+    <tr data-page-node-id="Ff2iFYhFbD2EVFOXys9hS5"><td class="entry" data-page-node-id="p4SJnwhCvnvtBjmtZVl5p4">点某个联系人</td><td class="from" data-page-node-id="fh3mdNEhHiCk4I7oCD3hx9">通讯录列表</td><td class="to" data-page-node-id="ELvKGX0ndKudI2m3kdzZGb">对方资料页 /contact/details</td><td data-page-node-id="25rSkUGEa1ihDSHwqLpmWo"><span class="st ok" data-page-node-id="YCOenjHfkq0Z5vyz10EXBG">✅ 已实现</span></td></tr>
+    <tr data-page-node-id="M96qFoY0BLE4pb7YBYhGUL"><td class="entry" data-page-node-id="2FKCakba5Wl0PKHMaOT7oO">资料页「发消息」按钮</td><td class="from" data-page-node-id="GcRZlf3Wwcg7WPq2OM5APB">对方资料页</td><td class="to" data-page-node-id="dmHqw71NQfSxLtJs7Jmmvc">聊天页</td><td data-page-node-id="aadKdeHfCbLaBvGuYMfxeB"><span class="st half" data-page-node-id="ilaVEihnqPc2hFZspyCfNW">🟡 半实现</span><div class="note" data-page-node-id="oarIr6Nky3HD8pCmSPYVNS">按钮已画出来，但组件里是空链接；实际由剧本层直接 [打开聊天] 进聊天页</div></td></tr>
+    <tr data-page-node-id="1ndUOsIBdncSlloH9cGWWC"><td class="entry" data-page-node-id="lO3ryI3IEWwFIsfAGroSji">资料页右上角「…」</td><td class="from" data-page-node-id="WWUQgiKumOSUaghGIthvHi">对方资料页</td><td class="to" data-page-node-id="1xfX49JvBXUhujomZfGfgZ">对方设置页（可拉黑）</td><td data-page-node-id="hnbuwiEBMAPposFYjshP0D"><span class="st ok" data-page-node-id="fYlu3JYDuihPYEZBI0ZKhw">✅ 已实现</span><div class="note" data-page-node-id="6qn13rQFhBPGHy6FB2QJsq">[打开对方设置] / [加入黑名单] / [移出黑名单]</div></td></tr>
+  </table></div>
+
+  <h2 data-page-node-id="1kXAAnJpcFDSMnwdgay3Oe">④ 发现 Tab 上的入口 <span class="tag" data-page-node-id="yL2f6N0IsBtu6qjzfpLBQR">画面 = 发现页（深色）</span></h2>
+  <div class="card" data-page-node-id="rsDtQQQc7U00rNFqORAGXB"><table data-page-node-id="ZzLzPbcSqvEODBCr0ES7pJ">
+    <tr data-page-node-id="0BYCfLMJB9K0sG0S8krKIi"><th style="width:15%" data-page-node-id="EWyRo1pWL1S7Atf8i4nCZ0">入口</th><th style="width:28%" data-page-node-id="hHcHM9uxRDo3EO4dhbli7n">从哪个画面</th><th style="width:27%" data-page-node-id="uTTwO88Gaqrp39PGACY4pu">切到哪个画面</th><th data-page-node-id="96uZ9hPsh00jIFdBYxDDcM">软件实现</th></tr>
+    <tr data-page-node-id="NzACawYHn6y14sCkmjDD38"><td class="entry" data-page-node-id="z4bQvAklmpXUEoyaDXRHyg">朋友圈</td><td class="from" data-page-node-id="HSwN8xUVHBArQe53z4LeaW">发现页</td><td class="to" data-page-node-id="pVZx3W3F3lb5hBCbdJcd6v">朋友圈 <span class="note" data-page-node-id="ub38vHZWR0NGPbZH3tEqat">/explore/moments，Tab 栏保留</span></td><td data-page-node-id="2r3B84NA2rjkDd1icYxKrO"><span class="st ok" data-page-node-id="dvkOZZRLJrEIU3JA4Hyijs">✅ 已实现</span><div class="note" data-page-node-id="kFxtJLXIyIVRCJl8VuQn9b">发现页唯一真跳转的入口；动作表 [进入朋友圈]；可发圈/点赞/评论</div></td></tr>
+    <tr data-page-node-id="4shZriGEvXAQfFSu3u4VwL"><td class="entry" data-page-node-id="xVD2kcoJoVMMejALeCzTyf">视频号 / 直播 / 扫一扫 / 听一听 / 看一看 / 搜一搜 / 附近的人 / 游戏 / 小程序</td><td class="from" data-page-node-id="qTEt5cRPa3uyd1BP4YmKcg">发现页</td><td class="to" data-page-node-id="58JnwL8jPns82F6bm4Fwth">各自页面</td><td data-page-node-id="beoxLE1ptkn96akEIswaPp"><span class="st no" data-page-node-id="rXMlpnTRpWlpHEAvIZef0P">⚪ 占位</span><div class="note" data-page-node-id="87hFu4q7u8H9cGY9LlDD1I">只有图标 + 箭头的静态行，点了没反应——这是故意留白的</div></td></tr>
+    <tr data-page-node-id="HNvAZjcRqiszK4D62tqmJh"><td class="entry" data-page-node-id="ilDZ95PofJUQem0ltBXKxG">状态栏外卖胶囊</td><td class="from" data-page-node-id="cn8DywiKQBphbYzCe6vhew">—</td><td class="to" data-page-node-id="2g81KVXgeNBl3ppABiUQgK">不切画面（发现页专属彩蛋：送货中 21:07 送达）</td><td data-page-node-id="QZBzrop1YLveDT3BsxWDOl"><span class="st ok" data-page-node-id="4ZQFFF6ThPTKF737LB97x8">✅ 已实现</span></td></tr>
+  </table></div>
+
+  <h2 data-page-node-id="GhVZ9ZDthsswHIrQVAJLaT">⑤ 我 Tab 上的入口 <span class="tag" data-page-node-id="m4J9a1k0E2Em4a4YxLDMnP">画面 = 我</span></h2>
+  <div class="card" data-page-node-id="OyakrPMS9BQMp7UxaOviZP"><table data-page-node-id="sHFE1NVu6n3uxsZiT8r2Lx">
+    <tr data-page-node-id="VbNRcWlKkWpCBKnX3k6Gv6"><th style="width:15%" data-page-node-id="GnhMKHKBD8tLFZ5xJHDFhx">入口</th><th style="width:28%" data-page-node-id="Hb66VpbElVNdEej3l2X91d">从哪个画面</th><th style="width:27%" data-page-node-id="qW7quTjXN1eliD1sTsobgD">切到哪个画面</th><th data-page-node-id="XtrsRBjeulT7QQLZ5Q4hqT">软件实现</th></tr>
+    <tr data-page-node-id="afmLfI8a2af74lcWqHqDL9"><td class="entry" data-page-node-id="mohJw9SHpaydUQEnnhUdwb">点头像行</td><td class="from" data-page-node-id="BHLqoaZAIaq6KtJQ3NoGdh">「我」页</td><td class="to" data-page-node-id="ZwPlNdnUdwkk1LRMc8u1eb">个人资料页 /self/profile <span class="note" data-page-node-id="ADldFi33TdIIXa7fZOQE27">可改昵称 / 签名 / 头像 / 二维码</span></td><td data-page-node-id="5vMBg8YeDRurZFLRw9SXak"><span class="st ok" data-page-node-id="jY3IeTPutc4jrrNh7AolPb">✅ 已实现</span><div class="note" data-page-node-id="i3Sy90CRdpmMjoHkTDAOnJ">[编辑我的资料] / [设置头像] / [修改昵称] / [修改签名]</div></td></tr>
+    <tr data-page-node-id="N33bcdbIWoTsF5vPmlhzAo"><td class="entry" data-page-node-id="JmuI1GDzltaRzRZubPnVzJ">相册 / 收藏 / 钱包 / 卡券 / 表情</td><td class="from" data-page-node-id="ZG7wmAuew3V34VFLEKAyog">「我」页</td><td class="to" data-page-node-id="K03bDmMn25BA5se90sDeun">真实微信各有独立页面</td><td data-page-node-id="iJTgQL9LulE1CqRgLjVTeA"><span class="st no" data-page-node-id="MMhQttQYxWXDlxvXMlxjoC">⚪ 占位</span><div class="note" data-page-node-id="oaffdnUhBEl8yu4yCotYvG">软件里五项全部指向同一个 /self/album 占位页——分辨得出这是简化</div></td></tr>
+    <tr data-page-node-id="YwEm0DZVbo6x0Jb5D8yUeT"><td class="entry" data-page-node-id="Cfh2NLvCjGvBBxuN5cNv5n">设置</td><td class="from" data-page-node-id="TexVjgKXi5DuJMvPlgAsEo">「我」页</td><td class="to" data-page-node-id="3bgAgsZTckbEsAuW7CILGC">设置页，下面还有 账号与安全 / 新消息通知 / 隐私 / 通用 / 语言 五个子页</td><td data-page-node-id="uEMdZQlVvivvjEP558d8O8"><span class="st ok" data-page-node-id="N3ki8sUEZlycb0eXb4OwVH">✅ 已实现</span></td></tr>
+    <tr data-page-node-id="xfkIJUyVy8wvZt8hH8ZWKJ"><td class="entry" data-page-node-id="WlFBmPlLKrsAE98AFVrwmk">背景图</td><td class="from" data-page-node-id="A8UfwMRkH9Mz3LJyHxLmPZ">「我」页</td><td class="to" data-page-node-id="51wwfPGGd5h3C4VRmVRa08">不切画面，换「我」页顶部背景</td><td data-page-node-id="xM2zFCG3IqHtN93AXtWvEf"><span class="st ok" data-page-node-id="YZ9EmIO5lOvk5KqtqH3WYg">✅ 已实现</span><div class="note" data-page-node-id="nkzFDC5i255gfVq5eJ8sbm">[设置背景]</div></td></tr>
+  </table></div>
+
+  <h2 data-page-node-id="eaNAFJlLgWRaEgj9JZMt5y">⑥ 聊天页内部的入口 <span class="tag" data-page-node-id="ztww2MrUCA63grCE5srWLn">画面 = 聊天页（Tab 栏已隐藏）</span></h2>
+  <div class="card" data-page-node-id="jEVUIRsODmHJ9ZGeua2yDI"><table data-page-node-id="bf2saYcForALSjXjjKRANG">
+    <tr data-page-node-id="EEAqI8bsKt71OXlb9ljlPv"><th style="width:15%" data-page-node-id="8Bz7CNpwSwqwFPnTKS8RtU">入口</th><th style="width:28%" data-page-node-id="BKyYgC5K5BvCZppkd7nFfH">从哪个画面</th><th style="width:27%" data-page-node-id="EVsBAuHA95b1sPhlDCK7WM">切到哪个画面</th><th data-page-node-id="j6pqrbJKFgGRZkNqXnlDjD">软件实现</th></tr>
+    <tr data-page-node-id="FQLRaBWnr70D3QONHgBBJt"><td class="entry" data-page-node-id="H2HLXx4A59xva21EtCOwbQ">点对方头像 / 右上角</td><td class="from" data-page-node-id="HyTzE0B5IYEUBa7oagGd4s">聊天页</td><td class="to" data-page-node-id="XSQqEYBVauma7Fm7Kj1JDz">对方资料页 →（再进）对方朋友圈</td><td data-page-node-id="bLu0wRCWRMeYYTMPwMkJnk"><span class="st ok" data-page-node-id="hIOj42fYLYIJJu2bnE3Agm">✅ 已实现</span><div class="note" data-page-node-id="vxqTlfZlX3NYhxGgIIG6kk">[打开对方主页] / [进入对方朋友圈]</div></td></tr>
+    <tr data-page-node-id="UqGg1Mej9ZZWfAkENlQDZ0"><td class="entry" data-page-node-id="CBjIVSmiMkzJEKrSWDF03p">输入栏右「+」</td><td class="from" data-page-node-id="OipGBtKdQTyAhbVBVsdBkC">聊天页（键盘收起态）</td><td class="to" data-page-node-id="BM32z87luXeaEXIGBMzxyu">更多面板（相册 / 转账等九宫格）</td><td data-page-node-id="dStewHSIqE7uTGVqEN4niz"><span class="st ok" data-page-node-id="bEuJML2u5FIA0Jx4EMihTf">✅ 已实现</span><div class="note" data-page-node-id="RjwiAchk8v4Th5GAGzoUSB">三面板互切 230ms；输入栏顶边 y：收起 1171 / 键盘 702 / 表情 629 / 更多 793</div></td></tr>
+    <tr data-page-node-id="OZWvDlzJn6lJyGwFPXEwyT"><td class="entry" data-page-node-id="W0dVbfqw5EWV2VikVAEnNK">笑脸按钮</td><td class="from" data-page-node-id="BihchGszjiQAMxJRBvnDt7">聊天页</td><td class="to" data-page-node-id="CpdobGdCkx1GyxPuUwAgFF">表情面板（3D 黄脸 + 贴纸）</td><td data-page-node-id="Bnz9HBxxS5HFn4flSds2Xf"><span class="st ok" data-page-node-id="yTnXVedaUoyb9thVqqi5Tw">✅ 已实现</span><div class="note" data-page-node-id="QmBlpkZN9VsQXlFHJ9iaWM">[发送emoji] 先弹面板再逐个点选；[对方emoji] 直接上屏不弹面板</div></td></tr>
+    <tr data-page-node-id="TEydMhSc8SoN01mNUxKHPK"><td class="entry" data-page-node-id="rbkc1FQ3WAjap78sv1ezJ7">更多面板 → 相册</td><td class="from" data-page-node-id="i9wbVZCiqRSBHKe8NlxqR0">更多面板</td><td class="to" data-page-node-id="BtZq1Z1xkrEpXqIj6WhwDC">不切页面，直接把图发进气泡</td><td data-page-node-id="7YTB85HtFZ9QDeQZRAYDTP"><span class="st ok" data-page-node-id="pT9p0t1vmjp3Zr5Cb3ahN5">✅ 已实现</span><div class="note" data-page-node-id="XUMgjNnBVWHGKusWNp5C3c">[发送图片]，素材只能从图库挑，不能编名字</div></td></tr>
+    <tr data-page-node-id="V4PNYZhh9ZsK3ZjmSiMTOp"><td class="entry" data-page-node-id="QuE3DgJLtARsm4D4NHdULD">更多面板 → 转账</td><td class="from" data-page-node-id="TgDCliN8jIntrz0tLRNe3z">更多面板</td><td class="to" data-page-node-id="GO3mK2OTMtpKg0Tr9MQoyX">转账面板 → 输金额 → 转账气泡 → 转账详情</td><td data-page-node-id="30oU5ZDIMSzzPHHCQaWBR6"><span class="st ok" data-page-node-id="mf0KiElhSMXHP0QhVEftg6">✅ 已实现</span><div class="note" data-page-node-id="mv7IFCbYCr65GJWQ3xV40O">[打开转账面板]/[转账金额]/[接收转账]/[打开转账详情]</div></td></tr>
+    <tr data-page-node-id="oWdXGfBEPSKaIwyCTRMKBg"><td class="entry" data-page-node-id="IhY7Aco022r9AVXT3e3bDS">长按说话（麦克风）</td><td class="from" data-page-node-id="pl3msz3iBzk1Fww2GxKNyp">聊天页输入栏</td><td class="to" data-page-node-id="rsPfr9pbYOSXeObJs14ir4">不切画面，发语音气泡</td><td data-page-node-id="Muz5Oq9CkPbOYtT2PcuWGf"><span class="st ok" data-page-node-id="KW7yTe6S17RLwJiNxAHQrA">✅ 已实现</span><div class="note" data-page-node-id="9vf3LCR9oWI1u7cIZp1ARp">[发送语音] / [对方语音]</div></td></tr>
+    <tr data-page-node-id="Th0GiAZMyxjM7Iy0wPezD9"><td class="entry" data-page-node-id="nGA94ZUCvEVbiRRJGbJC5A">长按气泡</td><td class="from" data-page-node-id="yd0imdrgpzDJsU0EmxTqqY">聊天页</td><td class="to" data-page-node-id="TjU9JCncZz2PrOVETNGwtp">弹出撤回 / 转发菜单</td><td data-page-node-id="g27P1mNqmIUgJ9x0fFwS1c"><span class="st ok" data-page-node-id="7HDXPmpmh9BV8zcJbugawi">✅ 已实现</span><div class="note" data-page-node-id="Vak6TuOJNTFg60Gf912E3c">[撤回我的消息]/[转发消息]</div></td></tr>
+    <tr data-page-node-id="hTPRYr5RkZEK7D4ZwiyPf6"><td class="entry" data-page-node-id="XkbZtlFzyGSNAOWxGqnvSo">返回键</td><td class="from" data-page-node-id="REeLthkB5DzjlF4ted7DVx">聊天页 / 朋友圈 / 任何二级页</td><td class="to" data-page-node-id="9cW4GxjS4BcKamagHna6uz">回到上一级（聊天页 → 主页）</td><td data-page-node-id="qoISO285bAWkOSnlTXr7yZ"><span class="st ok" data-page-node-id="foPdgxjfGTIsLTnafgVKEC">✅ 已实现</span><div class="note" data-page-node-id="C9oTVm7niN7fGP8HqzvoKc">[返回主页] / [返回上一页]</div></td></tr>
+  </table></div>
+
+  <h2 data-page-node-id="bdF0mSjsNW7DDVOd8qvC2D">⑦ 本软件特有的跨线切换 <span class="tag gray" data-page-node-id="G0rjTJZsBhU99VbOp2N1zl">真实微信没有，剪辑用</span></h2>
+  <div class="card" data-page-node-id="NaXB3L0M0cPqjuwNThMyGA"><table data-page-node-id="kFKx5VsPUVViPbqgKiZR1U">
+    <tr data-page-node-id="Ji0fyEjxOEnsiz2pVsJ5c8"><th style="width:15%" data-page-node-id="SIsdSKrNGBWZCWxpvTcYrj">入口</th><th style="width:28%" data-page-node-id="NWJr5O6gheYK9UZlhG3Z7C">从哪个画面</th><th style="width:27%" data-page-node-id="T6XuZBUhjcUwuYrpHyxUnT">切到哪个画面</th><th data-page-node-id="pR9DEMFri511OQEFMD9947">说明</th></tr>
+    <tr data-page-node-id="JbeV5xLR5ICH6vCckq86KX"><td class="entry" data-page-node-id="iZ4gnv7ayouV0d8I7TzyET">闪到对方朋友圈（2026-09-11 新增）</td><td class="from" data-page-node-id="VQ9nBqsY9ew5ale5eFoYt2">聊天页（或任意画面）</td><td class="to" data-page-node-id="UzWl8okrBv5F3p9peV0ouE">对方朋友圈（跳过资料页）</td><td data-page-node-id="9auQiCCI98LUK3vhgYpZ1H">一帧切镜；<b style="color:#0a8a4a">默认自动闪黑</b>：黑幕淡入 0.16s → 黑屏下切换 → 淡出 0.26s；冒烟已过</td></tr>
+    <tr><td class="entry">闪回聊天</td><td class="from">主页或朋友圈/对方朋友圈（任意一帧）</td><td class="to">聊天页（「回到」可直达会话）</td><td>一帧硬切；<b style="color:#0a8a4a">2026-09-11 起默认自动闪黑</b>，Tab 切换/进会话都在黑屏下完成；闪白=是 走旧版闪白，闪黑=否 裸硬切</td></tr>
+    <tr><td class="entry">应用场景</td><td class="from">任意状态</td><td class="to">整套场景重置（主页会话 / 朋友圈 / 我的资料 一次到位）</td><td>剧本层入口，先把舞台布置好再开演</td></tr>
+  </table></div>
+
+  <h2 data-page-node-id="bnLgFxYPmEHew6CJ8HyN78">自测小结：最容易混淆的 4 组入口</h2>
+  <ul class="tips" data-page-node-id="kEG6IfEgrvMkzqWTsBPd4d">
+    <li data-page-node-id="gTpkOCD7QvonxhB4lLmTIO"><b data-page-node-id="eKrdzftmpqs6UYKuKTgGuo">朋友圈 vs 对方朋友圈</b>：朋友圈从「发现 Tab」进（我方视角，可发圈）；对方朋友圈从「聊天页 → 对方资料页」进（只看 TA 的）。两条不同的路径，软件里是两个不同动作。</li>
+    <li data-page-node-id="wNSqYfW8G0d9jeVyB0z73z"><b data-page-node-id="FWCT4kvJB4JCg7U11iV3On">资料页有两处</b>：通讯录点人进的是「资料页」，聊天页点头像进的也是「资料页」——同一个页面，但入口画面不同（通讯录 vs 聊天页）。</li>
+    <li data-page-node-id="HDJocuolJINAaAG5YOFvqb"><b data-page-node-id="whKQFUgT6FgcT4eN95TX9Z">发现页 9 个入口只有朋友圈是真跳转</b>，其余都是静态占位；不能在剧本里写「打开扫一扫」。</li>
+    <li data-page-node-id="DTPSgrFrGCiE1QiMXKioYr"><b data-page-node-id="SIu6I2r20yiXNYqLPATqSW">进二级页后 Tab 栏消失</b>：只有四个一级页面之间互切才有 Tab 栏，聊天页 / 朋友圈 / 资料页都没有。</li>
+  </ul>
+</div>
+
+<script>
+// 导航图
+(function(){
+  const NS='http://www.w3.org/2000/svg';
+  const W=820,H=560;
+  const svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.setAttribute('width','100%');
+  const el=(t,a)=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);svg.appendChild(n);return n;};
+  const txt=(x,y,s,size,fill,w)=>{const t=el('text',{x,y,fill:fill||'#1c1c1e','font-size':size||13,'font-family':'PingFang SC, Microsoft YaHei, sans-serif','text-anchor':'middle','font-weight':w||'normal'});t.textContent=s;return t;};
+  // 定义节点
+  const nodes={
+    chat:{x:130,y:80,w:170,h:52,label:'微信 Tab · 聊天列表',c:'#07c160'},
+    contact:{x:520,y:80,w:170,h:52,label:'通讯录 Tab',c:'#07c160'},
+    discover:{x:130,y:200,w:170,h:52,label:'发现 Tab',c:'#07c160'},
+    me:{x:520,y:200,w:170,h:52,label:'我 Tab',c:'#07c160'},
+    dialogue:{x:100,y:330,w:180,h:52,label:'聊天页',c:'#3b82f6'},
+    moments:{x:80,y:450,w:200,h:52,label:'朋友圈',c:'#3b82f6'},
+    peerMoments:{x:330,y:450,w:210,h:52,label:'对方朋友圈',c:'#3b82f6'},
+    details:{x:470,y:330,w:180,h:52,label:'资料页',c:'#3b82f6'},
+    settings:{x:690,y:330,w:110,h:52,label:'设置页',c:'#3b82f6'},
+    profile:{x:690,y:450,w:110,h:52,label:'个人资料',c:'#3b82f6'}
+  };
+  // 一级 Tab 互切（绿色实线环）
+  const tabs=['chat','contact','discover','me'];
+  const pairs=[[0,1],[1,3],[3,2],[2,0]];
+  pairs.forEach(([a,b])=>{
+    const A=nodes[tabs[a]],B=nodes[tabs[b]];
+    el('line',{x1:A.x+A.w,y1:A.y+A.h/2,x2:B.x,y2:B.y+B.h/2,stroke:'#07c160','stroke-width':2,opacity:.5});
+  });
+  // 二级入口（蓝色虚线）
+  const links=[
+    ['chat','dialogue','点会话'],
+    ['discover','moments','朋友圈'],
+    ['dialogue','details','点头像/右上角'],
+    ['contact','details','点联系人'],
+    ['details','peerMoments','对方朋友圈'],
+    ['me','settings','设置'],
+    ['me','profile','点头像行']
+  ];
+  links.forEach(([a,b,label])=>{
+    const A=nodes[a],B=nodes[b];
+    const x1=A.x+A.w/2,y1=A.y+A.h,x2=B.x+B.w/2,y2=B.y;
+    el('line',{x1,y1,x2,y2,stroke:'#3b82f6','stroke-width':1.8,'stroke-dasharray':'5 4',opacity:.65});
+    txt((x1+x2)/2+4,(y1+y2)/2,label,11,'#3b82f6');
+  });
+  // 返回线（灰色）
+  el('line',{x1:nodes.dialogue.x-14,y1:nodes.dialogue.y,x2:nodes.chat.x+30,y2:nodes.chat.y+nodes.chat.h,stroke:'#9ca3af','stroke-width':1.4,'stroke-dasharray':'2 4'});
+  txt(nodes.dialogue.x-30,nodes.dialogue.y+42,'返回主页',11,'#9ca3af');
+  // 画节点（后画覆盖线）
+  for(const k in nodes){
+    const n=nodes[k];
+    el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:10,fill:'#fff',stroke:n.c,'stroke-width':n.c==='#07c160'?2.4:1.6});
+    const t=txt(n.x+n.w/2,n.y+n.h/2+5,n.label,13.5,n.c==='#07c160'?'#0a7a44':'#1d4ed8',n.c==='#07c160'?'600':'normal');
+  }
+  // 标题
+  txt(W/2,24,'微信导航图谱：绿实线 = 底部 Tab 互切 · 蓝虚线 = 二级入口',13,'#6b7280','600');
+  document.getElementById('flowbox').appendChild(svg);
+})();
+</script>
+</body>
+</html>

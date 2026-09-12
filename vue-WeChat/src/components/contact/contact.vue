@@ -4,20 +4,21 @@
             <div class="weui-cells_contact-head weui-cells weui-cells_access" style="margin-top:-1px">
                 <router-link to="/contact/new-friends" class="weui-cell">
                     <div class="weui-cell_hd"> <img class="img-obj-cover"
-                            src="/images/contact_top-friend-notify.png"> </div>
+                            src="/images/replica/contact_fn_new_friends.png"> </div>
                     <div class="weui-cell_bd weui-cell_primary">
                         <p>新的朋友</p>
                     </div>
                 </router-link>
                 <router-link to="/contact/group-list" class="weui-cell">
                     <div class="weui-cell_hd"> <img class="img-obj-cover"
-                            src="/images/contact_top-addgroup.png"> </div>
+                            src="/images/replica/contact_fn_groups.png"> </div>
                     <div class="weui-cell_bd weui-cell_primary">
                         <p>群聊</p>
                     </div>
                 </router-link>
                 <router-link to="/contact/tags" class="weui-cell">
-                    <div class="weui-cell_hd"> <img class="img-obj-cover" src="/images/contact_top-tag.png">
+                    <div class="weui-cell_hd"> <img class="img-obj-cover"
+                            src="/images/replica/contact_fn_tags.png">
                     </div>
                     <div class="weui-cell_bd weui-cell_primary">
                         <p>标签</p>
@@ -25,9 +26,23 @@
                 </router-link>
                 <router-link to="/contact/official-accounts" class="weui-cell">
                     <div class="weui-cell_hd"><img class="img-obj-cover"
-                            src="/images/contact_top-offical.png"></div>
+                            src="/images/replica/contact_fn_official.png"></div>
                     <div class="weui-cell_bd weui-cell_primary">
                         <p>公众号</p>
+                    </div>
+                </router-link>
+                <router-link to="/contact/official-accounts" class="weui-cell">
+                    <div class="weui-cell_hd"><img class="img-obj-cover"
+                            src="/images/replica/contact_fn_service.png"></div>
+                    <div class="weui-cell_bd weui-cell_primary">
+                        <p>服务号</p>
+                    </div>
+                </router-link>
+                <router-link to="/contact/new-friends" class="weui-cell">
+                    <div class="weui-cell_hd"><img class="img-obj-cover"
+                            src="/images/replica/contact_fn_wework.png"></div>
+                    <div class="weui-cell_bd weui-cell_primary">
+                        <p>企业微信联系人</p>
                     </div>
                 </router-link>
             </div>
@@ -66,6 +81,11 @@
         },
         activated() {
             this.$store.commit("toggleTipsStatus", -1)
+            // 通讯录专属深色皮肤（#191919 底/像素级行布局/字母索引）由 body.wx-on-contact 驱动
+            document.body.classList.add("wx-on-contact");
+        },
+        deactivated() {
+            document.body.classList.remove("wx-on-contact");
         },
         computed: {
             contactsInitialList() {

@@ -185,10 +185,18 @@
   .step-row .imgslot img { width: 100%; height: 100%; border-radius: 6px; object-fit: cover; }
   .step-row .imgslot .nopic { font-size: 16px; line-height: 1; }
   /* 图片消息步骤：绿色高亮便于区分（发图片/图片消息） */
-  .step-row.img { border-color: var(--accent-border); background: rgba(10, 172, 95, 0.06); }
-  .step-row.img .act { color: #0a7a4a; }
-  .step-row.img .no { background: var(--accent-soft); color: #0a8a4f; }
-  .step-row.img .empty-sum { color: #0a7a4a; }
+  .step-row.img { border-color: var(--wxp-amber-line); background: #fff8ea; }
+  .step-row.img .act { color: #8a5306; }
+  .step-row.img .no { background: rgba(233, 162, 59, 0.20); color: #a5650a; }
+  .step-row.img .empty-sum { color: #8a5306; }
+  .step-row.img.filled { border-color: var(--wxp-accent-line); background: #f2fbf7; }
+  .step-row.img.filled .act { color: #0a7a4a; }
+  .step-row.img.filled .no { background: #e8f7ef; color: #0a8a4f; }
+  .step-row.img.filled .empty-sum { color: #0a7a4a; }
+  .step-row .need { flex: 0 0 auto; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(233, 162, 59, 0.18); color: #a5650a; border: 1px solid var(--wxp-amber-line); }
+  .step-row .need.ok { background: #e8f7ef; color: #0a8a4f; border-color: var(--wxp-accent-line); }
+  .step-row .imgslot.need { border-color: var(--wxp-amber-line); background: #fff8ea; }
+  .step-row .imgslot.ok { border-color: var(--wxp-accent); }
   .step-row button.del { color: #c73e35; }
   .step-row button.del:hover { background: rgba(213, 73, 65, 0.15); border-color: rgba(213, 73, 65, 0.4); }
   .step-row button { padding: 3px 8px; font-size: 11px; }
@@ -245,6 +253,11 @@
   .lib-detail .ld-path { font-size: 12px; color: var(--muted-2); word-break: break-all; margin-bottom: 8px; }
   .lib-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .lib-actions button.danger { border-color: rgba(213, 73, 65, 0.35); background: rgba(213, 73, 65, 0.1); color: #c73e35; }
+  /* 拖图到分类按钮 ＝ 搬家；面板拖入上传高亮 */
+  .lib-typebtn.drop { border-color: var(--accent); color: var(--accent); background: var(--panel-2); transform: scale(1.06); }
+  .lib-item[draggable="true"] { cursor: grab; }
+  .lib-item[draggable="true"]:active { cursor: grabbing; }
+  .panel-body.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
   .lib-detail img.ld-preview { max-width: 100%; max-height: 260px; border-radius: 10px; display: block; margin-bottom: 8px; background: var(--field); }
   .lib-rename-row { display: flex; gap: 8px; margin-top: 10px; }
   .lib-rename-row input { flex: 1; background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; font: inherit; }
@@ -292,6 +305,24 @@
   .live-typebar { border-color: rgba(255, 255, 255, 0.08); }
   
   
+
+/* ---------- 说明文字折叠成「?」 ---------- */
+.hint.compacted { display: flex; align-items: flex-start; gap: 7px; }
+.hint-q {
+  flex: none; width: 16px; height: 16px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--panel-2);
+  color: var(--muted); font-size: 10.5px; font-weight: 700; line-height: 1; cursor: help;
+}
+.hint-q:hover { color: var(--accent); border-color: var(--accent-border); background: var(--panel-3); }
+.hint-body { display: none; flex: 1; }
+.hint.compacted.open .hint-body { display: block; }
+
+/* ---------- 浅色状态配色令牌（配图相关） ---------- */
+:root {
+  --wxp-amber-soft: #fff8ea;
+  --wxp-amber-line: rgba(214, 148, 32, .55);
+  --wxp-accent-line: rgba(10, 172, 95, .40);
+}
 </style>
 </head>
 <body>
@@ -299,30 +330,30 @@
   <div class="topbar">
   <div class="brand">⚡ 并发生产 <small>· 一次跑多条剧本，各自出片</small></div>
   <div class="menu-wrap" id="ccImportMenuWrap">
-    <button type="button" class="menu-btn" id="btnCcImportMenu">导入<i class="caret">▾</i></button>
+    <button type="button" class="menu-btn" id="btnCcImportMenu" data-tip="导入菜单：粘贴单个剧本，或从文件夹批量导入">导入<i class="caret">▾</i></button>
     <div class="menu">
-      <button id="btnImport" class="menu-item" title="粘贴/加载一段剧本，新建一条任务">📜 导入剧本</button>
-      <button id="btnImportFolder" class="menu-item" title="从一个文件夹读取所有 .txt 剧本，每个文件新建一条任务">📁 从文件夹导入</button>
+      <button id="btnImport" class="menu-item" data-tip="粘贴/加载一段剧本，新建一条任务">📜 导入剧本</button>
+      <button id="btnImportFolder" class="menu-item" data-tip="从一个文件夹读取所有 .txt 剧本，每个文件新建一条任务">📁 从文件夹导入</button>
     </div>
   </div>
-  <button id="btnParseAll" title="对所有还没解析的任务调用 AI 转译">🤖 全部解析(AI)</button>
-  <button id="btnParseAllOffline" title="对所有还没解析的任务做离线规则解析（不需要 API Key）">⚙ 全部解析(离线)</button>
+  <button id="btnParseAll" data-tip="对所有还没解析的任务调用 AI 转译">🤖 全部解析(AI)</button>
+  <button id="btnParseAllOffline" data-tip="对所有还没解析的任务做离线规则解析（不需要 API Key）">⚙ 全部解析(离线)</button>
   <span class="spacer"></span>
   <div class="conf" title="同时最多跑几条（1~8）">同时跑
-    <input type="number" id="maxConcurrent" min="1" max="8" value="3"></div>
-  <button id="btnStopAll" class="danger" title="停止所有正在跑/排队的任务">⏹ 全部停止</button>
-  <button id="btnRunAll" class="primary" title="把已解析的任务全部排队，按上限同时开跑">▶ 全部开始</button>
+    <input type="number" id="maxConcurrent" data-tip="同时最多运行的任务数（1~8），其余自动排队" min="1" max="8" value="3"></div>
+  <button id="btnStopAll" class="danger" data-tip="停止所有正在跑/排队的任务">⏹ 全部停止</button>
+  <button id="btnRunAll" class="primary" data-tip="把已解析的任务全部排队，按上限同时开跑">▶ 全部开始</button>
   <span class="spacer"></span>
   <div class="menu-wrap" id="ccToolMenuWrap">
-    <button type="button" class="menu-btn" id="btnCcToolMenu">工具<i class="caret">▾</i></button>
+    <button type="button" class="menu-btn" id="btnCcToolMenu" data-tip="工具菜单：图片库、视频目录、清空已完成任务">工具<i class="caret">▾</i></button>
     <div class="menu">
-      <button id="btnLib" class="menu-item">🖼 图片库</button>
-      <button id="btnVideos" class="menu-item">📂 打开视频目录</button>
+      <button id="btnLib" data-tip="打开图片库：管理配图素材" class="menu-item">🖼 图片库</button>
+      <button id="btnVideos" data-tip="打开生成视频所在的文件夹" class="menu-item">📂 打开视频目录</button>
       <div class="menu-sep"></div>
-      <button id="btnCleanDone" class="menu-item">🗑 清空已完成</button>
+      <button id="btnCleanDone" data-tip="删除所有已完成 / 已失败的任务记录" class="menu-item">🗑 清空已完成</button>
     </div>
   </div>
-  <button id="btnBack" title="回到可视化工作流编辑器">↩ 工作流编辑器</button>
+  <button id="btnBack" data-tip="回到可视化工作流编辑器">↩ 工作流编辑器</button>
 </div>
   <div class="hint" style="padding:0 14px 6px">在左侧导入一条或多条剧本 → 逐条解析（AI 或离线）→ 在「配图清单」点「📤 上传图片（按顺序）」或拖图/单张选图，给每个图槽配好图 → 点「全部开始」即可同时跑多条，每条各自独立生成视频。顶部「图片库」可上传/管理图片；倍速、音乐等运行选项改动即自动保存，并作为后续导入任务的默认值。</div>
 
@@ -331,9 +362,9 @@
       <div class="left-head">
         <b>任务队列</b><span class="count" id="taskCount">0 条</span>
         <span class="spacer"></span>
-        <button id="btnDeselect" class="ghost" title="取消所有勾选">取消勾选</button>
-        <button id="btnRunSelected" title="只跑勾选的任务">▶ 跑选中</button>
-        <button id="btnSelectAll">全选</button>
+        <button id="btnDeselect" class="ghost" data-tip="取消所有勾选">取消勾选</button>
+        <button id="btnRunSelected" data-tip="只跑勾选的任务">▶ 跑选中</button>
+        <button id="btnSelectAll" data-tip="勾选全部任务">全选</button>
       </div>
       <div class="task-scroll" id="taskList"></div>
     </div>
@@ -354,7 +385,7 @@
     <h4>📜 导入剧本</h4>
     <div class="field"><label>任务名称（可空）</label><input id="importName" placeholder="默认取剧本第一行或“未命名任务”"></div>
     <div class="field"><label>剧本文本</label><textarea id="importScript" spellcheck="false" placeholder="粘贴标准格式或自然语言剧本"></textarea></div>
-    <div class="opt-checks"><label><input type="checkbox" id="importAutoParse" checked> 导入后自动离线解析</label></div>
+    <div class="opt-checks"><label data-tip="导入后立即自动做离线解析，省一步手动点解析（可再点「全部解析(AI)」升级为 AI 转译）"><input type="checkbox" id="importAutoParse" checked> 导入后自动离线解析</label></div>
     <div class="btns">
       <button id="importCancel">取消</button>
       <button id="importOk" class="primary">导入</button>
@@ -490,7 +521,14 @@ function setPanelTab(tab) {
 }
 
 function renderPanel() {
-  if (panelTab === 'library') { renderLibrary(); return; }
+  if (panelTab === 'library') {
+    libCat = libRestoreCat();          // 打开图片库 = 回到上次所在的分类
+    let s = '';
+    try { s = localStorage.getItem('wx-lib-sort') || ''; } catch (e) { /* 忽略 */ }
+    if (['new', 'old', 'name', 'size'].includes(s)) libSort = s;
+    renderLibrary();
+    return;
+  }
   renderDetail();
 }
 
@@ -546,6 +584,10 @@ function renderDetail() {
   $('dBgm').onchange = () => saveTaskMeta(t, true);
 }
 
+function imgPathFilled(v) {
+  const t = String(v == null ? '' : v).trim();
+  return !!t && (t.startsWith('/') || /^https?:/i.test(t));
+}
 function stepSummary(p) {
   const keys = Object.keys(p || {});
   if (!keys.length) return '';
@@ -618,6 +660,35 @@ function pushIjEmojiSlots(slots, step) {
   });
 }
 
+/* 运行时支持「打开动画」的图片动作：主程序对这两个动作解析 打开/停留/焦点/放大倍率 参数。
+   （查看图片 不算——它运行时默认就是打开，参数缺省即"是"，放进下拉会误导） */
+const OPENABLE_IMG_ACTIONS = new Set(['发送图片', '对方发图片']);
+/* 给步骤类图片槽位挂「打开动画」读写访问器：open/openHold/openFocus/openZoom
+   全部透传到 step.params（打开/停留/焦点/放大倍率），供 shared_picker 配图清单控件使用。
+   onChange：选项变化后的持久化回调（并发页=刷新步骤列表+保存任务）。 */
+function withStepOpenAccessors(slot, onChange) {
+  const step = slot.step;
+  if (!step || !OPENABLE_IMG_ACTIONS.has(step.action)) return slot;
+  const get = (k) => {
+    const v = (step.params || {})[k];
+    return (v === undefined || v === null) ? "" : String(v);
+  };
+  const set = (k, v) => {
+    if (!step.params) step.params = {};
+    if (v === "") delete step.params[k];
+    else step.params[k] = v;
+  };
+  Object.defineProperties(slot, {
+    open:      { get: () => get("打开"),     set: (v) => set("打开", v) },
+    openHold:  { get: () => get("停留"),     set: (v) => set("停留", v) },
+    openFocus: { get: () => get("焦点"),     set: (v) => set("焦点", v) },
+    openZoom:  { get: () => get("放大倍率"), set: (v) => set("放大倍率", v) },
+  });
+  slot.openable = true;
+  if (typeof onChange === 'function') slot.onOptsChange = onChange;
+  return slot;
+}
+
 // 收集一个任务里所有需要配图的步骤，生成配图清单槽位（供 renderAttachPanel 展示）。
 // 槽位带 step 引用，配图后写回该步的「图片」参数；desc 去掉 [图片] 前缀，只留下描述。
 function collectTaskImageSlots(t) {
@@ -649,7 +720,10 @@ function collectTaskImageSlots(t) {
           desc = params["标题"] || raw || "链接封面";
         }
       }
-      slots.push({ id: "tsk_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step, imgKey });
+      slots.push(withStepOpenAccessors(
+        { id: "tsk_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step, imgKey },
+        () => { renderStepsBody(t); saveTaskMeta(t, true); }
+      ));
       return;
     }
     // 历史会话块生成的 [编辑主页]/[应用场景]/[编辑会话]，其「数据」数组里
@@ -769,14 +843,16 @@ function renderStepsBody(t) {
     let imgHtml = '';
     if (imgKey) {
       const cur = (s.params && s.params[imgKey]) || '';
-      imgHtml = '<button type="button" class="imgslot" data-step="' + i + '" data-act="pickimg" title="' +
+      imgHtml = '<button type="button" class="imgslot' + (imgPathFilled(cur) ? ' ok' : ' need') + '" data-step="' + i + '" data-act="pickimg" title="' +
         (cur ? esc(cur) : '点击选一张图（也可在下方配图清单批量上传）') + '">' +
         (cur ? '<img src="' + esc(cur) + '">' : '<span class="nopic">📷</span>') +
       '</button>';
     }
-    return '<div class="step-row' + (imgKey ? ' img' : '') + '" data-step="' + i + '">' +
+    const rowFilled = imgKey ? imgPathFilled((s.params || {})[imgKey]) : false;
+    return '<div class="step-row' + (imgKey ? (' img' + (rowFilled ? ' filled' : '')) : '') + '" data-step="' + i + '">' +
       '<span class="no">' + (i + 1) + '</span>' +
       '<span class="act">' + esc(s.action || '?') + '</span>' +
+      (imgKey ? '<span class="need' + (rowFilled ? ' ok' : '') + '">' + (rowFilled ? '已配图' : '待配图') + '</span>' : '') +
       '<span class="sum' + (stepSummary(s.params) ? '' : ' empty-sum') + '">' + (stepSummary(s.params) || '（无参数）') + '</span>' +
       imgHtml +
       '<button data-act="edit">编辑</button>' +
@@ -1058,6 +1134,57 @@ function libCatLabel(key) {
   return c ? c.label : ({ avatar: '头像', sticker: '表情包', emoji: 'emoji',
                           bg: '背景', asset: '配图素材', icon: '系统图标' }[key] || key);
 }
+let libSort = 'new';      // 排序：new/old/name/size
+let libDragPaths = [];    // 正在拖动的缩略图（拖到分类按钮上＝搬过去）
+function libCatCount(key) {
+  if (key === '') return libFiles.length;
+  return libFiles.filter(f => f.category === key).length;
+}
+function libRestoreCat() {
+  let v = null;
+  try { v = localStorage.getItem('wx-lib-cat'); } catch (e) { /* 忽略 */ }
+  const fallback = libCatCount('asset') > 0 ? 'asset' : '';
+  if (v === null) return fallback;
+  if (v === '') return v;
+  return (libCats || []).some(c => c.key === v) ? v : fallback;
+}
+function libSorted(list) {
+  const arr = (list || []).slice();
+  const nm = x => String((x && (x.label || x.name)) || '');
+  arr.sort((a, b) => {
+    if (libSort === 'old') return (a.ctime || a.mtime || 0) - (b.ctime || b.mtime || 0) || nm(a).localeCompare(nm(b), 'zh');
+    if (libSort === 'name') return nm(a).localeCompare(nm(b), 'zh');
+    if (libSort === 'size') return (b.size || 0) - (a.size || 0);
+    return (b.ctime || b.mtime || 0) - (a.ctime || a.mtime || 0) || nm(a).localeCompare(nm(b), 'zh');
+  });
+  return arr;
+}
+function libUploadCats() {
+  return (libCats || []).filter(c => c.canUpload !== false);
+}
+function libSyncUpcat() {
+  const sel = $('libUpcat');
+  if (!sel) return;
+  if (libUploadCats().some(c => c.key === libCat)) {
+    sel.value = libCat;
+    try { localStorage.setItem('wx-lib-upcat', libCat); } catch (e) { /* 忽略 */ }
+  }
+}
+async function libMovePaths(paths, catKey) {
+  const P = (paths || []).filter(p => p && !String(p).startsWith('/videos/'));
+  if (!P.length) return;
+  if (!catKey || !libUploadCats().some(c => c.key === catKey)) {
+    toast('这个分类不能作为搬运目标', true);
+    return;
+  }
+  const r = await apiPost('/api/gallery/batch', { op: 'move', paths: P, category: catKey });
+  if (!r.ok) { toast(r.msg || '移动失败', true); return; }
+  const moved = (r.results || []).filter(x => x.ok);
+  if (moved.length === 1 && moved[0].newPath) libSel = moved[0].newPath;
+  await loadLibrary();
+  renderLibrary();
+  toast('已把 ' + moved.length + ' 张搬到「' + libCatLabel(catKey) + '」');
+}
 async function loadLibrary() {
   const res = await api('/api/gallery');
   libFiles = (res && res.files) || [];
@@ -1076,46 +1203,92 @@ function filteredLib() {
 }
 function renderLibrary() {
   const body = $('panelBody');
-  const list = filteredLib();
+  const list = libSorted(filteredLib());
   const cats = (libCats && libCats.length) ? libCats
     : ['avatar', 'sticker', 'emoji', 'bg', 'asset', 'icon'].map(k => ({ key: k, label: libCatLabel(k) }));
+  const cnt = key => key === '' ? libFiles.length : libFiles.filter(f => f.category === key).length;
   body.innerHTML =
     '<div class="lib-toolbar">' +
       '<input id="libSearch" placeholder="搜索文件名/命名…" value="' + esc(libQuery) + '">' +
-      '<select id="libUpcat" title="上传的图片存入哪个分类">' +
-        ['avatar', 'sticker', 'emoji', 'bg', 'asset'].map(k =>
-          '<option value="' + esc(k) + '">存到 · ' + esc(libCatLabel(k)) + '</option>').join('') +
+      '<select id="libSort" title="列表排序方式">' +
+        [['new', '⇅ 最新在前'], ['old', '⇅ 最早在前'], ['name', '⇅ 按名称'], ['size', '⇅ 按体积']].map(o =>
+          '<option value="' + o[0] + '"' + (o[0] === libSort ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
+      '</select>' +
+      '<select id="libUpcat" title="上传的图片存入哪个分类（拖进来也存这里）">' +
+        libUploadCats().map(c => {
+          let saved = 'asset';
+          try { saved = localStorage.getItem('wx-lib-upcat') || 'asset'; } catch (e) { /* 忽略 */ }
+          return '<option value="' + esc(c.key) + '"' + (c.key === saved ? ' selected' : '') + '>存到 · ' + esc(c.label) + '</option>';
+        }).join('') +
       '</select>' +
       '<button id="libUpload" class="primary">⬆ 上传图片</button>' +
+      '<button id="libCatMgr" title="给分类改名，或新建自己的分类">⚙ 分类</button>' +
     '</div>' +
     '<div class="lib-typebar">' +
-      '<span class="lib-typebtn' + (libCat === '' ? ' on' : '') + '" data-cat="">全部</span>' +
-      cats.map(c => '<span class="lib-typebtn' + (libCat === c.key ? ' on' : '') + '" data-cat="' + esc(c.key) + '">' + esc(c.label) + '</span>').join('') +
+      '<span class="lib-typebtn' + (libCat === '' ? ' on' : '') + '" data-cat="">全部<span style="margin-left:5px;font-size:10px;opacity:.75;background:rgba(127,127,127,.18);border-radius:999px;padding:0 5px">' + cnt('') + '</span></span>' +
+      cats.map(c => '<span class="lib-typebtn' + (libCat === c.key ? ' on' : '') + '" data-cat="' + esc(c.key) + '">' + esc(c.label) +
+        '<span style="margin-left:5px;font-size:10px;opacity:.75;background:rgba(127,127,127,.18);border-radius:999px;padding:0 5px">' + cnt(c.key) + '</span></span>').join('') +
     '</div>' +
+    '<div class="hint" style="margin:0 0 8px">💡 把图片拖到本面板任意位置即可上传；把缩略图拖到分类按钮上＝把这张图搬过去。</div>' +
     '<div class="lib-grid">' +
-      (list.length ? list.map(f => {
+      (list.length ? libSorted(list).map(f => {
         const sel = f.path === libSel ? ' sel' : '';
         const tag = libCatLabel(f.category);
         const tagCls = f.category === 'icon' ? 'tag-icon' : 'tag-image';
-        return '<div class="lib-item' + sel + '" data-path="' + esc(f.path) + '">' +
-          '<div class="lib-thumb"><img src="' + esc(f.path) + '" onerror="this.style.opacity=.25">' +
+        return '<div class="lib-item' + sel + '" data-path="' + esc(f.path) + '" draggable="true" title="' + esc(f.path) + '">' +
+          '<div class="lib-thumb"><img src="' + esc(f.path) + '" draggable="false" onerror="this.style.opacity=.25">' +
           '<span class="tag ' + tagCls + '">' + tag + '</span></div>' +
           '<span class="lib-name" title="' + esc(f.name) + '">' + esc(f.label || f.name) + '</span></div>';
-      }).join('') : '<div class="lib-empty">没有图片。点「⬆ 上传图片」或用「直接拖入」。</div>') +
+      }).join('') : '<div class="lib-empty">这里还没有图片。把图片拖到本面板任意位置即可上传（存进上面选的分类），或点「⬆ 上传图片」。</div>') +
     '</div>' +
     '<div class="lib-detail" id="libDetail"></div>';
 
+  libSyncUpcat();
   $('libSearch').oninput = e => { libQuery = e.target.value; renderLibrary(); };
+  const sortSel = $('libSort');
+  if (sortSel) sortSel.onchange = e => {
+    libSort = e.target.value;
+    try { localStorage.setItem('wx-lib-sort', libSort); } catch (err) { /* 忽略 */ }
+    renderLibrary();
+  };
   body.querySelectorAll('.lib-typebtn').forEach(btn => {
-    btn.onclick = () => { libCat = btn.getAttribute('data-cat') || ''; renderLibrary(); };
+    const key = btn.getAttribute('data-cat') || '';
+    btn.onclick = () => {
+      libCat = key;
+      try { localStorage.setItem('wx-lib-cat', key); } catch (e) { /* 忽略 */ }
+      libSyncUpcat();
+      renderLibrary();
+    };
+    btn.addEventListener('dragover', e => {
+      if (!libDragPaths.length) return;
+      e.preventDefault(); e.stopPropagation();
+      btn.classList.add('drop');
+    });
+    btn.addEventListener('dragleave', () => btn.classList.remove('drop'));
+    btn.addEventListener('drop', e => {
+      if (!libDragPaths.length) return;
+      e.preventDefault(); e.stopPropagation();
+      btn.classList.remove('drop');
+      const paths = libDragPaths.slice();
+      libDragPaths = [];
+      libMovePaths(paths, key);
+    });
   });
+  const mgr = $('libCatMgr');
+  if (mgr) mgr.onclick = () => {
+    if (window.__wxPick && typeof window.__wxPick.openCategoryManager === 'function') {
+      window.__wxPick.openCategoryManager();
+    } else toast('分类管理组件还没加载好，请刷新页面再试', true);
+  };
+  bindLibDrop(body);
+  bindLibItems(body);
   $('libUpload').onclick = () => {
     const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true;
     inp.accept = 'image/png,image/jpeg,image/gif,image/webp,image/bmp';
     inp.onchange = async () => {
       if (!inp.files.length) return;
       toast('上传中…');
-      const cat = ($('libUpcat') && $('libUpcat').value) || '';
+      const cat = libTargetCat();
       let last = '';
       for (const f of Array.from(inp.files)) {
         const reader = new FileReader();
@@ -1123,6 +1296,8 @@ function renderLibrary() {
         const res = await apiPost('/api/upload-image', { data, name: f.name, category: cat });
         if (res.ok) last = res.path;
       }
+      libCat = cat;                       // 传完自动切到目标分类，立刻看到刚传的
+      try { localStorage.setItem('wx-lib-cat', cat); } catch (e) { /* 忽略 */ }
       await loadLibrary();
       if (last) libSel = last;
       renderLibrary();
@@ -1130,11 +1305,73 @@ function renderLibrary() {
     };
     inp.click();
   };
-  body.querySelectorAll('.lib-item').forEach(el => {
-    el.onclick = () => { libSel = el.getAttribute('data-path'); renderLibrary(); };
-    el.ondblclick = () => { libSel = el.getAttribute('data-path'); window.open(libSel, '_blank'); };
-  });
   renderLibDetail();
+}
+
+/* 缩略图：点选 / 双击放大 / 拖到分类按钮上搬家 */
+function bindLibItems(body) {
+  body.querySelectorAll('.lib-item').forEach(el => {
+    const path = el.getAttribute('data-path') || '';
+    el.addEventListener('dragstart', (e) => {
+      libDragPaths = [path];
+      el.style.opacity = '.45';
+      try {
+        e.dataTransfer.setData('text/plain', path);
+        e.dataTransfer.effectAllowed = 'move';
+      } catch (err) { /* 忽略 */ }
+    });
+    el.addEventListener('dragend', () => { libDragPaths = []; el.style.opacity = ''; });
+    el.onclick = () => { libSel = path; renderLibrary(); };
+    el.ondblclick = () => { if (path) window.open(path, '_blank'); };
+  });
+}
+
+/* 整个面板都是「拖图上传」的落点 */
+function bindLibDrop(body) {
+  if (!body || body.__wxDropBound) return;
+  body.__wxDropBound = true;
+  let depth = 0;
+  const isFileDrag = e => !libDragPaths.length && e.dataTransfer &&
+    Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0;
+  body.addEventListener('dragenter', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); depth++;
+    body.classList.add('drop');
+  });
+  body.addEventListener('dragover', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (err) { /* 忽略 */ }
+  });
+  body.addEventListener('dragleave', e => {
+    if (!isFileDrag(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (!depth) body.classList.remove('drop');
+  });
+  body.addEventListener('drop', async e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    depth = 0;
+    body.classList.remove('drop');
+    const files = Array.from(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : []);
+    if (!files.length) return;
+    toast('上传中…');
+    const cat = libTargetCat();
+    let last = '', fail = 0;
+    for (const f2 of files) {
+      if (f2.size > 10 * 1024 * 1024) { fail++; continue; }
+      const reader = new FileReader();
+      const data = await new Promise(r => { reader.onload = () => r(reader.result); reader.readAsDataURL(f2); });
+      const res = await apiPost('/api/upload-image', { data, name: f2.name, category: cat });
+      if (res.ok) last = res.path; else fail++;
+    }
+    libCat = cat;
+    try { localStorage.setItem('wx-lib-cat', cat); } catch (err) { /* 忽略 */ }
+    await loadLibrary();
+    if (last) libSel = last;
+    renderLibrary();
+    toast('上传完成' + (fail ? '（' + fail + ' 个失败/超限）' : ''));
+  });
 }
 
 function renderLibDetail() {
@@ -1149,6 +1386,10 @@ function renderLibDetail() {
       '<button id="libCopy">📋 复制路径</button>' +
       '<button id="libLabel">✏️ 命名</button>' +
       '<button id="libRename">🔤 改文件名</button>' +
+      '<select id="libMove" title="移动到指定分类（自动更新剧本/场景里的引用）">' +
+        '<option value="">📂 移动到分类…</option>' +
+        libUploadCats().map(c => '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>').join('') +
+      '</select>' +
       '<button id="libDel" class="danger">🗑 删除</button>' +
     '</div>' +
     '<div class="lib-rename-row" id="libRenameRow" style="display:none">' +
@@ -1278,6 +1519,35 @@ async function init() {
 
 window.addEventListener('beforeunload', () => { if (pollTimer) clearInterval(pollTimer); });
 document.addEventListener('DOMContentLoaded', init);
+
+/* ---------- 说明性 hint 折叠成小问号（空状态/警告/含控件的保留） ---------- */
+const HINT_KEEP = ['还没有', '先在上方', '这套方案还没有', '⚠', '加载失败', '请确认'];
+function compressHints(root) {
+  (root || document).querySelectorAll('.hint').forEach(h => {
+    if (h.querySelector('.hint-q')) return;
+    if (h.querySelector('button, input, select, textarea, video, a')) return;
+    const t = (h.textContent || '').trim();
+    if (!t || HINT_KEEP.some(k => t.includes(k))) return;
+    if (t.length < 12) return;
+    h.classList.add('compacted');
+    const q = document.createElement('button');
+    q.type = 'button';
+    q.className = 'hint-q';
+    q.title = '点开查看说明';
+    const body = document.createElement('div');
+    body.className = 'hint-body';
+    while (h.firstChild) body.appendChild(h.firstChild);
+    h.appendChild(q);
+    h.appendChild(body);
+    q.onclick = (e) => { e.stopPropagation(); h.classList.toggle('open'); };
+  });
+}
+let _hintObsT = null;
+new MutationObserver(() => {
+  if (_hintObsT) clearTimeout(_hintObsT);
+  _hintObsT = setTimeout(() => compressHints(document.body), 120);
+}).observe(document.body, { childList: true, subtree: true });
+compressHints(document.body);
 </script>
 
 <script>
@@ -1304,5 +1574,99 @@ document.addEventListener('DOMContentLoaded', init);
 })();
 </script>
 <script src="/shared_picker.js"></script>
+<script>
+/* 图片库与选图器共用同一份分类数据：分类被改名/新增后，把本页图库一并刷新 */
+(function () {
+  if (!window.__wxPick) return;
+  window.__wxPick.onCategoriesChanged = function () {
+    if (panelTab !== 'library') return;
+    loadLibrary().then(function () { renderLibrary(); }).catch(function () { /* 静默 */ });
+  };
+})();
+</script>
+<style id="qtTipsStyle">
+/* 悬停问号提示 */
+.qt-host { position: relative; }
+.qt-badge {
+  position: absolute; top: 0; right: 2px;
+  color: #b3b9c2; font-size: 10px; line-height: 1.1; font-style: normal;
+  font-weight: 400; pointer-events: none; opacity: .55;
+}
+.qt-host:hover .qt-badge { color: #8a919c; opacity: .85; }
+.qt-pop {
+  position: fixed; z-index: 99999; max-width: 300px;
+  background: #23272e; color: #e8eaee; font-size: 12px; line-height: 1.75;
+  padding: 7px 11px; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  pointer-events: none; opacity: 0; transition: opacity .12s ease;
+}
+.qt-pop.show { opacity: 1; }
+</style>
+<script id="qtTipsJs">
+(function () {
+  var VOID_TAGS = { INPUT: 1, SELECT: 1, TEXTAREA: 1, IMG: 1, BR: 1 };
+  var DYN_IDS = ['libSort', 'libUpcat', 'libMove', 'libCatMgr'];
+  function ensureBadge(el) {
+    if (VOID_TAGS[el.tagName]) return;
+    if (!el.querySelector(':scope > .qt-badge')) {
+      var b = document.createElement('i');
+      b.className = 'qt-badge'; b.textContent = '?';
+      el.appendChild(b);
+    }
+  }
+  function decorate(el) {
+    if (!el || !el.classList) return;
+    el.classList.add('qt-host');
+    ensureBadge(el);
+  }
+  function adoptTitles() {
+    DYN_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.hasAttribute('title') && !el.hasAttribute('data-tip')) {
+        el.setAttribute('data-tip', el.getAttribute('title'));
+        el.removeAttribute('title');
+      }
+    });
+  }
+  function scan() {
+    adoptTitles();
+    document.querySelectorAll('[data-tip]').forEach(decorate);
+  }
+  scan();
+  var moT = null;
+  new MutationObserver(function () {
+    clearTimeout(moT); moT = setTimeout(scan, 80);
+  }).observe(document.body, { childList: true, subtree: true });
+  var pop = null, cur = null;
+  function ensure() {
+    if (!pop) { pop = document.createElement('div'); pop.className = 'qt-pop'; document.body.appendChild(pop); }
+    return pop;
+  }
+  function place(host) {
+    var tip = host.getAttribute('data-tip'); if (!tip) return false;
+    var p = ensure(); p.textContent = tip;
+    var r = host.getBoundingClientRect();
+    var pw = p.offsetWidth, ph = p.offsetHeight;
+    var x = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 8);
+    var y = r.bottom + 7;
+    if (y + ph > window.innerHeight - 8) y = r.top - ph - 7;
+    p.style.left = x + 'px'; p.style.top = Math.max(8, y) + 'px';
+    return true;
+  }
+  function show(host) { if (place(host)) { ensure().classList.add('show'); cur = host; } }
+  function hide() { if (pop) pop.classList.remove('show'); cur = null; }
+  document.addEventListener('mouseover', function (e) {
+    var h = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (h !== cur) { h ? show(h) : hide(); }
+  });
+  document.addEventListener('click', hide);
+  window.addEventListener('scroll', function () {
+    if (cur && document.contains(cur) && cur.getBoundingClientRect().height > 0) place(cur);
+    else hide();
+  }, true);
+  window.addEventListener('resize', hide);
+})();
+</script>
+
 </body>
 </html>

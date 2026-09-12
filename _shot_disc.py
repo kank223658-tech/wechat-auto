@@ -21,13 +21,13 @@ REF = os.path.join(BASE, "参考图片", "朋友圈制作视频", "发现页面.
 CSS_ORDER = [
     "harmony_font.css", "keyboard.css", "iphone_frame.css", "weui_tokens.css",
     "wechat_modern.css", "human_actions.css", "transfer_ui.css",
-    "send_image_ui.css", "peer_pages.css", "video_player.css",
+    "send_image_ui.css", "peer_pages.css", "block_ui.css", "video_player.css",
     "homepage_exact.css", "wx_icons.css", "moments_exact.css", "discover_exact.css",
 ]
 JS_ORDER = [
     "config.js", "chat_extra.js", "moments_extra.js", "iphone_frame.js",
     "wxemoji_map.js", "emoji_map.js", "transfer_ui.js", "send_image_ui.js",
-    "video_player.js", "peer_pages.js",
+    "video_player.js", "peer_pages.js", "block_ui.js",
 ]
 
 

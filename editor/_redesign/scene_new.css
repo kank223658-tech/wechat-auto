@@ -171,7 +171,7 @@
 
   /* ---- 朋友圈 ---- */
   .moments { position: absolute; left: 0; top: 149px; width: 600px; bottom: 0; background: #111; overflow-y: auto; }
-  .m-cover { height: 240px; background: url('/images/bg/cover.jpg') center/cover no-repeat; position: relative; }
+  .m-cover { height: 240px; background: url('/images/peer/peer_cover.jpg') center/cover no-repeat; position: relative; }
   .m-cover::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,.30) 0%, rgba(0,0,0,.05) 40%, rgba(0,0,0,.38) 100%); }
   .m-cover .me { position: absolute; right: 14px; bottom: -26px; width: 70px; height: 70px; border-radius: 8px; border: 2px solid #111; object-fit: cover; background: #2c2c2e; }
   .m-cover .me-name { position: absolute; right: 94px; bottom: 6px; color: #fff; font-weight: 600; font-size: 16px; text-shadow: 0 1px 3px #000; }

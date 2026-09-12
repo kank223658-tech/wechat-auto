@@ -1092,7 +1092,7 @@ button {
   display: grid;
   grid-template-columns: minmax(340px, 5fr) minmax(0, 6fr);
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .script-input-col,
@@ -1244,14 +1244,26 @@ button {
   box-shadow: 0 0 0 1px var(--accent), 0 8px 20px rgba(10, 172, 95, 0.1);
 }
 
-/* 图片消息步骤：绿色高亮便于区分（发图片/图片消息） */
+/* 需要配图的步骤：琥珀色 = 待配图，绿色 = 已配图 */
 .script-step.img {
+  border-color: var(--amber-line);
+  background: var(--amber-soft);
+  box-shadow: 0 4px 14px rgba(214, 148, 32, 0.10);
+}
+.script-step.img .ss-index { background: rgba(233, 162, 59, 0.20); color: #a5650a; }
+.script-step.img .ss-title { color: #8a5306; }
+.script-step.img.filled {
   border-color: var(--green-line);
-  background: rgba(10, 172, 95, 0.07);
+  background: rgba(10, 172, 95, 0.06);
   box-shadow: 0 4px 14px rgba(10, 172, 95, 0.08);
 }
-.script-step.img .ss-index { background: var(--green-soft); color: #0a8a4f; }
-.script-step.img .ss-title { color: #0a7a4a; }
+.script-step.img.filled .ss-index { background: var(--green-soft); color: #0a8a4f; }
+.script-step.img.filled .ss-title { color: #0a7a4a; }
+.script-step .ss-need {
+  flex: none; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: rgba(233, 162, 59, 0.18); color: #a5650a; border: 1px solid var(--amber-line);
+}
+.script-step .ss-need.ok { background: var(--green-soft); color: #0a8a4f; border-color: var(--green-line); }
 
 .script-step .ss-index {
   flex: none;
@@ -2443,6 +2455,29 @@ button {
   .live-typebar { border-color: rgba(255, 255, 255, 0.08); }
   .edit-pop { border-color: rgba(255, 255, 255, 0.14); }
   .phone-screen { border-color: #26282e; }
+
+/* ---------- 帮助问号（?）与说明浮层 ---------- */
+.hq-wrap { position: relative; display: inline-flex; }
+.hq {
+  flex: none; width: 18px; height: 18px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--panel-2);
+  color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1; cursor: help;
+}
+.hq:hover { color: var(--accent); border-color: var(--accent-border); background: var(--panel-3); }
+.hq-pop {
+  position: absolute; top: 26px; left: 0; z-index: 80;
+  width: min(600px, 86vw); max-height: 68vh; overflow: auto; padding: 12px 14px;
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--panel); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22); color: var(--text);
+}
+.hq-pop .script-tips { margin: 0; padding-left: 16px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+
+/* ---------- 脚本模式：左右等高，输入区撑满 ---------- */
+.script-input-col { display: flex; flex-direction: column; min-width: 0; }
+.script-input-col > .script-card { flex: 1; display: flex; flex-direction: column; }
+.script-input-col .script-textarea { flex: 1; min-height: 380px; }
+.script-result-col > .script-card { flex: 1; display: flex; flex-direction: column; }
+.script-result-col .script-preview { flex: 1; }
 </style>
 </head>
 <body>
@@ -2457,20 +2492,20 @@ button {
       </div>
 
       <div class="view-switch" role="tablist">
-        <button type="button" class="view-btn active" id="btnViewFlow" role="tab">工作流编辑</button>
-        <button type="button" class="view-btn" id="btnViewScript" role="tab">脚本模式</button>
-        <button type="button" class="view-btn" id="btnViewGenerate" role="tab">✨ 创作</button>
+        <button type="button" class="view-btn active" id="btnViewFlow" data-tip="可视化搭建工作流：从左侧动作库添加步骤、编辑参数，运行后生成视频" role="tab">工作流编辑</button>
+        <button type="button" class="view-btn" id="btnViewScript" data-tip="剧本模式：粘贴或书写剧本，用 AI / 离线转译成工作流步骤再运行" role="tab">脚本模式</button>
+        <button type="button" class="view-btn" id="btnViewGenerate" data-tip="创作模式：只给一个主题，AI 自动生成完整剧本并可校验纠错" role="tab">✨ 创作</button>
       </div>
 
       <div class="menu-wrap" id="fileMenuWrap">
-        <button type="button" class="btn small menu-btn" id="btnFileMenu">文件<i class="caret">▾</i></button>
+        <button type="button" class="btn small menu-btn" id="btnFileMenu" data-tip="文件菜单：新建 / 载入 / 保存 / 导入 / 导出工作流">文件<i class="caret">▾</i></button>
         <div class="menu">
-          <button type="button" class="btn small menu-item" id="btnNew">新建流程</button>
-          <button type="button" class="btn small menu-item" id="btnLoad">载入流程</button>
-          <button type="button" class="btn small menu-item" id="btnSave">保存流程</button>
+          <button type="button" class="btn small menu-item" id="btnNew" data-tip="清空画布，从零开始搭新工作流（未保存的内容会丢失）">新建流程</button>
+          <button type="button" class="btn small menu-item" id="btnLoad" data-tip="载入之前保存的工作流文件">载入流程</button>
+          <button type="button" class="btn small menu-item" id="btnSave" data-tip="把当前工作流保存为 JSON 文件">保存流程</button>
           <div class="menu-sep"></div>
-          <button type="button" class="btn small menu-item" id="btnImport">导入 JSON…</button>
-          <button type="button" class="btn small menu-item" id="btnExport">导出 JSON…</button>
+          <button type="button" class="btn small menu-item" id="btnImport" data-tip="导入工作流 JSON 或剧本文件">导入 JSON…</button>
+          <button type="button" class="btn small menu-item" id="btnExport" data-tip="把当前工作流导出为 JSON 文件备份">导出 JSON…</button>
         </div>
       </div>
       <input type="file" id="fileInput" class="sr-only" accept=".json,application/json">
@@ -2480,24 +2515,24 @@ button {
       <div class="spacer"></div>
 
       <div class="toolbar-group">
-        <button type="button" class="btn small" id="btnScene" title="打开独立的场景编辑器：可放大、点选即改联系人/消息/朋友圈，一键生成工作流">🎬 场景</button>
-        <button type="button" class="btn small" id="btnConcurrent" title="并发生产：一次导入多条剧本，各自解析/配图后同时跑批出片">⚡ 并发</button>
-        <button type="button" class="btn small" id="btnManual" title="打开离线使用手册：所有功能的书写格式与用法，支持搜索">📖 手册</button>
+        <button type="button" class="btn small" id="btnScene" data-tip="打开独立的场景编辑器：可放大、点选即改联系人/消息/朋友圈，一键生成工作流">🎬 场景</button>
+        <button type="button" class="btn small" id="btnConcurrent" data-tip="并发生产：一次导入多条剧本，各自解析/配图后同时跑批出片">⚡ 并发</button>
+        <button type="button" class="btn small" id="btnManual" data-tip="打开离线使用手册：所有功能的书写格式与用法，支持搜索">📖 手册</button>
       </div>
 
       <div class="menu-wrap" id="toolMenuWrap">
-        <button type="button" class="btn small menu-btn" id="btnToolMenu">工具<i class="caret">▾</i></button>
+        <button type="button" class="btn small menu-btn" id="btnToolMenu" data-tip="工具菜单：编辑模式、实时画面、截图、打开视频目录">工具<i class="caret">▾</i></button>
         <div class="menu">
-          <button type="button" class="btn small menu-item" id="btnEditMode" title="进入编辑模式：实时画面可点击操作（进聊天/切页），并可直接点选元素修改文字、头像、背景">✏️ 编辑模式</button>
-          <button type="button" class="btn small menu-item" id="btnLive">📱 实时画面</button>
-          <button type="button" class="btn small menu-item" id="btnShot">📷 截图预览</button>
-          <button type="button" class="btn small menu-item" id="btnVideos">📂 视频目录</button>
+          <button type="button" class="btn small menu-item" id="btnEditMode" data-tip="进入编辑模式：实时画面可点击操作（进聊天/切页），并可直接点选元素修改文字、头像、背景">✏️ 编辑模式</button>
+          <button type="button" class="btn small menu-item" id="btnLive" data-tip="在页面角落打开实时手机画面，观看当前运行效果">📱 实时画面</button>
+          <button type="button" class="btn small menu-item" id="btnShot" data-tip="截取当前真实渲染器画面并保存为图片">📷 截图预览</button>
+          <button type="button" class="btn small menu-item" id="btnVideos" data-tip="打开生成视频所在的文件夹">📂 视频目录</button>
         </div>
       </div>
 
       <span class="status-pill" id="statusPill">就绪</span>
-      <button type="button" class="btn small danger" id="btnStop" disabled>停止</button>
-      <button type="button" class="btn primary" id="btnRun">▶ 运行并生成视频</button>
+      <button type="button" class="btn small danger" id="btnStop" data-tip="停止当前正在运行的任务" disabled>停止</button>
+      <button type="button" class="btn primary" id="btnRun" data-tip="按当前工作流从第一步运行，生成视频">▶ 运行并生成视频</button>
       <span class="save-state" id="saveState">本地已保存</span>
     </header>
 
@@ -2521,9 +2556,11 @@ button {
             <span class="stat-chip">当前 <b id="selectedInfo">无</b></span>
           </div>
           <div class="board-actions">
-            <button type="button" class="btn small" id="btnDuplicate" disabled>复制步骤</button>
-            <button type="button" class="btn small danger" id="btnDelete" disabled>删除步骤</button>
-            <button type="button" class="btn small primary-soft" id="btnRunFrom" title="从当前选中的步骤开始运行，用于快速试跑">▶ 从当前步骤运行</button>
+            <button type="button" class="btn small" id="btnUndo" data-tip="撤销上一步操作 (Ctrl+Z)" disabled>↶ 撤销</button>
+            <button type="button" class="btn small" id="btnRedo" data-tip="重做 (Ctrl+Y 或 Ctrl+Shift+Z)" disabled>↷ 重做</button>
+            <button type="button" class="btn small" id="btnDuplicate" data-tip="复制当前选中的步骤（含全部参数）" disabled>复制步骤</button>
+            <button type="button" class="btn small danger" id="btnDelete" data-tip="删除当前选中的步骤" disabled>删除步骤</button>
+            <button type="button" class="btn small primary-soft" id="btnRunFrom" data-tip="从当前选中的步骤开始运行，用于快速试跑">▶ 从当前步骤运行</button>
           </div>
         </div>
         <div class="visual-wrap">
@@ -2542,7 +2579,7 @@ button {
           <span class="script-sub">粘贴剧本 → AI 转译补全 → 预览确认 → 一键运行录屏</span>
           <span class="spacer"></span>
           <span class="llm-status" id="llmStatus">未配置大模型</span>
-          <button type="button" class="btn small" id="btnLlmConfig" title="配置 DeepSeek API Key（只存本地 settings.json）">⚙ 配置大模型</button>
+          <button type="button" class="btn small" id="btnLlmConfig" data-tip="配置 DeepSeek API Key（只存本地 settings.json）">⚙ 配置大模型</button>
         </div>
 
         <div class="script-layout">
@@ -2550,22 +2587,21 @@ button {
             <div class="script-card">
               <div class="script-card-title">剧本文本
                 <span class="script-sub">支持标准格式，也支持松散自然语言</span>
+                <span class="hq-wrap"><button type="button" class="hq" data-help="#scriptHelpSrc" title="使用说明">?</button></span>
               </div>
               <textarea id="scriptInput" class="script-textarea" spellcheck="false"
-                placeholder="在这里粘贴剧本，例如：&#10;&#10;[回到聊天主页]&#10;[等待] 0.5&#10;[打开聊天] 小明&#10;[等待] 0.8&#10;[我方打字] 在吗，晚上的方案改好了发你&#10;[等待] 0.5&#10;[对方正在输入] 1.2&#10;[对方发消息] 好的，辛苦啦&#10;&#10;也可以直接写自然语言：&#10;我和孙权聊了下周聚餐，他说周三有空，我回复好的到时候见。"></textarea>
+                placeholder="在这里粘贴剧本，例如：&#10;&#10;[回到聊天主页]&#10;[等待] 0.5&#10;[打开聊天] 小明&#10;[等待] 0.8&#10;[我方打字] 在吗，晚上的方案改好了发你&#10;[等待] 0.5&#10;[对方正在输入] 1.2&#10;[对方发消息] 好的，辛苦啦&#10;&#10;也可以直接写自然语言：&#10;我和小明聊了下周聚餐，他说周三有空，我回复好的到时候见。"></textarea>
               <div class="script-toolbar">
-                <button type="button" class="btn primary" id="btnTranslate" title="调用 DeepSeek V4 Flash 翻译并补全仿真动作">🤖 AI 转译剧本</button>
-                <button type="button" class="btn" id="btnOffline" title="不调用大模型，直接按标准格式解析">⚙ 离线解析</button>
-                <button type="button" class="btn" id="btnInsertImg" title="在剧本里插入一条图片消息：转译后会成为一个待配图的卡槽，运行时可点「上传图片」按顺序配图">🖼 插入图片消息</button>
-                <button type="button" class="btn" id="btnInsertHistory" title="在剧本里插入一段「历史会话块」：写会话名+人名+对白，转译后自动变成一条 [编辑主页]，进聊天前消息已存在">📜 插入历史会话</button>
+                <button type="button" class="btn primary" id="btnTranslate" data-tip="调用 DeepSeek V4 Flash 翻译并补全仿真动作">🤖 AI 转译剧本</button>
+                <button type="button" class="btn" id="btnOffline" data-tip="不调用大模型，直接按标准格式解析">⚙ 离线解析</button>
+                <button type="button" class="btn" id="btnInsertImg" data-tip="在剧本里插入一条图片消息：转译后会成为一个待配图的卡槽，运行时可点「上传图片」按顺序配图">🖼 插入图片消息</button>
+                <button type="button" class="btn" id="btnInsertHistory" data-tip="在剧本里插入一段「历史会话块」：写会话名+人名+对白，转译后自动变成一条 [编辑主页]，进聊天前消息已存在">📜 插入历史会话</button>
                 <span class="spacer"></span>
-                <button type="button" class="btn small ghost" id="btnLoadExample">载入示例</button>
-                <button type="button" class="btn small ghost" id="btnClearScript">清空</button>
+                <button type="button" class="btn small ghost" id="btnLoadExample" data-tip="载入一份示例剧本，快速了解书写格式">载入示例</button>
+                <button type="button" class="btn small ghost" id="btnClearScript" data-tip="清空剧本输入框（不可恢复）">清空</button>
               </div>
             </div>
-            <div class="script-card hint-card">
-              <div class="script-card-title">使用说明</div>
-              <ol class="script-tips">
+            <div class="hq-src" id="scriptHelpSrc" hidden><ol class="script-tips">
                 <li>先点「配置大模型」填入你的 DeepSeek API Key（只存本机 settings.json，不回显）。</li>
                 <li>粘贴剧本后点「AI 转译剧本」：大模型会补全前置动作、等待、对方正在输入等仿真细节，并为名单外的联系人自动生成会话列表。</li>
                 <li>转译结果在右侧逐条预览，可上移/下移/删除，点卡片可编辑参数；确认无误后点「运行并生成视频」。</li>
@@ -2574,8 +2610,7 @@ button {
                 <li>要配图时：点「🖼 插入图片消息」，或在剧本里写一条「[对方发图片] [图片] 描述」（想让你发就写「[发送图片]」）。转译后它会成为一个「待配图」卡槽；运行时在确认框点「📤 上传图片（按顺序）」即可按图1、图2 顺序配上图片。</li>
                 <li>要给某个聊天写「历史记录」（进聊天前已存在的消息）：最省事是点顶部「🎬 场景编辑器」，在会话的「消息」tab 逐条添加后保存，再在剧本开头加一步「[应用场景] scene.json」；或直接在剧本里用「[编辑主页]」，在数据数组的每个会话里写 messages，每条含 dir（me 我方 / peer 对方）、kind（text 文字 / image 图片 / voice 语音）、text 内容、time 时间（可省）——「me 我」显示右侧绿色气泡，「peer 对方」显示左侧白气泡。</li>
                 <li>更省事的写法：用「段落」历史会话块，把会话名、人名、对白直接写进剧本，系统自动转成 [编辑主页]，无需手写 JSON。格式：<code>[历史会话]</code> 开头，<code>[会话] 联系人名</code> 切分多个会话，下面每行一条「说话人：内容」，消息可用 <code>[图片]</code> / <code>[语音]</code>（可带秒数如 <code>[语音] 5秒</code>）标记，最后 <code>[历史会话结束]</code> 收尾；历史块之后照常写你的动作剧本即可。</li>
-              </ol>
-            </div>
+              </ol></div>
           </div>
 
           <div class="script-result-col">
@@ -2584,7 +2619,8 @@ button {
                 <span>转译结果</span>
                 <span class="script-sub" id="scriptStats">0 步</span>
                 <span class="spacer"></span>
-                <button type="button" class="btn primary" id="btnRunScript" title="按当前步骤列表运行并生成视频">▶ 运行并生成视频</button>
+                <button type="button" class="btn small" id="btnMoments" data-tip="编辑朋友圈内容，并决定进朋友圈后打开哪张图 / 哪个视频、各看多久">🍩 朋友圈</button>
+                <button type="button" class="btn primary" id="btnRunScript" data-tip="按当前步骤列表运行并生成视频">▶ 运行并生成视频</button>
               </div>
               <div class="script-warnings" id="scriptWarnings" hidden></div>
               <div class="script-preview" id="scriptPreview">
@@ -2620,6 +2656,7 @@ button {
             <div class="create-card">
               <div class="create-card-title">创作主题
                 <span class="create-sub">一句话说清这段聊天教学要求</span>
+                <span class="hq-wrap"><button type="button" class="hq" data-help="#createHelpSrc" title="使用说明">?</button></span>
               </div>
               <textarea id="genBrief" class="create-textarea" spellcheck="false"
                 placeholder="例如：女生说加班好累，怎么共情安慰，再拉升情绪，最后自然邀约吃饭。"></textarea>
@@ -2638,12 +2675,19 @@ button {
                 <div class="empty-script">加载中…</div>
               </div>
 
+              <div class="script-card-title" style="margin-top:8px">剧情大纲（两段式·推荐）
+                <span class="create-sub">先出大纲你把关改好，再展开成剧本；留空=跳过大纲直接生成</span>
+              </div>
+              <textarea id="genOutline" class="create-textarea" style="min-height:110px" spellcheck="false"
+                placeholder="点「📝 生成大纲」让 AI 先设计剧情（人物/钩子/转折/画面运用），你在下面改到满意，再点「✨ 生成剧本」按大纲展开。也可以直接手写大纲。"></textarea>
+
               <div class="create-toolbar">
-                <button type="button" class="btn primary" id="btnGenerate" title="调用大模型生成完整剧本并自动校验纠错">✨ 生成剧本</button>
-                <button type="button" class="btn" id="btnGenRefreshRefs" title="重新读取参考剧本库">刷新参考</button>
-                <button type="button" class="btn small ghost" id="btnGenClearRefs" title="取消所有已勾选的参考剧本">清空选择</button>
+                <button type="button" class="btn" id="btnGenOutline" data-tip="第一步：只生成剧情大纲给你把关，不出剧本">📝 生成大纲</button>
+                <button type="button" class="btn primary" id="btnGenerate" data-tip="调用大模型生成完整剧本并自动校验纠错；有大纲时严格按大纲展开">✨ 生成剧本</button>
+                <button type="button" class="btn" id="btnGenRefreshRefs" data-tip="重新读取参考剧本库">刷新参考</button>
+                <button type="button" class="btn small ghost" id="btnGenClearRefs" data-tip="取消所有已勾选的参考剧本">清空选择</button>
                 <span class="spacer"></span>
-                <button type="button" class="btn small ghost" id="btnGenAddRef" title="把粘贴的剧本文本加入参考剧本库">存为参考</button>
+                <button type="button" class="btn small ghost" id="btnGenAddRef" data-tip="把粘贴的剧本文本加入参考剧本库">存为参考</button>
               </div>
               <div class="script-card-title" style="margin-top:8px">新增参考剧本
                 <span class="create-sub">粘贴一段标准 [指令] 剧本；标题留空会自动按内容生成</span>
@@ -2654,17 +2698,15 @@ button {
                 placeholder="粘贴你要参考的剧本…"></textarea>
             </div>
 
-            <div class="create-card hint-card">
-              <div class="script-card-title">使用说明</div>
-              <ol class="script-tips">
+            <div class="hq-src" id="createHelpSrc" hidden><ol class="script-tips">
                 <li>生成需要先把顶部「配置大模型」填入 DeepSeek API Key。</li>
                 <li>填好创作主题，勾选 1~2 个最贴近的参考剧本，点「生成剧本」（或按 Ctrl+Enter）；大模型会按参考剧本的结构与手法产出完整剧本，并自动做格式/完整性校验与自我纠错。</li>
+                <li>推荐两段式：先点「📝 生成大纲」，AI 只出剧情设计（人物/钩子/转折/画面运用规划），你在大纲框里改到满意后再生剧本 —— 有大纲时 AI 严格按大纲展开，剧情和画面运用会明显更好。</li>
                 <li>中间会显示绿/黄/红三色校验报告、生成文本与步骤预览；点「✓ 使用到脚本模式」即可在脚本模式里编辑、配图、一键运行录屏。</li>
                 <li>每次生成都会自动存进右侧「历史生成」：可搜索、载入回看、复制或删除；打分后历史条目上会显示星级，刷新页面也不丢。</li>
                 <li>主题、人物类别和勾选的参考剧本会记在本地，刷新后自动恢复。</li>
                 <li>运行看完后，在「评价本次创作」给 1~5 星并留言，系统会沉淀为长期偏好，下次生成自动参考，越写越好。</li>
-              </ol>
-            </div>
+              </ol></div>
           </div>
 
           <div class="create-col">
@@ -2672,9 +2714,9 @@ button {
               <div class="create-card-title">
                 <span>生成结果</span>
                 <span class="spacer"></span>
-                <button type="button" class="btn small ghost" id="btnGenCopy" title="复制生成文本" disabled>复制</button>
-                <button type="button" class="btn small ghost" id="btnGenRegen" title="用当前主题重新生成一版" disabled>重新生成</button>
-                <button type="button" class="btn primary" id="btnGenUse" title="把这份剧本用到脚本模式里编辑与运行" disabled>✓ 使用到脚本模式</button>
+                <button type="button" class="btn small ghost" id="btnGenCopy" data-tip="复制生成文本" disabled>复制</button>
+                <button type="button" class="btn small ghost" id="btnGenRegen" data-tip="用当前主题重新生成一版" disabled>重新生成</button>
+                <button type="button" class="btn primary" id="btnGenUse" data-tip="把这份剧本用到脚本模式里编辑与运行" disabled>✓ 使用到脚本模式</button>
               </div>
               <div class="gen-progress" id="genProgress" hidden></div>
               <div class="gen-report" id="genReport"></div>
@@ -2700,7 +2742,7 @@ button {
                 <textarea id="genComment" class="create-textarea" style="min-height:60px" spellcheck="false"
                   placeholder="说说什么好、哪里不足（提交后会拆成可校验的规则，你确认后生效）…"></textarea>
                 <div class="create-toolbar">
-                  <button type="button" class="btn primary" id="btnGenFeedback">提交评价</button>
+                  <button type="button" class="btn primary" id="btnGenFeedback" data-tip="对这次生成结果不满意？提交反馈，帮助改进生成规则库">提交评价</button>
                   <span class="create-sub" id="genFeedbackHint"></span>
                 </div>
                 <div class="gen-candidates" id="genCandidates" hidden></div>
@@ -2714,8 +2756,8 @@ button {
                 <span>规则库（评价沉淀）</span>
                 <span class="create-sub" id="genSkillCount">0 条</span>
                 <span class="spacer"></span>
-                <button type="button" class="btn small ghost" id="btnGenSkillAdd" title="手动新增一条规则">＋ 新增</button>
-                <button type="button" class="btn small ghost" id="btnGenSkillRefresh" title="重新读取规则库">刷新</button>
+                <button type="button" class="btn small ghost" id="btnGenSkillAdd" data-tip="手动新增一条规则">＋ 新增</button>
+                <button type="button" class="btn small ghost" id="btnGenSkillRefresh" data-tip="重新读取规则库">刷新</button>
               </div>
               <div class="create-sub" style="margin-bottom:6px;line-height:1.5">
                 勾选启用后，生成时既写进提示词，也会被逐条校验；「命中」表示它拦下过多少次违规。
@@ -2737,8 +2779,8 @@ button {
                 <span>历史生成</span>
                 <span class="create-sub" id="genHistoryCount">0 条</span>
                 <span class="spacer"></span>
-                <button type="button" class="btn small ghost" id="btnGenHistoryRefresh" title="重新读取生成历史">刷新</button>
-                <button type="button" class="btn small ghost" id="btnGenHistoryClear" title="清空全部生成历史">清空</button>
+                <button type="button" class="btn small ghost" id="btnGenHistoryRefresh" data-tip="重新读取生成历史">刷新</button>
+                <button type="button" class="btn small ghost" id="btnGenHistoryClear" data-tip="清空全部生成历史">清空</button>
               </div>
               <input id="genHistorySearch" class="gen-select" type="search"
                      placeholder="搜索创作主题 / 参考剧本…" spellcheck="false">
@@ -2773,8 +2815,8 @@ button {
       <div class="field">
         <label>模型</label>
         <select id="llmModel">
-          <option value="deepseek-v4.1-flash-expires-on-0910">deepseek-v4.1-flash-expires-on-0910（推荐）</option>
-          <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+          <option value="deepseek-flash">deepseek-flash（推荐）</option>
+          <option value="deepseek-v4-pro">deepseek-v4-pro</option>
           <option value="deepseek-chat">deepseek-chat</option>
           <option value="deepseek-reasoner">deepseek-reasoner</option>
         </select>
@@ -2831,7 +2873,7 @@ button {
         <div class="run-image-head">
           <span class="run-image-status" id="runImageStatus"></span>
           <span class="spacer"></span>
-          <button type="button" class="btn small" id="btnRunUpload" title="按「图1、图2、…」顺序上传，选 N 张填 N 个槽">📤 上传图片（按顺序）</button>
+          <button type="button" class="btn small" id="btnRunUpload" data-tip="按「图1、图2、…」顺序上传，选 N 张填 N 个槽">📤 上传图片（按顺序）</button>
         </div>
         <div class="run-image-list" id="runImageList"></div>
       </div>
@@ -2875,8 +2917,8 @@ button {
       <span id="liveTitle">实时手机画面</span>
       <span class="spacer"></span>
       <span class="live-modes" id="liveModes" hidden>
-        <button type="button" class="mode-btn active" id="modeTap" title="点击画面 = 点击手机屏幕（进聊天、切页面）">👆 操作</button>
-        <button type="button" class="mode-btn" id="modePick" title="点击画面 = 选中元素，弹出修改框">✎ 编辑</button>
+        <button type="button" class="mode-btn active" id="modeTap" data-tip="点击画面 = 点击手机屏幕（进聊天、切页面）">👆 操作</button>
+        <button type="button" class="mode-btn" id="modePick" data-tip="点击画面 = 选中元素，弹出修改框">✎ 编辑</button>
       </span>
       <button type="button" class="live-close" id="btnLiveClose" title="关闭">×</button>
     </div>
@@ -2935,6 +2977,7 @@ button {
     let dirty = false;
     let liveTimer = null;        // 实时画面轮询定时器
     let liveHasFrame = false;    // 是否已收到过一帧真实画面
+    let liveFails = 0;           // 连续取帧失败次数（连续失败多次自动暂停轮询，别空转打死端口）
     let editActive = false;      // 编辑模式进程是否在运行
     let pickMode = false;        // false=操作（点击转发给手机） true=编辑（点击选元素）
     let editInfo = null;         // 当前正在编辑的元素信息
@@ -3137,6 +3180,11 @@ button {
             '<span class="action-main"><span class="action-name">' + esc(a.action) + '</span><span class="action-desc">' + esc(a.desc || "") + '</span></span>' +
             '<span class="action-add">＋</span>';
           btn.onclick = () => addStep(a.action);
+          btn.draggable = true;
+          btn.addEventListener("dragstart", (event) => {
+            event.dataTransfer.effectAllowed = "copy";
+            event.dataTransfer.setData("text/plain", "palette:" + a.action);
+          });
           el.appendChild(btn);
         });
       });
@@ -3154,13 +3202,15 @@ button {
       $("btnDuplicate").disabled = selected < 0 || selected >= workflow.steps.length;
       $("btnDelete").disabled = selected < 0 || selected >= workflow.steps.length;
       $("btnRunFrom").disabled = selected < 0 || selected >= workflow.steps.length;
+      if ($("btnUndo")) $("btnUndo").disabled = !undoStack.length;
+      if ($("btnRedo")) $("btnRedo").disabled = !redoStack.length;
 
       if (!workflow.steps.length) {
         el.innerHTML =
           '<div class="empty-board"><div class="empty-board-inner">' +
           '<div class="empty-board-icon">🎬</div>' +
           '<h3>把动作拖成一条可视化流程</h3>' +
-          '<p>从左侧动作库点击添加步骤；中间卡片就是流程本体，可上下移动、复制、删除，右侧编辑每个动作参数。</p>' +
+          '<p>从左侧动作库点击添加步骤（新步骤会插到当前选中步骤之后）；也可直接把动作<b>拖拽</b>到流程的任意位置。支持 Ctrl+Z 撤销、Delete 删除选中、Ctrl+D 复制。</p>' +
           '</div></div>';
         el.ondragover = null;
         el.ondrop = null;
@@ -3214,12 +3264,12 @@ button {
 
         card.addEventListener("dragover", (event) => {
           event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
         });
 
         card.addEventListener("drop", (event) => {
           event.preventDefault();
           const raw = event.dataTransfer.getData("text/plain");
+          if (raw && raw.startsWith("palette:")) { addStep(raw.slice(8), index); return; }
           const from = Number(raw);
           if (!Number.isInteger(from)) return;
           moveStep(from, index);
@@ -3243,6 +3293,7 @@ button {
       el.ondrop = (event) => {
         event.preventDefault();
         const raw = event.dataTransfer.getData("text/plain");
+        if (raw && raw.startsWith("palette:")) { addStep(raw.slice(8)); return; }
         const from = Number(raw);
         if (!Number.isInteger(from)) return;
         moveStep(from, workflow.steps.length);
@@ -3323,6 +3374,7 @@ button {
         if (p.placeholder) ctrl.placeholder = p.placeholder;
 
         const commit = () => {
+          pushUndoThrottled();
           step.params[p.key] = ctrl.value;
           renderCanvas();
           renderPropsOverviewOnly();
@@ -3388,23 +3440,66 @@ button {
         '<div class="progress" title="流程完成度"><i style="width:' + progress + '%"></i></div>';
     }
 
+    /* ================= 撤销 / 重做 ================= */
+    const undoStack = [];
+    const redoStack = [];
+    function snapshot() {
+      return JSON.stringify({ steps: workflow.steps, selected });
+    }
+    function pushUndo() {
+      undoStack.push(snapshot());
+      if (undoStack.length > 100) undoStack.shift();
+      redoStack.length = 0;
+    }
+    let _lastSnapAt = 0;
+    function pushUndoThrottled() {
+      const now = Date.now();
+      if (now - _lastSnapAt > 1200) { pushUndo(); _lastSnapAt = now; }
+    }
+    function restoreSnapshot(snap) {
+      const data = JSON.parse(snap);
+      workflow.steps = data.steps;
+      selected = Math.max(-1, Math.min(data.selected, workflow.steps.length - 1));
+      renderCanvas();
+      renderProps();
+      markDirty();
+      saveLocalDebounced();
+    }
+    function undo() {
+      if (!undoStack.length) return;
+      redoStack.push(snapshot());
+      restoreSnapshot(undoStack.pop());
+    }
+    function redo() {
+      if (!redoStack.length) return;
+      undoStack.push(snapshot());
+      restoreSnapshot(redoStack.pop());
+    }
+
     /* ================= 步骤操作 ================= */
-    function addStep(action) {
+    function addStep(action, atIndex) {
       const def = getDef(action);
       const params = {};
       (def.params || []).forEach((p) => {
         params[p.key] = p.default !== undefined ? p.default : "";
       });
-      workflow.steps.push({ action, params });
-      selected = workflow.steps.length - 1;
+      const at = Number.isInteger(atIndex)
+        ? Math.max(0, Math.min(workflow.steps.length, atIndex))
+        : (selected >= 0 && selected < workflow.steps.length ? selected + 1 : workflow.steps.length);
+      pushUndo();
+      workflow.steps.splice(at, 0, { action, params });
+      selected = at;
       renderCanvas();
       renderProps();
+      const node = $("flowCanvas").querySelector('.step-node[data-index="' + at + '"]');
+      if (node && node.scrollIntoView) node.scrollIntoView({ block: "nearest" });
       markDirty();
       saveLocalDebounced();
     }
 
     function removeStep(index) {
       if (index < 0 || index >= workflow.steps.length) return;
+      pushUndo();
       workflow.steps.splice(index, 1);
       if (selected >= workflow.steps.length) selected = workflow.steps.length - 1;
       if (selected === index) selected = -1;
@@ -3421,6 +3516,7 @@ button {
       if (from === to || from === to - 1) {
         selected = to > from ? to - 1 : to;
       } else {
+        pushUndo();
         const [step] = workflow.steps.splice(from, 1);
         workflow.steps.splice(to, 0, step);
         selected = to > from ? to - 1 : to;
@@ -3434,6 +3530,7 @@ button {
     function duplicateStep(index) {
       if (index < 0 || index >= workflow.steps.length) return;
       const copy = clone(workflow.steps[index]);
+      pushUndo();
       workflow.steps.splice(index + 1, 0, copy);
       selected = index + 1;
       renderCanvas();
@@ -3451,11 +3548,13 @@ button {
         $("liveModes").hidden = false;
         $("liveTypebar").hidden = false;
         $("liveTitle").textContent = "编辑模式 · 实时画面";
+        startLivePolling();
       } else {
         $("liveEmpty").textContent = "运行工作流后<br>这里会实时显示手机画面";
-        $("liveTip").textContent = "点击「运行并生成视频」，画面随执行自动刷新；可点「从当前步骤运行」快速试跑。";
+        $("liveTip").textContent = "只有「编辑模式」提供实时画面；普通运行是无头录屏，结束后直接出视频。";
+        $("liveDot").className = "live-dot";
+        // 非编辑模式不去轮询 /api/live：8001 没监听，只会空转报「正在连接」误导用户。
       }
-      startLivePolling();
     }
 
     function closeLivePanel() {
@@ -3466,6 +3565,7 @@ button {
     function startLivePolling() {
       stopLivePolling();
       liveHasFrame = false;
+      liveFails = 0;
       $("liveDot").className = "live-dot on";
       $("liveTitle").textContent = "实时手机画面 · LIVE";
       tickLiveFrame();
@@ -3476,6 +3576,7 @@ button {
       const img = $("liveImg");
       img.onload = () => {
         liveHasFrame = true;
+        liveFails = 0;
         img.classList.remove("loading");
         $("liveEmpty").style.display = "none";
       };
@@ -3484,6 +3585,15 @@ button {
         if (!liveHasFrame) {
           $("liveEmpty").textContent = editActive ? "正在连接编辑模式画面…" : "正在连接画面…";
           $("liveEmpty").style.display = "grid";
+        }
+        // 连续失败（画面服务没在跑）→ 自动暂停轮询，避免每 350ms 空打一次
+        if (++liveFails >= 12) {
+          stopLivePolling();
+          if (!liveHasFrame) {
+            $("liveEmpty").textContent = "画面服务没有响应，已暂停自动刷新。请确认编辑模式是否在运行。";
+            $("liveEmpty").style.display = "grid";
+          }
+          log("实时画面连续无响应，已暂停自动刷新；重新打开面板可重试。", "warn");
         }
       };
       // 仅在还没收到任何一帧时显示半透明等待态。
@@ -3506,8 +3616,8 @@ button {
     /* ================= 编辑模式：点击画面操作 / 修改元素 ================= */
     const KIND_META = {
       text:      { label: "文字内容", prop: "text", hint: "直接修改这段文字。聊天列表昵称/最后一条消息会同步到数据，切换页面不丢失。" },
-      image:     { label: "图片路径", prop: "src", hint: "如 /images/header/sunquan.jpg，图片放在 vue-WeChat/public/images 下" },
-      bg:        { label: "背景图路径", prop: "bg", hint: "如 /images/bg/bg02.jpg" },
+      image:     { label: "图片路径", prop: "src", hint: "如 /images/avatar/2_20260831_184618_874.jpg，图片放在 vue-WeChat/public/images 下" },
+      bg:        { label: "背景图路径", prop: "bg", hint: "如 /images/avatar/IMG_0491_20260903_144508_035.png" },
       me_avatar: { label: "我的头像", prop: "me_avatar", hint: "全局同步：头像在所有位置一起变" },
       me_name:   { label: "我的昵称", prop: "me_name", hint: "全局同步：主页/通讯录/朋友圈一起变" },
       me_bg:     { label: "朋友圈封面", prop: "me_bg", hint: "全局同步：朋友圈封面一起变" },
@@ -4036,10 +4146,64 @@ button {
       _runPreviewModal.style.display = "flex";
     }
 
+    /* ---- 表情槽自动填充 ----
+       表情步骤参数还是关键词（如「猫咪翻白眼」「喵星人01」）时，按图库「表情包」
+       分类的展示名解析成真图并回填槽位与步骤参数——确认框/配图清单一打开就有图，
+       不是空的。只搜表情包分类（/api/emoji_lookup），不碰微信小黄脸语义；
+       解析不到保持原样（运行时还有兜底链路）。 */
+    let _emojiFillBusy = false;
+    function _writeEmojiPath(slot, p) {
+      if (!p || !slot || !slot.step) return;
+      if (typeof slot.setPath === "function") { slot.setPath(p); return; }
+      const params = slot.step.params || (slot.step.params = {});
+      let k = slot.imgKey || "表情";
+      // 表情步骤若只有 图片 key（AI 手写）就沿用 图片，避免空 表情 顶掉真值
+      if (k === "表情" && params["表情"] === undefined && params["图片"] !== undefined) k = "图片";
+      params[k] = p;
+    }
+    async function autoFillEmojiSlots() {
+      if (_emojiFillBusy) return;
+      const todo = (imageSlots || []).filter((s) => s.emoji && !s.path && !s._fillTried && !s._filling && s.desc);
+      if (!todo.length) return;
+      _emojiFillBusy = true;
+      todo.forEach((s) => { s._filling = true; });
+      try {
+        const names = Array.from(new Set(todo.map((s) => String(s.desc).trim())));
+        const hit = {};
+        await Promise.all(names.map(async (n) => {
+          try {
+            const r = await api("/api/emoji_lookup?name=" + encodeURIComponent(n));
+            hit[n] = (r && r.path) || "";
+          } catch (err) { hit[n] = ""; }
+        }));
+        let changed = false;
+        todo.forEach((s) => {
+          s._fillTried = true; s._filling = false;
+          const kw = String(s.desc).trim();
+          const p = hit[kw] || "";
+          if (p && p.startsWith("/images/")) {
+            s.path = p;
+            _writeEmojiPath(s, p);
+            changed = true;
+          }
+        });
+        if (changed) {
+          // 弹窗清单与配图清单两边都要刷新（哪个开着刷哪个，都开着都刷）
+          if (window.__wxPick && typeof window.__wxPick.setSlotsState === "function") {
+            try { window.__wxPick.setSlotsState(imageSlots); } catch (err) { /* 忽略 */ }
+          }
+          refreshRunImageList();
+        }
+      } finally {
+        _emojiFillBusy = false;
+      }
+    }
+
     function refreshRunImageList() {
       const list = $("runImageList");
       const statusEl = $("runImageStatus");
       if (!list) return;
+      autoFillEmojiSlots();
       if (!imageSlots.length) {
         statusEl.textContent = "🖼 剧本里没有需要配图的图片消息";
         list.innerHTML = '<div class="run-image-empty">如需图片，可先到左侧步骤卡片点 🖼，把某条消息转成图片。</div>';
@@ -4052,38 +4216,14 @@ button {
       list.innerHTML = imageSlots.map((s, i) => {
         const isAct = !!(s.step && ["对方发图片", "发送图片"].includes(s.step.action));
         const isAuto = !!(s.autoplayable);
-        const capable = isAct || isAuto;
-        const params = (s.step && s.step.params) || {};
-        const mode = isAuto ? _openMode(s.open) : _openMode(params["打开"]);
-        const hold = isAuto
-          ? ((s.openHold === undefined || s.openHold === null || s.openHold === "") ? "" : s.openHold)
-          : ((params["停留"] === undefined || params["停留"] === null || params["停留"] === "") ? "" : params["停留"]);
-        const focusVal = isAuto ? s.openFocus : params["焦点"];
-        const focus = _parseFocusParam(focusVal);
-        const focusLabel = focus ? (focus.x.toFixed(2) + ", " + focus.y.toFixed(2)) : "居中";
-        const zoomVal = isAuto ? _zoomStr(s.openZoom) : _zoomStr(params["放大倍率"]);
+        const capable = isAct || isAuto || !!s.openable;
+        // 「打开动画」编辑器与配图清单共用一套（shared_picker.renderOpenOptsInto）：
+        // 分段开关选模式 + 滑杆调倍率/停留 + 点小图设放大中心点。
         const optsHtml = capable
-          ? '<div class="rum-opts" style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:10px;align-items:center;color:var(--muted);font-size:12px;">' +
-              '<label style="display:inline-flex;align-items:center;gap:4px;">打开 ' +
-                '<select class="rum-openmode" data-i="' + i + '" style="background:var(--field);color:var(--text);border:1px solid var(--line-strong);border-radius:5px;padding:2px 4px;">' +
-                  '<option value=""' + (mode === "none" ? " selected" : "") + '>不打开</option>' +
-                  '<option value="只点开"' + (mode === "view" ? " selected" : "") + '>只点开(不放大)</option>' +
-                  '<option value="是"' + (mode === "zoom" ? " selected" : "") + '>点开并放大</option>' +
-                '</select>' +
-              '</label>' +
-              '<label style="display:inline-flex;align-items:center;gap:4px;">倍率 ' +
-                '<input type="number" class="rum-zoom" data-i="' + i + '" value="' + esc(zoomVal) + '" min="1" max="4.5" step="0.1" style="width:58px;background:var(--field);color:var(--text);border:1px solid var(--line-strong);border-radius:5px;padding:2px 4px;">' +
-              '</label>' +
-              '<label style="display:inline-flex;align-items:center;gap:4px;">停留 ' +
-                '<input type="number" class="rum-hold" data-i="' + i + '" value="' + esc(hold) + '" min="0" step="0.1" style="width:58px;background:var(--field);color:var(--text);border:1px solid var(--line-strong);border-radius:5px;padding:2px 4px;">' +
-              '</label>' +
-              '<button type="button" class="rum-focus" data-i="' + i + '" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line-strong);border-radius:5px;padding:2px 8px;cursor:pointer;">放大：' + esc(focusLabel) + '</button>' +
-              '<button type="button" class="rum-preview" data-i="' + i + '" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line-strong);border-radius:5px;padding:2px 8px;cursor:pointer;" title="预览点开效果">预览</button>' +
-              '<span style="opacity:.55;">点缩略图可设放大点</span>' +
-            '</div>'
+          ? '<span class="rum-openhost" data-i="' + i + '"></span>'
           : "";
         return '<div class="run-image-item">' +
-          '<span class="rum-thumb' + (s.path ? "" : " missing") + '"' + (capable ? ' style="cursor:crosshair;" data-i="' + i + '" title="点击设置放大位置"' : '') + '>' +
+          '<span class="rum-thumb' + (s.path ? "" : " missing") + '">' +
             (s.path ? '<img src="' + esc(s.path) + '" onerror="this.style.opacity=.25">' : "未配图") +
           '</span>' +
           '<span class="rum-info"><b>' + esc(s.no || ("图" + (i + 1))) + '</b>' + esc(s.desc || "") + '</span>' +
@@ -4102,23 +4242,11 @@ button {
           });
         };
       });
-      list.querySelectorAll(".rum-openmode").forEach((sel) => {
-        sel.onchange = () => { setSlotOpenMode(imageSlots[Number(sel.dataset.i)], sel.value); };
-      });
-      list.querySelectorAll(".rum-zoom").forEach((inp) => {
-        inp.onchange = () => { setSlotZoom(imageSlots[Number(inp.dataset.i)], inp.value); };
-      });
-      list.querySelectorAll(".rum-hold").forEach((inp) => {
-        inp.onchange = () => { setSlotHold(imageSlots[Number(inp.dataset.i)], inp.value); };
-      });
-      list.querySelectorAll(".rum-focus").forEach((btn) => {
-        btn.onclick = () => { openRunFocusPicker(imageSlots[Number(btn.dataset.i)]); };
-      });
-      list.querySelectorAll(".rum-preview").forEach((btn) => {
-        btn.onclick = () => { openRunZoomPreview(imageSlots[Number(btn.dataset.i)]); };
-      });
-      list.querySelectorAll(".rum-thumb[data-i]").forEach((th) => {
-        th.onclick = () => { openRunFocusPicker(imageSlots[Number(th.dataset.i)]); };
+      list.querySelectorAll(".rum-openhost").forEach((h) => {
+        const slot = imageSlots[Number(h.dataset.i)];
+        if (slot && window.__wxPick && window.__wxPick.renderOpenOptsInto) {
+          window.__wxPick.renderOpenOptsInto(h, slot);
+        }
       });
     }
 
@@ -4261,6 +4389,14 @@ button {
           const status = await api("/api/status");
           if (status.running) {
             setStatus("运行中...", true);
+          } else if (status.crashed) {
+            // 程序启动即崩：明确报错 + 指向日志，而不是把崩溃伪装成「就绪」
+            setStatus("程序异常退出（退出码 " + status.exit_code + "）", false);
+            clearInterval(polling);
+            polling = null;
+            stopLivePolling();
+            log("程序异常退出（退出码 " + status.exit_code + "），不是没点上。原因见下方运行日志最后几行；"
+                + "常见原因：素材文件缺失、端口被占用、workflow 数据不合法。", "err");
           } else {
             setStatus(status.video ? "完成 ✓ " + status.video : "就绪", false);
             clearInterval(polling);
@@ -4406,7 +4542,7 @@ button {
     function openLlmModal() {
       $("llmModal").hidden = false;
       $("llmApiKey").value = "";
-      $("llmModel").value = "deepseek-v4.1-flash-expires-on-0910";
+      $("llmModel").value = "deepseek-flash";
       $("llmBaseUrl").value = "https://api.deepseek.com";
       $("llmApiKey").focus();
     }
@@ -4417,7 +4553,7 @@ button {
 
     async function saveLlmConfig() {
       const apiKey = $("llmApiKey").value.trim();
-      const model = $("llmModel").value.trim() || "deepseek-v4.1-flash-expires-on-0910";
+      const model = $("llmModel").value.trim() || "deepseek-flash";
       const baseUrl = $("llmBaseUrl").value.trim() || "https://api.deepseek.com";
       try {
         await api("/api/llm/config", {
@@ -4451,6 +4587,11 @@ button {
     }
     // 判断某步骤是否属于「图片消息」类（发图片/查看图片，或带图片参数/标记），
     // 用于在预览列表里给这类步骤高亮区分。
+    /* 图片参数是否已配真实图（占位描述/关键词不算已配） */
+    function imgPathFilled(v) {
+      const t = String(v == null ? "" : v).trim();
+      return !!t && (t.startsWith("/") || /^https?:/i.test(t));
+    }
     function isImageStep(step) {
       if (!step || typeof step !== "object") return false;
       const params = step.params || {};
@@ -4567,7 +4708,16 @@ button {
                   desc: (m.text || m.image || conv.name || "图片消息"),
                   path: (m.image || "").trim(),
                   autoplayable: true,
-                  setPath: (p) => { m.image = p; }
+                  onOptsChange: persistSlotParams,
+                  setPath: (p) => { m.image = p; },
+                  get open() { return m.open || ""; },
+                  set open(v) { m.open = v || ""; },
+                  get openHold() { return (m.openHold === undefined || m.openHold === null || m.openHold === "") ? "" : m.openHold; },
+                  set openHold(v) { m.openHold = v; },
+                  get openFocus() { return m.openFocus || ""; },
+                  set openFocus(v) { m.openFocus = v; },
+                  get openZoom() { return m.openZoom || ""; },
+                  set openZoom(v) { m.openZoom = v || ""; }
                 });
               } else if (m.kind === "emoji") {
                 // 表情贴纸消息：历史会话块里 [表情] 消息的 image 是表情图路径（可能是已解析
@@ -4602,9 +4752,38 @@ button {
         } else {
           return;
         }
-        slots.push({ id: "wf_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step });
+        slots.push(_withStepOpenAccessors({ id: "wf_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step }, persistSlotParams));
       });
       return slots;
+    }
+
+    /* 运行时支持「打开动画」的图片动作：主程序对这两个动作解析 打开/停留/焦点/放大倍率 参数。
+       （查看图片 不算——它运行时默认就是打开，参数缺省即"是"，放进下拉会误导） */
+    const _openableImgActions = new Set(["发送图片", "对方发图片"]);
+    /* 给步骤类图片槽位挂「打开动画」读写访问器：
+       open/openHold/openFocus/openZoom 全部透传到 step.params（打开/停留/焦点/放大倍率），
+       供 shared_picker 配图清单与运行确认弹窗共用同一套控件逻辑。 */
+    function _withStepOpenAccessors(slot, onChange) {
+      const step = slot.step;
+      if (!step || !_openableImgActions.has(step.action)) return slot;
+      const get = (k) => {
+        const v = (step.params || {})[k];
+        return (v === undefined || v === null) ? "" : String(v);
+      };
+      const set = (k, v) => {
+        if (!step.params) step.params = {};
+        if (v === "") delete step.params[k];
+        else step.params[k] = v;
+      };
+      Object.defineProperties(slot, {
+        open:      { get: () => get("打开"),     set: (v) => set("打开", v) },
+        openHold:  { get: () => get("停留"),     set: (v) => set("停留", v) },
+        openFocus: { get: () => get("焦点"),     set: (v) => set("焦点", v) },
+        openZoom:  { get: () => get("放大倍率"), set: (v) => set("放大倍率", v) },
+      });
+      slot.openable = true;
+      slot.onOptsChange = typeof onChange === "function" ? onChange : () => { renderScriptPreview(); saveScriptDraft(); };
+      return slot;
     }
 
     function syncImageAttach() {
@@ -4629,7 +4808,7 @@ button {
           const desc = (md !== null ? md : _imgDesc(params["内容"] || params["文案"] || "")) || "图片消息";
           if (path) step.params["图片"] = path;
           prevByStep.set(step, path);
-          imageSlots.push({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: path, step });
+          imageSlots.push(_withStepOpenAccessors({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: path, step }));
           return;
         }
         // 情况一b：表情动作（发送表情/对方表情）——参数存的是表情关键词；
@@ -4670,7 +4849,7 @@ button {
             step.action = target;
             step.params = { 图片: prev, 内容: desc };
             prevByStep.set(step, prev);
-            imageSlots.push({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: prev, step });
+            imageSlots.push(_withStepOpenAccessors({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: prev, step }));
             return;
           }
         }
@@ -4781,6 +4960,8 @@ button {
           saveScriptDraft();
         });
       }
+      // 表情关键词槽自动按图库标签配真图，配图清单一打开就有缩略图
+      autoFillEmojiSlots();
     }
 
     /* ---- 转译 ---- */
@@ -4817,12 +4998,186 @@ button {
         const warnCount = (res.warnings || []).length;
         log("转译完成（" + srcLabel + "），共 " + scriptSteps.length + " 步。" +
             (warnCount ? " 有 " + warnCount + " 条提示，见右侧横幅。" : ""), "ok");
+        maybeOfferMoments(text);
       } catch (err) {
         log("转译失败：" + err.message, "err");
       } finally {
         btn.disabled = false;
         btn.textContent = oldText;
       }
+    }
+
+    /* ================= 朋友圈设置（解析后自动弹出） =================
+       解析结果里只要出现「进入朋友圈 / 进入对方朋友圈」（或剧本文字里提到朋友圈），
+       就自动弹出朋友圈编辑面板：编内容 + 给每张图/每个视频定「打开后看多久」。
+       应用时写回 scene.json，并在流程里生成/更新一段朋友圈演示段。 */
+    let momentsPanelBusy = false;
+
+    /* 从场景里找出「对方朋友圈」当前生效的那份数据，并给出写回位置的闭包。
+       规则与 editor_server._build_scene_workflow 保持一致：
+         scene.peers[]（多人物 × 多方案）优先 → scene.peer（旧格式）。 */
+    function resolvePeerSlot(scene) {
+      if (!scene || typeof scene !== "object") return null;
+      const peers = Array.isArray(scene.peers) ? scene.peers : [];
+      for (let i = 0; i < peers.length; i++) {
+        const pp = peers[i];
+        if (!pp || typeof pp !== "object") continue;
+        const plans = (pp.plans && typeof pp.plans === "object") ? pp.plans : {};
+        const keys = Object.keys(plans);
+        const key = (pp.activePlan && plans[pp.activePlan]) ? pp.activePlan : keys[0];
+        const plan = key ? plans[key] : null;
+        if (plan && typeof plan === "object" && Object.keys(plan).length) {
+          return {
+            data: plan,
+            write: function (next) {
+              plans[key] = next;
+              if (scene.peer && typeof scene.peer === "object") {
+                for (const k of Object.keys(scene.peer)) delete scene.peer[k];
+                Object.assign(scene.peer, next);
+              }
+            }
+          };
+        }
+      }
+      if (scene.peer && typeof scene.peer === "object" && Object.keys(scene.peer).length) {
+        return { data: scene.peer, write: function (next) { scene.peer = next; } };
+      }
+      return null;
+    }
+
+    /* 打开朋友圈设置面板。tab: "me" | "peer" */
+    async function openMomentsPanel(tab) {
+      const M = window.__wxMomentsEditor;
+      if (!M) { log("朋友圈设置模块没加载成功（moments_editor.js）。", "err"); return; }
+      if (momentsPanelBusy) return;
+      momentsPanelBusy = true;
+      let scene = {};
+      try { scene = await api("/api/scene"); } catch (err) { scene = {}; }
+      momentsPanelBusy = false;
+      if (!scene || typeof scene !== "object") scene = {};
+      const slot = resolvePeerSlot(scene);
+      M.open({
+        tab: tab === "peer" ? "peer" : "me",
+        me: Array.isArray(scene.moments) ? scene.moments : [],
+        peer: slot ? slot.data : null,
+        onApply: function (res) { applyMomentsResult(res); }
+      });
+    }
+
+    /* ---- 把面板结果落盘：scene.json + 流程步骤 ---- */
+    async function applyMomentsResult(res) {
+      // ---- 1) 写回 scene.json（场景编辑器里也能看到同一份朋友圈） ----
+      let scene = {};
+      try { scene = await api("/api/scene"); } catch (err) { scene = {}; }
+      if (!scene || typeof scene !== "object") scene = {};
+      if (Array.isArray(res.me)) scene.moments = res.me;
+      if (res.peer && typeof res.peer === "object") {
+        const slot = resolvePeerSlot(scene);
+        if (slot) slot.write(res.peer);
+        else scene.peer = res.peer;
+      }
+      try {
+        const saved = await api("/api/scene", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(scene)
+        });
+        if (!saved || !saved.ok) log(saved && saved.msg ? saved.msg : "场景保存失败。", "err");
+      } catch (err) {
+        log("场景保存失败：" + err.message, "err");
+      }
+      // ---- 2) 更新流程步骤 ----
+      const stat = applyMomentsToSteps(res);
+      scriptSelected = -1;
+      scriptEditIndex = -1;
+      $("scriptEditArea").hidden = true;
+      renderScriptPreview();
+      saveScriptDraft();
+      const n = (res.demo && res.demo.me ? res.demo.me.length : 0) +
+                (res.demo && res.demo.peer ? res.demo.peer.length : 0);
+      log("朋友圈已保存。" + (n ? "流程里新增/更新了 " + n + " 步朋友圈演示（进入 → 滚动 → 打开）" +
+          (stat.removed ? "，替换掉旧的 " + stat.removed + " 步。" : "。") : "（没勾选要打开的内容，未加演示步骤）"), "ok");
+    }
+
+    /* 把内容步骤与「朋友圈演示段」写进 scriptSteps：
+       · 内容步骤（编辑朋友圈 / 编辑对方资料）就地更新，没有就插到流程最前（数据要先进场景）；
+       · 演示段整段重建，位置 = 原演示段所在处 / 原朋友圈动作段所在处 / 末尾；
+       · res.takeover 为真时，把流程里原有的朋友圈动作段（进入朋友圈 / 向下滚动 /
+         点开图片 / 播放视频…这串）整体替换掉，避免「解析自带一段 + 面板再来一段」重复两遍。 */
+    function applyMomentsToSteps(res) {
+      const M = window.__wxMomentsEditor;
+      const TAG = (M && M.STEP_TAG) || "_wxm";
+      const tagged = function (s) { return !!(s && s[TAG]); };
+
+      // 「朋友圈动作段」的成员：解析器自己产出的朋友圈相关动作
+      const NAV = ["进入朋友圈", "进入对方朋友圈", "向下滚动", "向上滚动", "滚动到", "点开图片", "播放视频"];
+
+      let insertAt = scriptSteps.findIndex(tagged);
+      let legacyFrom = -1, legacyTo = -1;
+      if (insertAt < 0 && res.takeover !== false) {
+        // 找第一段「进入朋友圈 / 进入对方朋友圈」，向两侧吞掉相邻的朋友圈动作
+        const start = scriptSteps.findIndex(function (s) {
+          return s && !tagged(s) && (s.action === "进入朋友圈" || s.action === "进入对方朋友圈");
+        });
+        if (start >= 0) {
+          let a = start, b = start;
+          while (a - 1 >= 0 && NAV.indexOf(scriptSteps[a - 1].action) >= 0) a--;
+          while (b + 1 < scriptSteps.length && NAV.indexOf(scriptSteps[b + 1].action) >= 0) b++;
+          legacyFrom = a; legacyTo = b;
+          insertAt = a;
+        }
+      }
+      if (insertAt < 0) insertAt = scriptSteps.length;
+
+      const removedBefore = scriptSteps.slice(0, insertAt).filter(tagged).length;
+      let removed = scriptSteps.filter(tagged).length;
+
+      // 内容步骤：就地更新，或记下来统一前插
+      const needFront = [];
+      const setData = function (action, data) {
+        const idx = scriptSteps.findIndex(function (s) { return s && s.action === action && !tagged(s); });
+        if (idx >= 0) {
+          if (!scriptSteps[idx].params || typeof scriptSteps[idx].params !== "object") scriptSteps[idx].params = {};
+          scriptSteps[idx].params["数据"] = data;
+          return;
+        }
+        needFront.push({ action: action, params: { 数据: data } });
+      };
+      if (Array.isArray(res.me) && res.me.length) setData("编辑朋友圈", res.me);
+      if (res.peer && Array.isArray(res.peer.posts) && res.peer.posts.length) setData("编辑对方资料", res.peer);
+
+      // 移除旧的演示段 / 原有的朋友圈动作段
+      if (legacyFrom >= 0) {
+        removed += legacyTo - legacyFrom + 1;
+        scriptSteps.splice(legacyFrom, legacyTo - legacyFrom + 1);
+      }
+      for (let i = scriptSteps.length - 1; i >= 0; i--) if (tagged(scriptSteps[i])) scriptSteps.splice(i, 1);
+      // 前插内容步骤
+      if (needFront.length) {
+        scriptSteps.unshift.apply(scriptSteps, needFront);
+        insertAt += needFront.length;
+      }
+      insertAt -= removedBefore;
+      if (insertAt < 0) insertAt = 0;
+      if (insertAt > scriptSteps.length) insertAt = scriptSteps.length;
+
+      // 新演示段：我的朋友圈在前，对方朋友圈在后
+      const block = [];
+      if (res.demo && Array.isArray(res.demo.me)) block.push.apply(block, res.demo.me);
+      if (res.demo && Array.isArray(res.demo.peer)) block.push.apply(block, res.demo.peer);
+      if (block.length) scriptSteps.splice.apply(scriptSteps, [insertAt, 0].concat(block));
+      return { removed: removed, added: block.length };
+    }
+
+    /* 解析完成后判断要不要自动弹面板 */
+    function maybeOfferMoments(text) {
+      const M = window.__wxMomentsEditor;
+      if (!M || typeof M.detect !== "function") return false;
+      const d = M.detect(scriptSteps, text);
+      if (!d.any) return false;
+      log("检测到流程里有朋友圈动作，已打开「朋友圈设置」：可编内容、定每张图/每个视频看多久。", "warn");
+      openMomentsPanel(d.peer && !d.me ? "peer" : "me");
+      return true;
     }
 
     /* ---- 预览渲染 ---- */
@@ -4869,7 +5224,10 @@ button {
       scriptSteps.forEach((step, index) => {
         const def = getDef(step.action);
         const card = document.createElement("div");
-        card.className = "script-step" + (index === scriptSelected ? " selected" : "") + (isImageStep(step) ? " img" : "");
+        const imgStep = isImageStep(step);
+        const imgReady = imgStep && (imgPathFilled((step.params || {})["图片"]) || imgPathFilled((step.params || {})["表情"]));
+        card.className = "script-step" + (index === scriptSelected ? " selected" : "") +
+          (imgStep ? (" img" + (imgReady ? " filled" : "")) : "");
         // 消息类动作可「转图片 / 转回文本」，用于大模型没识别出图片时手动补图
         const imgToggle = (["对方发消息", "我方打字", "打字不发", "发送消息", "对方发图片", "发送图片"].includes(step.action))
           ? '<button type="button" class="icon-btn" title="' +
@@ -4880,6 +5238,7 @@ button {
           '<span class="ss-icon">' + esc(def.icon || "•") + '</span>' +
           '<div class="ss-main"><div class="ss-title">' + esc(step.action) + '</div>' +
           '<div class="ss-summary">' + esc(scriptStepSummary(step)) + '</div></div>' +
+          (imgStep ? '<span class="ss-need' + (imgReady ? ' ok' : '') + '">' + (imgReady ? '已配图' : '待配图') + '</span>' : '') +
           '<div class="ss-ops">' +
             '<button type="button" class="icon-btn" title="上移" data-op="up">↑</button>' +
             '<button type="button" class="icon-btn" title="下移" data-op="down">↓</button>' +
@@ -5023,7 +5382,7 @@ button {
       "# 指令格式：[指令] 参数（部分指令无参数）",
       "",
       "[等待] 0.5",
-      "[打开聊天] 孙权",
+      "[打开聊天] 小明",
       "[等待] 0.8",
       "[我方打字] 在吗，晚上的方案改好了发你",
       "[等待] 0.5",
@@ -5155,7 +5514,8 @@ button {
         localStorage.setItem(GEN_DRAFT_KEY, JSON.stringify({
           brief: $("genBrief").value,
           category: $("genCategory").value,
-          refs: Array.from(genSelectedRefs)
+          refs: Array.from(genSelectedRefs),
+          outline: ($("genOutline") && $("genOutline").value) || ""
         }));
       } catch (err) { /* 忽略存储异常 */ }
     }
@@ -5169,6 +5529,7 @@ button {
           if (typeof d.brief === "string") $("genBrief").value = d.brief;
           if (typeof d.category === "string") $("genCategory").value = d.category;
           if (Array.isArray(d.refs)) genSelectedRefs = new Set(d.refs.map(String));
+          if (typeof d.outline === "string" && d.outline && !$("genOutline").value) $("genOutline").value = d.outline;
         }
       } catch (err) { /* 忽略 */ }
     }
@@ -5315,13 +5676,19 @@ button {
       if (!report) { el.className = "gen-report"; el.innerHTML = ""; return; }
       const issues = (report.issues || []).filter(Boolean);
       const ruleInfo = report.rules ? "，已按 " + report.rules + " 条规则校验" : "";
+      // 新范式：模型输出 JSON（或兜底文本），纠错轮走定向补丁 —— 把这两件事显示出来，
+      // 用户才知道「它这次是怎么写出来的」，而不是只看到一个通过/不通过。
+      let how = "";
+      if (report.produce_mode === "patch") how = "，最后一轮用「定向补丁」修改";
+      else if (report.patch_rounds) how = "，其中 " + report.patch_rounds + " 轮用「定向补丁」修改";
       if (!issues.length) {
         el.className = "gen-report show ok";
-        el.innerHTML = "<b>✔ 校验通过</b>（共 " + (report.attempts || 1) + " 轮" + ruleInfo + "）" +
-          ((report.attempts || 1) > 1 ? "，经 " + ((report.attempts || 1) - 1) + " 次自我纠错后达到。" : "，可直接使用。");
+        el.innerHTML = "<b>✔ 校验通过</b>（共 " + (report.attempts || 1) + " 轮" + how + ruleInfo + "）" +
+          ((report.attempts || 1) > 1 ? "，经 " + ((report.attempts || 1) - 1) + " 次自我纠错后达到。" : "，可直接使用。") +
+          (report.auto_sunk ? "<br><span class=\"gr-item\">★ 已自动收进参考库（下次生成会用它当示范）</span>" : "");
       } else {
         el.className = "gen-report show err";
-        el.innerHTML = "<b>✖ 仍有 " + issues.length + " 个问题</b>（已尝试 " + (report.attempts || 1) + " 轮" + ruleInfo + "）：" +
+        el.innerHTML = "<b>✖ 仍有 " + issues.length + " 个问题</b>（已尝试 " + (report.attempts || 1) + " 轮" + how + ruleInfo + "）：" +
           issues.map((x) => '<span class="gr-item">• ' + esc(x) + '</span>').join("");
       }
     }
@@ -5398,6 +5765,41 @@ button {
         updateRefHint();
       } catch (err) {
         el.innerHTML = '<div class="empty-script">参考剧本加载失败：' + esc(err.message) + '</div>';
+      }
+    }
+
+    /* 两段式·第一步：主题 -> 剧情大纲（/api/generate/outline）。
+       结果填进大纲框，用户改到满意后再点「✨ 生成剧本」按大纲展开。 */
+    async function doOutline() {
+      const brief = $("genBrief").value.trim();
+      if (!brief) { alert("请先填创作主题。"); $("genBrief").focus(); return; }
+      if (!llmConfigured) { alert("请先点顶部「配置大模型」填入 DeepSeek API Key。"); return; }
+      const btn = $("btnGenOutline");
+      const old = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "大纲生成中…";
+      log("正在生成剧情大纲（只出大纲、不出剧本）……", "warn");
+      try {
+        const res = await api("/api/generate/outline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            brief,
+            category: $("genCategory").value,
+            reference_ids: Array.from(genSelectedRefs)
+          })
+        });
+        if (!res.ok) { log(res.msg || "大纲生成失败", "err"); return; }
+        $("genOutline").value = res.outline || "";
+        saveGenDraft();
+        const ob = $("genOutline");
+        if (ob) ob.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        log("大纲已生成，请在大纲框里修改满意后再点「✨ 生成剧本」。", "ok");
+      } catch (err) {
+        log("大纲生成失败：" + err.message, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = old;
       }
     }
 
@@ -5769,6 +6171,7 @@ button {
     function initGenPanel() {
       restoreGenDraft();
       $("btnGenerate").onclick = doGenerate;
+      $("btnGenOutline").onclick = doOutline;
       $("btnGenUse").onclick = useToScript;
       $("btnGenCopy").onclick = async () => {
         const ok = await copyText($("genText").value);
@@ -5827,7 +6230,9 @@ button {
       renderScriptWarnings([]);
       renderScriptPreview();
       refreshLlmStatus();
-      initGenPanel();
+      // 创作面板初始化单独兜底：里面任何一个按钮绑定出错都不能拖垮 init()
+      //（历史上 doOutline 未定义曾让整个 init 中断、动作库加载不出来）。
+      try { initGenPanel(); } catch (err) { console.warn("创作面板初始化失败（不影响其他功能）：", err); }
 
       try {
         ACTIONS = await api("/api/actions");
@@ -5867,8 +6272,48 @@ button {
     $("btnNew").onclick = newWorkflow;
     $("btnImport").onclick = importJson;
     $("btnExport").onclick = exportJson;
+    $("btnUndo").onclick = () => undo();
+    $("btnRedo").onclick = () => redo();
     $("btnDuplicate").onclick = () => duplicateStep(selected);
     $("btnDelete").onclick = () => removeStep(selected);
+    /* 帮助问号：点「?」弹出对应说明（纯展示层） */
+    document.addEventListener("click", (event) => {
+      const q = event.target.closest(".hq");
+      document.querySelectorAll(".hq-pop").forEach((p) => {
+        if (!q || p.parentElement.querySelector(".hq") !== q) p.remove();
+      });
+      if (!q) return;
+      event.preventDefault();
+      const src = document.querySelector(q.getAttribute("data-help"));
+      if (!src) return;
+      const pop = document.createElement("div");
+      pop.className = "hq-pop";
+      pop.innerHTML = src.innerHTML;
+      q.parentElement.appendChild(pop);
+    });
+    /* 键盘快捷键：焦点在输入框里时不拦截 */
+    document.addEventListener("keydown", (event) => {
+      const t = event.target;
+      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && !event.shiftKey && (event.key === "z" || event.key === "Z")) {
+        if (!typing) { event.preventDefault(); undo(); }
+        return;
+      }
+      if (mod && ((event.shiftKey && (event.key === "Z" || event.key === "z")) || event.key === "y" || event.key === "Y")) {
+        if (!typing) { event.preventDefault(); redo(); }
+        return;
+      }
+      if (typing) return;
+      if (mod && (event.key === "d" || event.key === "D")) {
+        event.preventDefault();
+        if (selected >= 0 && selected < workflow.steps.length) duplicateStep(selected);
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (selected >= 0 && selected < workflow.steps.length) { event.preventDefault(); removeStep(selected); }
+      }
+    });
     $("btnRunFrom").onclick = () => {
       if (selected < 0 || selected >= workflow.steps.length) {
         alert("请先在中间流程中选中一个步骤。");
@@ -5962,6 +6407,12 @@ button {
     $("btnTranslate").onclick = () => doTranslate(false);
     $("btnOffline").onclick = () => doTranslate(true);
     $("btnRunScript").onclick = requestRunScript;
+    if ($("btnMoments")) {
+      $("btnMoments").onclick = () => {
+        const cur = scriptSteps[scriptSelected];
+        openMomentsPanel(cur && cur.action === "进入对方朋友圈" ? "peer" : "me");
+      };
+    }
     $("btnInsertImg").onclick = () => {
       const ta = $("scriptInput");
       const marker = "[对方发图片] [图片] ";
@@ -5993,15 +6444,15 @@ button {
       if (pre && !pre.endsWith("\n")) pre += "\n";
       if (post && !post.startsWith("\n")) post = "\n" + post;
       const insert = "[历史会话]\n"
-        + "[会话] 陆香儿\n"
-        + "陆香儿：我今晚好想哭\n"
+        + "[会话] 香儿\n"
+        + "香儿：我今晚好想哭\n"
         + "我：哭什么呀\n"
         + "[会话] 小明\n"
         + "小明：周末有空吗\n"
         + "我：有的，怎么了\n"
         + "[历史会话结束]\n";
       ta.value = pre + insert + post;
-      const pos = (pre + "[历史会话]\n[会话] 陆香儿\n").length;
+      const pos = (pre + "[历史会话]\n[会话] 香儿\n").length;
       ta.setSelectionRange(pos, pos + 6);
       ta.focus();
       saveScriptDraft();
@@ -6172,5 +6623,91 @@ button {
   })();
   </script>
   <script src="/shared_picker.js"></script>
+  <!-- 朋友圈设置面板：离线解析检测到「进入朋友圈 / 进入对方朋友圈」时自动弹出 -->
+  <script src="/moments_editor.js"></script>
+<style id="qtTipsStyle">
+/* 悬停问号提示 */
+.qt-host { position: relative; }
+.qt-badge {
+  position: absolute; top: 0; right: 2px;
+  color: #b3b9c2; font-size: 10px; line-height: 1.1; font-style: normal;
+  font-weight: 400; pointer-events: none; opacity: .55;
+}
+.qt-host:hover .qt-badge { color: #8a919c; opacity: .85; }
+.qt-pop {
+  position: fixed; z-index: 99999; max-width: 300px;
+  background: #23272e; color: #e8eaee; font-size: 12px; line-height: 1.75;
+  padding: 7px 11px; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  pointer-events: none; opacity: 0; transition: opacity .12s ease;
+}
+.qt-pop.show { opacity: 1; }
+</style>
+<script id="qtTipsJs">
+(function () {
+  var VOID_TAGS = { INPUT: 1, SELECT: 1, TEXTAREA: 1, IMG: 1, BR: 1 };
+  var DYN_IDS = [];
+  function ensureBadge(el) {
+    if (VOID_TAGS[el.tagName]) return;
+    if (!el.querySelector(':scope > .qt-badge')) {
+      var b = document.createElement('i');
+      b.className = 'qt-badge'; b.textContent = '?';
+      el.appendChild(b);
+    }
+  }
+  function decorate(el) {
+    if (!el || !el.classList) return;
+    el.classList.add('qt-host');
+    ensureBadge(el);
+  }
+  function adoptTitles() {
+    DYN_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.hasAttribute('title') && !el.hasAttribute('data-tip')) {
+        el.setAttribute('data-tip', el.getAttribute('title'));
+        el.removeAttribute('title');
+      }
+    });
+  }
+  function scan() {
+    adoptTitles();
+    document.querySelectorAll('[data-tip]').forEach(decorate);
+  }
+  scan();
+  var moT = null;
+  new MutationObserver(function () {
+    clearTimeout(moT); moT = setTimeout(scan, 80);
+  }).observe(document.body, { childList: true, subtree: true });
+  var pop = null, cur = null;
+  function ensure() {
+    if (!pop) { pop = document.createElement('div'); pop.className = 'qt-pop'; document.body.appendChild(pop); }
+    return pop;
+  }
+  function place(host) {
+    var tip = host.getAttribute('data-tip'); if (!tip) return false;
+    var p = ensure(); p.textContent = tip;
+    var r = host.getBoundingClientRect();
+    var pw = p.offsetWidth, ph = p.offsetHeight;
+    var x = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 8);
+    var y = r.bottom + 7;
+    if (y + ph > window.innerHeight - 8) y = r.top - ph - 7;
+    p.style.left = x + 'px'; p.style.top = Math.max(8, y) + 'px';
+    return true;
+  }
+  function show(host) { if (place(host)) { ensure().classList.add('show'); cur = host; } }
+  function hide() { if (pop) pop.classList.remove('show'); cur = null; }
+  document.addEventListener('mouseover', function (e) {
+    var h = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (h !== cur) { h ? show(h) : hide(); }
+  });
+  document.addEventListener('click', hide);
+  window.addEventListener('scroll', function () {
+    if (cur && document.contains(cur) && cur.getBoundingClientRect().height > 0) place(cur);
+    else hide();
+  }, true);
+  window.addEventListener('resize', hide);
+})();
+</script>
+
 </body>
 </html>

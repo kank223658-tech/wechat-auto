@@ -66,9 +66,9 @@
             root.classList.remove('sip-open', 'sip-fading');
             void root.offsetWidth;   // 强制 reflow，保证 display 切换生效
             root.classList.add('sip-open');
-            // 停留约 0.9s 展示图片后自动发送
+            // 停留约 0.4s 展示图片后自动发送
             clearTimeout(sendTimer);
-            sendTimer = setTimeout(doSend, 900);
+            sendTimer = setTimeout(doSend, 400);
             return true;
         },
 

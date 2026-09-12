@@ -352,6 +352,66 @@
       }
       /* 选中状态：不显示高亮框（去掉绿色选中框/浅底，保持干净） */
       .wx-emoji-panel .ep-cell.ep-picked { }
+      /* ===== emoji 视图（笑脸 tab）：按参考图 emoji表情包界面.jpg 1:1 复刻 =====
+         参考图 1179px 宽（393pt@3x）→ 600 逻辑宽，换算系数 ≈0.509。实测：
+         emoji 45px、7 列、列心距≈84、行距≈73；标题字 20px #868686；
+         把手 66×6 #2e2e2e；退格/发送按钮 85×67 圆角 14 bg#2e2e2e，右缘距屏幕边 19px；
+         面板底色 #171718（比爱心视图 #1c1c1e 更深，同参考图）。 */
+      .wx-emoji-panel.ep-view-emoji { background: #171718; padding-bottom: 26px; }
+      .wx-emoji-panel.ep-view-emoji .ep-handle { width: 66px; margin: 34px auto 25px; background: #2e2e2e; }
+      .wx-emoji-panel .ep-elabel {
+        font-size: 22px; line-height: 1; color: #868686; text-align: left; margin: 0 0 27px;
+      }
+      .wx-emoji-panel .ep-elabel.ep-elabel-all { margin-top: 34px; }
+      /* 7 列网格：负外边距抵消面板 24px 内边距，让列心与参考图对齐（首列心 ≈48px） */
+      .wx-emoji-panel .ep-egrid {
+        display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 28px; margin: 0 -18px;
+      }
+      /* 全量表情网格：定高滚动（高度=4 行 4*45+3*28=264，面板总高不变），滚动条隐藏；
+         scroll-snap 按行吸附（73px 步进），静止时表情行永远对齐按钮参考位 */
+      .wx-emoji-panel .ep-egrid.ep-egrid-scroll {
+        max-height: 264px; overflow-y: auto; overscroll-behavior: contain;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none; -ms-overflow-style: none;
+      }
+      .wx-emoji-panel .ep-egrid.ep-egrid-scroll::-webkit-scrollbar { display: none; }
+      .wx-emoji-panel .ep-egrid.ep-egrid-scroll .ep-emo { scroll-snap-align: start; }
+      .wx-emoji-panel .ep-emo {
+        height: 45px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; border-radius: 10px;
+      }
+      .wx-emoji-panel .ep-emo img { width: 45px; height: 45px; object-fit: contain; display: block; }
+      .wx-emoji-panel .ep-emo.ep-emo-hit { background: rgba(255, 255, 255, .12); }
+      .wx-emoji-panel .ep-egridwrap { position: relative; }
+      /* 按钮区遮罩带：与面板同色，盖住按钮背后第 5~7 列（表情从其下连续经过），
+         滚动时表情经过此处被干净裁切，不会从按钮缝隙穿出 */
+      .wx-emoji-panel .ep-egridwrap::before {
+        /* 遮罩几何与网格列同源：网格宽 = 100%+36px（负 margin），列宽 = 网格宽/7。
+           左缘距第 4 列表情右缘约 25px（600 宽实测；累计右移 20px，用户两轮反馈加安全距离）、距第 5 列表情左缘仍有 14px 覆盖余量，
+           右缘越过网格 18px 出血。禁止用固定 px 宽度：视口宽/缩放稍变即漏缝（实测 1.5px 余量出事）。 */
+        content: ''; position: absolute; right: -18px; top: 98px; height: 166px;
+        left: calc((100% + 36px) * 4.5 / 7 - 36.5px);
+        /* 顶部 48px 渐变（真机行为：表情进入遮挡渐隐/浮现，不生硬硬切；力度加大版）。
+           静止时最后一行表情底缘在 118，会探入渐变带 20px、最大约 42% 淡出——呈柔和晕边，
+           属预期效果；滑动时表情在带内平滑淡入淡出，146px 以下全实心盖住按钮背后。 */
+        background: linear-gradient(to bottom, rgba(23, 23, 24, 0) 0, #171718 48px);
+        pointer-events: none;
+      }
+      /* 退格 / 发送：对齐参考图（网格顶下 154px、右缘出内边距 5px、按钮间距 19px） */
+      .wx-emoji-panel .ep-kb {
+        position: absolute; top: 154px; width: 85px; height: 67px; border-radius: 14px;
+        background: #2e2e2e; display: flex; align-items: center; justify-content: center; cursor: pointer;
+      }
+      .wx-emoji-panel .ep-kb-del { right: 99px; }
+      .wx-emoji-panel .ep-kb-del svg { width: 40px; height: 30px; display: block; }
+      .wx-emoji-panel .ep-kb-send { right: -5px; font-size: 20px; color: #98989e; }
+      .wx-emoji-panel .ep-kb-send.on { color: #fff; }
+      /* 输入栏 emoji 草稿：点选 emoji 暂存展示在输入框内（微信行为），发送后清空 */
+      .ep-draft-bar {
+        position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+        display: flex; align-items: center; gap: 6px; pointer-events: none; z-index: 5;
+      }
+      .ep-draft-bar img { width: 34px; height: 34px; object-fit: contain; display: block; }
       /* ---- 底部弹出面板：深色模式统一（微信深色：金融/表情面板跟随深色） ---- */
       .wx-pop-mask .wx-sheet { background: #1c1c1e !important; color: #fff !important; }
       .wx-pop-mask .wx-sheet .sheet-title { color: #fff !important; }
@@ -383,6 +443,17 @@
       .row.self .text.msg-emoji:before,
       .row .text.msg-emoji:before { display: none !important; }
       .row .text.msg-emoji img { width: 128px; height: 128px; object-fit: contain; display: block; }
+      /* emoji（笑脸面板小黄脸）消息：与一行文字同尺寸（画布 28px），保留气泡底（区别于表情包） */
+      .row:not(.self) .text.msg-wxemoji,
+      .row.self .text.msg-wxemoji {
+        background: #2c2c2c !important; padding: 14px 21px !important; box-shadow: none !important;
+        min-height: 62.6px !important;
+      }
+      .row.self .text.msg-wxemoji { background: #23ba65 !important; }
+      .row.self .text.msg-emoji.msg-wxemoji:before { display: block !important; border-left-color: #23ba65; }
+      .row:not(.self) .text.msg-emoji.msg-wxemoji:before { display: block !important; border-right-color: #2c2c2c; }
+      .row .text.msg-wxemoji img,
+      .row.self .text.msg-wxemoji img { width: 31px; height: 31px; object-fit: contain; display: block; }
     `;
     document.head.appendChild(css);
 
@@ -393,28 +464,31 @@
         window.__wxSmoothScrollBottom(sec);
     };
     const meAvatar = () =>
-        (window.__wxConfig && window.__wxConfig.get().me.avatar) || '/images/header/header01.png';
+        (window.__wxConfig && window.__wxConfig.get().me.avatar) || '/images/avatar/2_20260831_184618_874.jpg';
     const peerAvatar = () =>
-        (window.__wxConfig && window.__wxConfig.get().me.peerAvatar) || '/images/header/yehua.jpg';
+        (window.__wxConfig && window.__wxConfig.get().me.peerAvatar) || '/images/peer/peer_avatar.jpg';
 
-    /* 图片气泡显示尺寸：统一按「面积恒定」等比缩放（约等于方图 196×196），
-       横图(宽>高)自然更宽、竖图(高>宽)更窄、方图约正方形；比例不变、不裁切。
-       加保护性宽高上限，防止超长图过高而撑大行高、影响下方聊天间距。
+    /* 图片气泡显示尺寸：复刻微信「长边恒定」规则 ——
+       方图统一 S×S；横图宽=S、竖图高=S，另一边按原图比例等比缩放
+       （微信实测结论：以方图边长同时限定宽与高，比例较大的边 = 方图边长）。
+       长宽比超过 3:1 的超长/超宽图不再继续拉长，气泡锁定为 3:1 尺寸，
+       内容裁切显示（竖图露顶部、横图露左缘）。
        同步读缓存得自然宽高；若图片未加载（new Image 首拿时 naturalWidth=0），
        则预加载并在 onload 后通过 onReady(size) 回填。 */
     function imageDisplaySize(url, onReady) {
-        const AREA = 38400;        // 目标显示面积 ≈ 方图 196×196
-        const MAX_W = 320;         // 保护性宽度上限（常规比例不触达）
-        const MAX_H = 380;         // 保护性高度上限（防超长图过高压大行高）
+        const S = 196;             // 方图基准边长（沿用旧版方图大小，观感不变）
+        const MAX_RATIO = 3;       // 微信裁切阈值：比例超过 3:1 后气泡不再变化
         const fit = (w, h) => {
             if (!w || !h) return { w: 196, h: 196 };
-            const scale = Math.sqrt(AREA / (w * h));   // 面积恒定，按原图比例缩放
-            let W = Math.round(w * scale), H = Math.round(h * scale);
-            if (W > MAX_W || H > MAX_H) {              // 保护性钳制极端长宽比
-                const s2 = Math.min(MAX_W / w, MAX_H / h);
-                W = Math.round(w * s2); H = Math.round(h * s2);
+            const landscape = w >= h;
+            let W = landscape ? S : Math.round(S * w / h);
+            let H = landscape ? Math.round(S * h / w) : S;
+            const crop = Math.max(w, h) / Math.min(w, h) > MAX_RATIO;
+            if (crop) {            // 超长/超宽：锁定 3:1 尺寸，内容裁切
+                if (landscape) { W = S; H = Math.round(S / MAX_RATIO); }
+                else { H = S; W = Math.round(S / MAX_RATIO); }
             }
-            return { w: W, h: H };
+            return { w: W, h: H, crop: crop, wide: landscape };
         };
         const probe = new Image();
         probe.src = url;
@@ -426,7 +500,27 @@
         return fit(w, h);                                // 暂用占位，等 onload 回填
     }
 
-    /* 给单个图片气泡容器按「面积恒定」规则内联显示尺寸。
+    /* 把 imageDisplaySize 的结果写回气泡容器：宽高 + 裁切时的 object-fit。
+       非裁切图容器比例与原图一致，contain 即原样；裁切图按方向 cover 露出
+       顶部/左缘。所有上屏路径（发送中占位回填、selfImage/peerImage、
+       历史消息 fitImageBubble）统一走这里，保证规则只有一份。 */
+    function applyImageBox(p, s) {
+        if (!p || !s) return;
+        p.style.width = s.w + 'px';
+        p.style.height = s.h + 'px';
+        const img = p.querySelector('img');
+        if (img) {
+            if (s.crop) {
+                img.style.objectFit = 'cover';
+                img.style.objectPosition = s.wide ? 'left center' : 'center top';
+            } else {
+                img.style.objectFit = 'contain';
+                img.style.objectPosition = '';
+            }
+        }
+    }
+
+    /* 给单个图片气泡容器按「长边恒定」规则内联显示尺寸。
        历史会话/场景消息由 Vue 渲染成 `<p class="text msg-image"><img></p>`，
        不带内联宽高，会被 chat_exact.css 的 max-width:none 撑到原始尺寸（巨大）。
        这里统一按 imageDisplaySize 规则计算显示尺寸写回容器，与运行时
@@ -438,18 +532,14 @@
         const url = img.currentSrc || img.src;
         if (!url) return;
         if (img.naturalWidth && img.naturalHeight) {
-            const s = imageDisplaySize(url);
-            p.style.width = s.w + 'px';
-            p.style.height = s.h + 'px';
+            applyImageBox(p, imageDisplaySize(url));
             p.setAttribute('data-fit', '1');
             return;
         }
         if (img.complete) { p.setAttribute('data-fit', '1'); return; }  // 已加载但拿不到尺寸：放弃
         const done = () => {
             if (img.naturalWidth && img.naturalHeight) {
-                const s = imageDisplaySize(url);
-                p.style.width = s.w + 'px';
-                p.style.height = s.h + 'px';
+                applyImageBox(p, imageDisplaySize(url));
                 p.setAttribute('data-fit', '1');
             }
         };
@@ -521,7 +611,7 @@
         const row = appendRow(true, '', {
             size: imageDisplaySize(url, (real) => {
                 const p = row && row.querySelector('.text.msg-image');
-                if (p) { p.style.width = real.w + 'px'; p.style.height = real.h + 'px'; }
+                if (p) applyImageBox(p, real);
             }),
             addClass: 'msg-sending',
             innerHtml: '<img src="' + url + '" style="width:100%;height:100%;object-fit:contain;">' +
@@ -555,6 +645,11 @@
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    /* 卡片金额统一两位小数（¥50 → ¥50.00，对齐真机；非数字原样兜底 '1.00'） */
+    function _fmtAmt(v) {
+        const n = parseFloat(v);
+        return isNaN(n) ? '1.00' : n.toFixed(2);
     }
     function transferCardInner(t) {
         const o = t || {};
@@ -612,12 +707,12 @@
          · 卡片统一深灰底 #2c2c2c（无论己方/对方，都不发绿，1:1 复刻参考图）；
          · 标题在左上（可自动换行，字多时撑高卡片）；
          · 方形缩略图在右侧、垂直居中（宽高等比，等宽等高的方图）；
-         · 来源名（如「心灵知行」）在左下，前带一个小盒子图标，可脚本替换。
+         · 来源名（如「恋爱技巧」）在左下，前带一个小盒子图标，可脚本替换。
        标题/来源用 textContent 回填，杜绝脚本内容注入 HTML。
        ---- */
     function linkCard(isSelf, title, img, source, time) {
         const t = String(title == null ? '' : title).trim();
-        const s = String(source == null || source === '' ? '心灵知行' : source);
+        const s = String(source == null || source === '' ? '恋爱技巧' : source);
         const icon = '<svg class="lk-ico" viewBox="0 0 24 24" width="22" height="22" fill="none"' +
             ' stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
             '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/></svg>';
@@ -707,16 +802,16 @@
        并把这些图【随机放进格子位置】（用户要求：随机几个位置放我的表情包）。
        未注入时回退到默认表情图列表。 */
     const _EMOJI_DEFAULTS = [
-        '/images/avatar/赵本山表情包_20260903_193137_046.jpg',
-        '/images/avatar/鸟都不鸟你表情包_20260904_171833_132.jpg',
-        '/images/avatar/毁灭吧_我麻了_表情包_20260905_175020_589.jpg',
-        '/images/avatar/好的表情包_20260905_175144_812.jpg',
-        '/images/avatar/认可表情包_20260905_175240_649.jpg',
-        '/images/avatar/哭泣猫咪_20260905_175009_399.jpg',
-        '/images/avatar/狗歪头_20260905_204230_437.jpg',
-        '/images/avatar/吃惊_20260905_204410_412.jpg',
-        '/images/avatar/牛泪_20260905_204521_851.jpg',
-        '/images/avatar/害羞猫咪_20260905_205157_951.jpg',
+        '/images/sticker/赵本山表情包_20260903_193137_046.jpg',
+        '/images/sticker/鸟都不鸟你表情包_20260904_171833_132.jpg',
+        '/images/sticker/毁灭吧_我麻了_表情包_20260905_175020_589.jpg',
+        '/images/sticker/好的表情包_20260905_175144_812.jpg',
+        '/images/sticker/认可表情包_20260905_175240_649.jpg',
+        '/images/sticker/哭泣猫咪_20260905_175009_399.jpg',
+        '/images/sticker/狗歪头_20260905_204230_437.jpg',
+        '/images/sticker/吃惊_20260905_204410_412.jpg',
+        '/images/sticker/牛泪_20260905_204521_851.jpg',
+        '/images/sticker/害羞猫咪_20260905_205157_951.jpg',
         '/images/avatar/女生好困了_20260905_205054_216.png',
     ];
     function _emojiDecorList() {
@@ -748,10 +843,102 @@
         };
         requestAnimationFrame(step);
     }
+    /* emoji（笑脸 tab）视图数据：wxemoji3d 抠图（自参考图 emoji表情包界面.jpg 逐个抠出的
+       微信新版 3D emoji，透明圆底 PNG）。文件序号 = 参考图从左到右、从上到下顺序，
+       前 7 个 = 「最近使用」行，其余 22 个 = 「所有表情」网格（7+7+4+4）。 */
+    const EMOJI3D_BASE = '/images/wxemoji3d/';
+    const EMOJI3D_COUNT = 108; /* 库内实际张数（去重后 108） */
+    const EMOJI3D_MAX_NUM = 110; /* 文件号上限：编号引用仍按 e01~e110，14/58 已移除 */
+    const EMOJI3D_RECENT_N = 7;
+/* [GEN:EMOJI3D_ORDER] 由 py _gen_emoji_map.py 维护，勿手改 */
+    const EMOJI3D_ORDER = ['e08.png', 'e09.png', 'e10.png', 'e11.png', 'e12.png', 'e13.png', 'e15.png', 'e16.png', 'e17.png', 'e18.png', 'e19.png', 'e20.png', 'e21.png', 'e22.png', 'e23.png', 'e24.png', 'e25.png', 'e30.png', 'e27.png', 'e28.png', 'e29.png', 'e26.png', 'e31.png', 'e32.png', 'e33.png', 'e34.png', 'e35.png', 'e36.png', 'e37.png', 'e38.png', 'e39.png', 'e40.png', 'e41.png', 'e42.png', 'e43.png', 'e44.png', 'e45.png', 'e46.png', 'e47.png', 'e48.png', 'e49.png', 'e50.png', 'e51.png', 'e01.png', 'e52.png', 'e53.png', 'e03.png', 'e54.png', 'e55.png', 'e56.png', 'e57.png', 'e59.png', 'e60.png', 'e61.png', 'e62.png', 'e63.png', 'e64.png', 'e65.png', 'e66.png', 'e67.png', 'e68.png', 'e69.png', 'e70.png', 'e71.png', 'e72.png', 'e73.png', 'e74.png', 'e75.png', 'e76.png', 'e77.png', 'e78.png', 'e79.png', 'e04.png', 'e02.png', 'e06.png', 'e07.png', 'e80.png', 'e81.png', 'e82.png', 'e83.png', 'e05.png', 'e84.png', 'e85.png', 'e86.png', 'e87.png', 'e88.png', 'e89.png', 'e90.png', 'e91.png', 'e92.png', 'e93.png', 'e94.png', 'e95.png', 'e96.png', 'e97.png', 'e98.png', 'e99.png', 'e100.png', 'e101.png', 'e102.png', 'e103.png', 'e104.png', 'e105.png', 'e106.png', 'e107.png', 'e108.png', 'e109.png', 'e110.png'];
+    /* [/GEN:EMOJI3D_ORDER] */
+/* [GEN:EMOJI3D_NAMES] 由 py _gen_emoji_map.py 维护，勿手改 */
+    const EMOJI3D_NAMES = {"e01.png":"大笑","e02.png":"捂脸","e03.png":"笑哭","e04.png":"爱心","e05.png":"握手","e06.png":"害羞","e07.png":"得意","e08.png":"微笑","e09.png":"皱眉","e10.png":"色","e11.png":"瞪眼","e12.png":"酷","e13.png":"大哭","e15.png":"闭嘴","e16.png":"睡觉","e17.png":"嚎啕大哭","e18.png":"憋屈","e19.png":"发怒","e20.png":"调皮","e21.png":"憨笑","e22.png":"惊恐","e23.png":"难过","e24.png":"尴尬","e25.png":"抓狂","e26.png":"惊讶","e27.png":"无语","e28.png":"困","e29.png":"恐惧","e30.png":"翻白眼","e31.png":"开心","e32.png":"大兵","e33.png":"咒骂","e34.png":"疑问","e35.png":"嘘","e36.png":"晕","e37.png":"黑脸哭","e38.png":"骷髅","e39.png":"煎蛋锅","e40.png":"再见","e41.png":"冷汗","e42.png":"抠鼻","e43.png":"拜托","e44.png":"呲牙","e45.png":"小得意","e46.png":"鄙视","e47.png":"委屈","e48.png":"快哭了","e49.png":"阴险","e50.png":"亲亲","e51.png":"可怜","e52.png":"感冒","e53.png":"脸红","e54.png":"天啊","e55.png":"闭眼无语","e56.png":"失望","e57.png":"举手","e59.png":"甜笑","e60.png":"机智","e61.png":"羞笑","e62.png":"耶","e63.png":"吃瓜","e64.png":"奋斗","e65.png":"汗","e66.png":"炸毛","e67.png":"Emm","e68.png":"社会社会","e69.png":"旺柴","e70.png":"好的","e71.png":"打脸","e72.png":"哇","e73.png":"斜眼看","e74.png":"666","e75.png":"让我看看","e76.png":"叹气","e77.png":"流泪","e78.png":"裂开","e79.png":"示爱","e80.png":"心碎","e81.png":"收到","e82.png":"赞","e83.png":"踩","e84.png":"胜利","e85.png":"手指枪","e86.png":"捏","e87.png":"拳头","e88.png":"OK手势","e89.png":"合十","e90.png":"啤酒","e91.png":"咖啡","e92.png":"蛋糕","e93.png":"玫瑰花","e94.png":"凋谢","e95.png":"菜刀","e96.png":"炸弹","e97.png":"便便","e98.png":"月亮睡了","e99.png":"太阳公公","e100.png":"庆祝","e101.png":"礼物盒","e102.png":"红包","e103.png":"发财","e104.png":"福到","e105.png":"烟花","e106.png":"鞭炮","e107.png":"猪头","e108.png":"企鹅","e109.png":"企鹅跳","e110.png":"企鹅跑"};
+    /* [/GEN:EMOJI3D_NAMES] */
+    function _emo3dUrl(i) {
+        return EMOJI3D_BASE + 'e' + String(i + 1).padStart(2, '0') + '.png';
+    }
+    /* ============================================================
+       面板图片「预热」（Prewarm）
+       ------------------------------------------------------------
+       解决的问题：表情面板的 DOM 是【每次打开时新建】的（29 张 3D emoji + 4 个分类
+       tab 图标 + 表情包网格图）。新建出来的 <img> 这一刻才开始取图 + 解码，而面板
+       刚建好就立刻挂 .open 开始滑入 —— 于是滑动全程是一块「只有深色底和标题文字、
+       图片全空」的面板，等面板落定后约 0.25s 图片才补上。
+       实测（复刻视频 30fps 逐帧数值探针）：首次打开 7.37s 起滑 → 7.47s 到位 →
+       7.73s 才出图，**空窗 260ms**；第二次打开因图片已进缓存，不再复现。
+       —— 真机微信的面板是常驻视图，任何时候弹出内容都在，所以这是必须修的差异。
+
+       做法：在任何面板打开【之前】就把这些图加载进浏览器的解码缓存，这样面板里
+       新建的 <img> 首帧即可绘制，滑入过程内容一直是满的。
+
+       时机：① 本文件加载时先热一遍（此时多半还在主页，取图在后台静静进行，不干扰
+                任何动画）；② 每次【进入聊天页】再热一遍（路由切换后解码缓存可能已
+                被回收，而此刻距离用户真正点开面板还有数秒，来得及）。
+       登记：其它面板模块（transfer_ui.js 等）可调 window.__wxPreWarmAdd([...]) 把
+       自家面板的图片登记进来，共用同一套时机统一预热。
+       ============================================================ */
+    const _PW_DONE = new Set();          /* 已预热过的 URL，避免重复取图 */
+    const _PW_KEEP = [];                 /* 持有 Image 引用，防止解码缓存被 GC 回收 */
+    const _PW_EXTRA = [];                /* 其它模块登记进来的额外 URL */
+    function _panelImageUrls() {
+        const list = [];
+        EMOJI3D_ORDER.forEach(function (f) { list.push(EMOJI3D_BASE + f); });
+        for (let i = 0; i < EMOJI3D_RECENT_N; i++) list.push(_emo3dUrl(i));
+        ['search', 'smile', 'heart', 'gesture'].forEach(
+            (n) => list.push('/images/emoji_panel/tab_' + n + '.png'));
+        _EMOJI_DEFAULTS.forEach((u) => list.push(u));
+        /* 表情包视图的格子图每次随机取，预热前 60 张覆盖大部分命中 */
+        _emojiDecorList().slice(0, 60).forEach((u) => list.push(u));
+        return list.concat(_PW_EXTRA).filter(Boolean);
+    }
+    function preWarmPanelImages() {
+        let n = 0;
+        for (const u of _panelImageUrls()) {
+            if (_PW_DONE.has(u)) continue;
+            _PW_DONE.add(u);
+            const im = new Image();
+            im.decoding = 'sync';        /* 让解码尽早发生，别拖到绘制那一刻 */
+            im.src = u;
+            /* decode() 显式把图解码进缓存；失败（404 等）静默忽略 */
+            try { if (im.decode) im.decode().catch(() => {}); } catch (e) { /* 忽略 */ }
+            _PW_KEEP.push(im);
+            n++;
+        }
+        return n;
+    }
+    /* 供其它面板模块登记图片；登记后立刻热一次，不必等下一个时机 */
+    window.__wxPreWarmAdd = function (urls) {
+        if (!urls) return 0;
+        (Array.isArray(urls) ? urls : [urls]).forEach((u) => { if (u) _PW_EXTRA.push(u); });
+        return preWarmPanelImages();
+    };
+    window.__wxPreWarmPanels = preWarmPanelImages;
+
+    setTimeout(preWarmPanelImages, 60);
+    /* 进/出聊天页的边沿检测：进入时热一遍（400ms 一次 querySelector，开销可忽略） */
+    let _pwOnChat = false;
+    setInterval(() => {
+        const on = !!document.querySelector('.dialogue-section');
+        if (on === _pwOnChat) return;
+        _pwOnChat = on;
+        if (on) preWarmPanelImages();
+    }, 400);
+
     function emojiSheet(opts, onPick) {
-        const url = (opts && opts.url) || '';
-        const autoPick = !!(opts && opts.url);   // 有 url 即脚本自动选中；无 url 则可点选
-        const SLOTS = 11;                        // 网格 1..11 放表情（0 为虚线收藏格）
+        opts = opts || {};
+        const url = opts.url || '';
+        const autoPick = !!url;                     // 有 url 即脚本自动选中（表情包脚本链路）
+        let view = (opts.view === 'emoji') ? 'emoji' : 'sticker';
+        /* 面板用完之后的去向（由 main.py「发送后」参数、或「下一步是打字」自动判定）：
+             'close'（缺省）—— 收回聊天底部，输入栏落回原位；
+             'kb' —— 【直接切到键盘】：面板下滑与键盘上滑同帧进行，输入栏从「表情位」
+                     平移到「键盘位」，中间不经过「收起到 0」那一段。
+                     这样「发表情包 → 接着打字」是一段连贯动作，不必先收面板再开键盘。 */
+        const after = (opts.after === 'kb' || opts.after === 'keyboard'
+            || opts.after === '键盘') ? 'kb' : 'close';
+        const SLOTS = 11;                        // 表情包网格 1..11 放表情（0 为虚线收藏格）
         /* 表情填充：我的表情包库去重后，每张【随机放进一个格子】（用户要求：随机几个位置
            放我的表情包）；剩余格子用默认表情图补满（去重），让面板保持饱满且不重复。 */
         let pool = _emojiDecorList();
@@ -787,26 +974,164 @@
             pickIdx = cellSrc.indexOf(url);
             if (pickIdx < 0) { pickIdx = positions[0]; cellSrc[pickIdx] = url; }
         }
-        // 网格 12 格：index 0 = 虚线收藏格，1..11 放表情图。
-        let cells = '<div class="ep-cell ep-add" data-idx="0"><span>+</span></div>';
-        for (let i = 0; i < SLOTS; i++) {
-            cells += '<div class="ep-cell" data-idx="' + (i + 1) + '"><img src="' + cellSrc[i] + '"></div>';
-        }
-        const body =
-            '<div class="ep-tabs">' +
-            '<div class="ep-tab"><img src="/images/emoji_panel/tab_search.png"></div>' +
-            '<div class="ep-tab"><img src="/images/emoji_panel/tab_smile.png"></div>' +
-            '<div class="ep-tab active"><img src="/images/emoji_panel/tab_heart.png"></div>' +
-            '<div class="ep-tab"><img src="/images/emoji_panel/tab_gesture.png"></div>' +
-            '</div>' +
-            '<div class="ep-handle"></div>' +
-            '<div class="ep-head">添加的单个表情</div>' +
-            '<div class="ep-grid">' + cells + '</div>';
 
+        /* ---------- 面板骨架：顶部分类 tab 共享，body 按视图（emoji/表情包）渲染 ----------
+           ★ ep-view-emoji 类必须在「测面板高度」之前挂上（它决定底部内边距/把手边距），
+             否则 --emoji-h 会按表情包视图的内边距多量 35px，输入栏被抬得过高。 */
+        const actTab = (view === 'emoji') ? 'emoji' : 'sticker';
         const panel = document.createElement('div');
-        panel.className = 'wx-emoji-panel';
-        panel.innerHTML = body;
+        panel.className = 'wx-emoji-panel' + (view === 'emoji' ? ' ep-view-emoji' : '');
+        panel.innerHTML =
+            '<div class="ep-tabs">' +
+            '<div class="ep-tab" data-tab="search"><img src="/images/emoji_panel/tab_search.png"></div>' +
+            '<div class="ep-tab' + (actTab === 'emoji' ? ' active' : '') + '" data-tab="emoji"><img src="/images/emoji_panel/tab_smile.png"></div>' +
+            '<div class="ep-tab' + (actTab === 'sticker' ? ' active' : '') + '" data-tab="sticker"><img src="/images/emoji_panel/tab_heart.png"></div>' +
+            '<div class="ep-tab" data-tab="gesture"><img src="/images/emoji_panel/tab_gesture.png"></div>' +
+            '</div>' +
+            '<div class="ep-body"></div>';
         document.body.appendChild(panel);
+        const body = panel.querySelector('.ep-body');
+
+        /* emoji 视图草稿：点选 emoji 进输入框（草稿条），退格删除，发送逐张上屏（微信行为） */
+        const draft = [];
+        /* 草稿条宿主：可见输入框容器。注意 .chat-say 是 0×0 隐藏元素，
+           真正可见的是 .chat-txt（textarea）所在的 .chat-way 气泡。 */
+        function _draftHost() {
+            const ta = document.querySelector('.component-dialogue-bar-person .chat-txt');
+            const host = (ta && (ta.closest('.chat-way') || ta.parentElement)) ||
+                document.querySelector('.component-dialogue-bar-person .chat-say');
+            return host || null;
+        }
+        function _draftBarSync() {
+            const host = _draftHost();
+            if (!host) return;
+            if (host.style.position !== 'relative' && getComputedStyle(host).position === 'static') {
+                host.style.position = 'relative';
+            }
+            let bar = host.querySelector('.ep-draft-bar');
+            if (!draft.length) {
+                if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+            } else {
+                if (!bar) { bar = document.createElement('div'); bar.className = 'ep-draft-bar'; host.appendChild(bar); }
+                bar.innerHTML = draft.map((u) => '<img src="' + u + '">').join('');
+            }
+            const send = panel.querySelector('.ep-kb-send');
+            if (send) send.classList.toggle('on', draft.length > 0);
+        }
+        function _draftBarRemove() {
+            draft.length = 0;
+            const host = _draftHost();
+            const bar = host && host.querySelector('.ep-draft-bar');
+            if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+        }
+        function _sendDraft() {
+            if (!draft.length) return;
+            const list = draft.splice(0, draft.length);
+            _draftBarSync();
+            list.forEach((u, i) => {
+                setTimeout(() => {
+                    if (onPick) onPick(u);
+                    else if (!pushEmojiToStore(true, u)) {
+                        const cls = u.indexOf('/wxemoji3d/') > -1 ? 'text msg-emoji msg-wxemoji' : 'text msg-emoji';
+                        appendRow(true, '<p class="' + cls + '"><img src="' + u + '"></p>');
+                    }
+                }, i * 140);
+            });
+        }
+        /* 退格键图标（⌫ 描边，颜色同参考图 #8e8e93） */
+        const DEL_SVG = '<svg viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+            '<path d="M15 2.5h26a4 4 0 0 1 4 4v19a4 4 0 0 1-4 4H15L2.5 16 15 2.5z" stroke="#8e8e93" stroke-width="2.6" stroke-linejoin="round"/>' +
+            '<path d="M21 10.5l11 11M32 10.5l-11 11" stroke="#8e8e93" stroke-width="2.6" stroke-linecap="round"/></svg>';
+
+        /* ---- 爱心（表情包）视图：原「添加的单个表情」网格，逻辑不变 ---- */
+        function renderSticker() {
+            let cells = '<div class="ep-cell ep-add" data-idx="0"><span>+</span></div>';
+            for (let i = 0; i < SLOTS; i++) {
+                cells += '<div class="ep-cell" data-idx="' + (i + 1) + '"><img src="' + cellSrc[i] + '"></div>';
+            }
+            body.innerHTML =
+                '<div class="ep-handle"></div>' +
+                '<div class="ep-head">添加的单个表情</div>' +
+                '<div class="ep-grid">' + cells + '</div>';
+            if (autoPick) {
+                const pick = body.querySelector('.ep-cell[data-idx="' + (pickIdx + 1) + '"]');
+                setTimeout(() => {
+                    if (pick) pick.classList.add('ep-picked');
+                    setTimeout(() => {
+                        // 真实微信：点选表情包 → 表情立即上屏，随后面板才收起。
+                        if (onPick) onPick(url);
+                        close();
+                    }, 200);
+                }, 700);
+            } else {
+                // 可点选：点任一非收藏格 → 上屏该图并收起
+                body.querySelectorAll('.ep-cell:not(.ep-add)').forEach((c) => {
+                    c.addEventListener('click', () => {
+                        const src = c.querySelector('img') && c.querySelector('img').src;
+                        if (onPick) onPick(src);
+                        close();
+                    });
+                });
+            }
+        }
+
+        /* ---- 笑脸（emoji）视图：最近使用 + 所有表情（参考图 1:1） ---- */
+        function renderEmoji() {
+            let recent = '';
+            for (let i = 0; i < EMOJI3D_RECENT_N; i++) {
+                recent += '<div class="ep-emo" data-u="' + _emo3dUrl(i) + '" title="' + (EMOJI3D_NAMES['e' + String(i + 1).padStart(2, '0') + '.png'] || '') + '"><img src="' + _emo3dUrl(i) + '"></div>';
+            }
+            /* 全量表情（108 个）按 EMOJI3D_ORDER（由 py _gen_emoji_map.py 注入，
+               即真机面板顺序）平铺；网格定高滚动，退格/发送悬浮在原参考位。 */
+            let all = '';
+            /* 真实微信逻辑：内容连续铺满无空洞（不插空槽），滚动到任何位置都有表情；
+               退格/发送按钮 + 同色遮罩带悬浮固定，盖住经过的背后内容 */
+            EMOJI3D_ORDER.forEach(function (f) {
+                const u = EMOJI3D_BASE + f;
+                all += '<div class="ep-emo" data-u="' + u + '" title="' + (EMOJI3D_NAMES[f] || '') + '"><img src="' + u + '"></div>';
+            });
+            body.innerHTML =
+                '<div class="ep-handle"></div>' +
+                '<div class="ep-elabel">最近使用</div>' +
+                '<div class="ep-egrid">' + recent + '</div>' +
+                '<div class="ep-elabel ep-elabel-all">所有表情</div>' +
+                '<div class="ep-egridwrap">' +
+                '<div class="ep-egrid ep-egrid-scroll">' + all + '</div>' +
+                '<div class="ep-kb ep-kb-del">' + DEL_SVG + '</div>' +
+                '<div class="ep-kb ep-kb-send">发送</div>' +
+                '</div>';
+            body.querySelectorAll('.ep-emo').forEach((c) => {
+                c.addEventListener('click', () => {
+                    const u = c.getAttribute('data-u');
+                    draft.push(u);
+                    _draftBarSync();
+                    c.classList.add('ep-emo-hit');
+                    setTimeout(() => c.classList.remove('ep-emo-hit'), 180);
+                });
+            });
+            const del = body.querySelector('.ep-kb-del');
+            if (del) del.addEventListener('click', () => { draft.pop(); _draftBarSync(); });
+            const send = body.querySelector('.ep-kb-send');
+            if (send) send.addEventListener('click', _sendDraft);
+            _draftBarSync();
+        }
+
+        /* 视图切换：tab 高亮跟随，面板高度变化同步 --emoji-h（输入栏/消息区联动） */
+        function setView(v) {
+            view = v;
+            panel.classList.toggle('ep-view-emoji', v === 'emoji');
+            panel.querySelectorAll('.ep-tab').forEach((t) => {
+                const name = t.getAttribute('data-tab');
+                t.classList.toggle('active', name === (v === 'emoji' ? 'emoji' : 'sticker'));
+            });
+            if (v === 'emoji') renderEmoji(); else renderSticker();
+            const h = panel.offsetHeight || 583;
+            document.body.style.setProperty('--emoji-h', h + 'px');
+            _pinSectionBottom(240);
+        }
+
+        // 初始视图渲染（先渲染再测高，保证 --emoji-h 正确）
+        if (view === 'emoji') renderEmoji(); else renderSticker();
 
         // 实测面板高度：输入栏上移到面板顶（真机：输入栏不收起、仅上移）。
         // offsetHeight 不受 translateY 影响，故在滑入前即可测得。
@@ -826,36 +1151,30 @@
         // 内容未铺满时锚顶不动（真机行为）。面板收起时同样用到 _pinSectionBottom 让文字下落。
         _pinSectionBottom(280);
 
-        const close = (cb) => {
+        // tab 点击：笑脸 ↔ 爱心 同面板切换（搜索/手势暂不可用）
+        panel.querySelectorAll('.ep-tab').forEach((t) => {
+            t.addEventListener('click', () => {
+                const name = t.getAttribute('data-tab');
+                if ((name === 'emoji' || name === 'sticker') && name !== view) setView(name);
+            });
+        });
+
+        function close(cb) {
+            /* ★ 去向是键盘时不做「收起到 0」，而是交给底部面板【直接切换】：
+               表情面板下滑 + 键盘同帧上滑（与参考视频的 表情→键盘 一致，230ms 对称 S 曲线），
+               输入栏从表情位直接平移到键盘位。这样「发表情包 → 接着打字」中间没有
+               「先沉回聊天底部、再升起来」的两段跳。 */
+            if (after === 'kb' && window.__wxPanels && window.__wxPanels.set) {
+                _draftBarRemove();
+                if (window.__wxPanels.set('kb')) { if (cb) setTimeout(cb, 160); return; }
+            }
             document.body.classList.remove('wx-emoji-open');
             panel.classList.remove('open');
             // 面板收起，消息区高度恢复：内容贴底跟随下落（文字「落下」）。内容不铺满则锚顶。
             _pinSectionBottom(300);
+            _draftBarRemove();
             setTimeout(() => { if (panel.parentNode) panel.parentNode.removeChild(panel); }, 360);
             if (cb) setTimeout(cb, 160);
-        };
-
-        if (autoPick) {
-            const pick = panel.querySelector('.ep-cell[data-idx="' + (pickIdx + 1) + '"]');
-            setTimeout(() => {
-                if (pick) pick.classList.add('ep-picked');
-                setTimeout(() => {
-                    // 真实微信：点选表情包 → 表情立即上屏，随后面板才收起。
-                    // 先 onPick(url) 上屏，再 close() 收起面板（不再等收起完成才上屏）。
-                    if (onPick) onPick(url);
-                    close();
-                }, 200);
-            }, 700);
-        } else {
-            // 可点选：点任一非收藏格 → 上屏该图并收起
-            panel.querySelectorAll('.ep-cell:not(.ep-add)').forEach((c) => {
-                c.addEventListener('click', () => {
-                    const src = c.querySelector('img') && c.querySelector('img').src;
-                    // 真实微信：点选即上屏，随后收回面板
-                    if (onPick) onPick(src);
-                    close();
-                });
-            });
         }
     }
     /* 消息写入 store（Vue 渲染）的通用入口。
@@ -924,11 +1243,17 @@
         return !!pushStoreEntry(isSelf, { text: '[表情]', emoji: url }, time);
     }
 
-    /* 键盘「笑脸」键 / 输入栏右侧笑脸：打开可点选的表情面板（停在原地，点哪张发哪张）。 */
+    /* 键盘「笑脸」键 / 输入栏右侧笑脸：打开可点选的表情面板。
+       手动打开默认停在 emoji（笑脸）视图——对齐真实微信；脚本表情包链路走
+       open()（缺省爱心视图）或 selfEmoji(url)。 */
     window.__wxEmojiPanel = {
-        open: function () {
-            // 点选一张表情包：点选即上屏、随后收起面板（真实微信点表情包即发送）
-            emojiSheet({}, function (src) {
+        open: function (opts) {
+            opts = opts || {};
+            const view = (opts.view === 'emoji') ? 'emoji' : 'sticker';
+            // emoji 视图：点选进输入框草稿，「发送」键上屏（微信行为）；
+            // 表情包视图：点选即上屏、随后收起面板（真实微信点表情包即发送）
+            // opts.after='kb' → 用完后直接切到键盘（供「发表情包 → 接着打字」连贯衔接）
+            emojiSheet({ view: view, after: opts.after }, function (src) {
                 if (!src) return;
                 if (!pushEmojiToStore(true, src)) {
                     appendRow(true, '<p class="text msg-emoji"><img src="' + src + '"></p>');
@@ -944,18 +1269,76 @@
             const p = document.querySelector('.wx-emoji-panel');
             return !!p && p.classList.contains('open');
         },
+        /* 表情网格惯性滑动（真人甩动两段式：手指跟随段 + 松手滑行段）。
+           ★ 关键：CSS 的 scroll-snap-type: y mandatory 会把程序化的每一帧滚动都吸附成
+             整行，观感变成「卡住→跳一格」而不是连续滑动（实测逐帧位移 0/73 交替）。
+             故动画期间临时置 none 拿像素级位移，收尾再平滑对齐行步进后恢复吸附。
+           ROW=73 = 表情 45 + 行距 28。返回 Promise，resolve 最终 scrollTop。 */
+        scrollTo: function (targetY, opts) {
+            const g = document.querySelector('.ep-egrid-scroll');
+            if (!g) return Promise.resolve(0);
+            opts = opts || {};
+            const max = g.scrollHeight - g.clientHeight;
+            const to = Math.max(0, Math.min(max, Number(targetY) || 0));
+            const ROW = 73;
+            const dragMs = opts.dragMs == null ? 170 : opts.dragMs;
+            const glideMs = opts.glideMs == null ? 470 : opts.glideMs;
+            const settleMs = 120;
+            const from = g.scrollTop;
+            const dist = to - from;
+            if (!dist) return Promise.resolve(from);
+            g.style.scrollSnapType = 'none';
+            const dragDist = dist * 0.62;
+            return new Promise(function (resolve) {
+                let t0 = null;
+                function step(t) {
+                    if (t0 === null) t0 = t;
+                    const el = t - t0;
+                    let v;
+                    if (el < dragMs) {
+                        v = from + dragDist * (el / dragMs);
+                    } else {
+                        const p = Math.min(1, (el - dragMs) / glideMs);
+                        v = from + dragDist + (dist - dragDist) * (1 - Math.pow(1 - p, 3));
+                    }
+                    g.scrollTop = v;
+                    if (el < dragMs + glideMs) { requestAnimationFrame(step); return; }
+                    const cur = g.scrollTop;
+                    const align = Math.max(0, Math.min(max, Math.round(cur / ROW) * ROW));
+                    const gap = align - cur;
+                    if (Math.abs(gap) < 0.5) { g.style.scrollSnapType = ''; resolve(g.scrollTop); return; }
+                    const s0 = cur, st0 = performance.now();
+                    const settle = function (t2) {
+                        const p = Math.min(1, (t2 - st0) / settleMs);
+                        g.scrollTop = s0 + gap * (1 - Math.pow(1 - p, 2));
+                        if (p < 1) { requestAnimationFrame(settle); return; }
+                        g.style.scrollSnapType = '';
+                        resolve(g.scrollTop);
+                    };
+                    requestAnimationFrame(settle);
+                }
+                requestAnimationFrame(step);
+            });
+        },
     };
     /* 输入栏右侧「笑脸」键：点一下收起键盘、表情面板滑入；再点一下收起面板、键盘滑回。
        （对齐参考视频：面板打开时该键回到键盘。用事件委托，兼容 Vue 重建 DOM。）
-       图标切换是即时的（CSS .wx-emoji-open 直接把背景换成键盘图），无变暗/缩放动画。 */
+       图标切换是即时的（CSS .wx-emoji-open 直接把背景换成键盘图），无变暗/缩放动画。
+       ★ 统一入口：若 panel_switch.js 已加载，改走 __wxPanels.toggle('emoji')——
+         它能做「键盘/更多 → 表情」的共同位移插值（230ms 对称 S 曲线，见 panel_switch.css），
+         不会先退回收起态再开面板；未加载时退回原来的两步式写法。 */
     document.addEventListener('pointerdown', (ev) => {
         const ex = ev.target && ev.target.closest && ev.target.closest('.component-dialogue-bar-person .expression');
         if (!ex || !window.__wxEmojiPanel) return;
+        if (window.__wxPanels && window.__wxPanels.toggle) {
+            window.__wxPanels.toggle('emoji');
+            return;
+        }
         if (window.__wxEmojiPanel.visible()) {
             window.__wxEmojiPanel.close();
             try { if (window.__wxKeyboard && window.__wxKeyboard.show) window.__wxKeyboard.show(); } catch (e) { /* 忽略 */ }
         } else {
-            window.__wxEmojiPanel.open();
+            window.__wxEmojiPanel.open({ view: 'emoji' });   // 笑脸键 → emoji 视图（真机行为）
         }
     });
 
@@ -1110,7 +1493,9 @@
                 document.body.appendChild(kb);
             }
             /* 3. 输入框内麦克风（注入到「键盘输入」容器，避免随语音容器被隐藏）
-               换成参考图线稿麦克风（透明 PNG，见 /images/chatbar/mic_line.png） */
+               用参考图《真实打字框.PNG》里真机麦克风的【抠图】（透明 PNG，
+               /images/chatbar/mic_cut.png，41x53，笔画灰度按参考实测 159），
+               不用手画线稿 —— 和笑脸/加号一样保持「从参考图抠出来」的同一来源 */
             if (!document.querySelector('.chat-way .chat-mic')) {
                 const txt = document.querySelector('.chat-way .chat-txt');
                 const way = txt ? txt.parentNode : null;
@@ -1118,7 +1503,7 @@
                     const mic = document.createElement('span');
                     mic.className = 'chat-mic';
                     mic.innerHTML =
-                        '<img src="/images/chatbar/mic_line.png" alt="语音" ' +
+                        '<img src="/images/chatbar/mic_cut.png" alt="语音" ' +
                         'style="display:block; width:21px; height:28px; object-fit:contain;">';
                     way.appendChild(mic);
                 }
@@ -1159,14 +1544,15 @@
 
 window.__wxChatExt = {
         /* ---- 我方 / 对方 图片消息 ----
-           我方发图：不再弹「+」功能面板，而是直接闪黑跳转到图片预览页
-           （复刻参考图：顶部返回/勾选、中间待发图、底部 编辑/原图/发送），
-           预览页自动播放「发送」按压后，以「发送中」占位（半透明缩略图 +
-           旋转进度圈）上屏，0.65s 后定格为完整图片。 */
+           我方发图：先由 main.py 弹「+」功能面板并点「照片」，随后这里收起
+           底部面板、闪黑进入图片预览页（复刻参考图：顶部返回/勾选、中间
+           待发图、底部 编辑/原图/发送），预览页自动播放「发送」按压后，
+           以「发送中」占位（半透明缩略图 + 旋转进度圈）上屏，0.65s 后定格
+           为完整图片。 */
         /* 直接上屏图片气泡（带发送中转圈动画），供预览页点发送后调用。
            ★ 入 store（Vue 渲染）保证「切页面再回来」图片不消失；
              渲染完成后在刚上屏的行上补「发送中」动画（半透明 + 转圈，0.65s 定格），
-             尺寸由 imageDisplaySize 按面积恒定规则内联回填。 */
+             尺寸由 imageDisplaySize 按长边恒定规则内联回填。 */
         selfImage(url, time) {
             const pushWithAnim = () => {
                 const entry = pushStoreEntry(true, { text: '[图片]', image: url }, time, (fresh) => {
@@ -1178,8 +1564,7 @@ window.__wxChatExt = {
                     ring.innerHTML = '<span class="ring-inner"></span>';
                     p.appendChild(ring);
                     imageDisplaySize(url, (real) => {
-                        p.style.width = real.w + 'px';
-                        p.style.height = real.h + 'px';
+                        applyImageBox(p, real);
                     });
                     setTimeout(() => {
                         p.classList.remove('msg-sending');
@@ -1194,23 +1579,31 @@ window.__wxChatExt = {
                 pushWithAnim();
                 return true;
             }
-            // 先收起手机键盘（若展开，避免与预览页重叠）
-            try { if (window.__wxKeyboard && window.__wxKeyboard.hide) window.__wxKeyboard.hide(); } catch (e) { /* 忽略 */ }
+            // 先收起底部面板/键盘（若展开，避免与预览页重叠）。
+            // 发图新流程经过「+」面板，这里优先走 __wxPanels 统一收起（面板自身位移归零），
+            // 没有面板体系再退回键盘 hide；预览页闪黑会盖住收起动画。
+            try {
+                if (window.__wxPanels && window.__wxPanels.current && window.__wxPanels.current() !== 'none') {
+                    window.__wxPanels.set('none');
+                } else if (window.__wxKeyboard && window.__wxKeyboard.hide) {
+                    window.__wxKeyboard.hide();
+                }
+            } catch (e) { /* 忽略 */ }
             // 直接打开图片预览页（内部含「闪黑 → 预览图浮现 → 自动发送」）
             return window.__wxSendImage.open(url, pushWithAnim);
         },
-        /* 对方发图：入 store；尺寸由 fitImageBubble 在渲染后回填（面积恒定规则） */
+        /* 对方发图：入 store；尺寸由 fitImageBubble 在渲染后回填（长边恒定规则） */
         peerImage(url, time) {
             if (pushStoreEntry(false, { text: '[图片]', image: url }, time, (fresh) => {
                 const p = fresh && fresh.querySelector('.text.msg-image');
                 if (p) fitImageBubble(p);
             })) return true;
             const row = appendRow(false, '', {
-                size: imageDisplaySize(url, (real) => {
-                    const p = row && row.querySelector('.text.msg-image');
-                    if (p) { p.style.width = real.w + 'px'; p.style.height = real.h + 'px'; }
-                }),
-                innerHtml: '<img src="' + url + '" style="width:100%;height:100%;object-fit:contain;">',
+            size: imageDisplaySize(url, (real) => {
+                const p = row && row.querySelector('.text.msg-image');
+                if (p) applyImageBox(p, real);
+            }),
+            innerHtml: '<img src="' + url + '" style="width:100%;height:100%;object-fit:contain;">',
             }, time);
             return !!row;
         },
@@ -1227,9 +1620,9 @@ window.__wxChatExt = {
            我方发表情：底部表情面板滑出 → 点选 → 表情包上屏(pop-in) → 面板收起。
            脚本链路：面板自动高亮该 url 所在格 → 表情先上屏 → 再收起面板。
            time：时间标注（如 "18:22"），给出时该表情消息前显示一条时间分隔条。 */
-        selfEmoji(url, time) {
+        selfEmoji(url, time, after) {
             if (!url) return false;
-            emojiSheet({ url: url }, function () {
+            emojiSheet({ url: url, after: after }, function () {
                 /* 入 store（Vue 渲染）保证「切页面再回来」表情不消失；store 不可用才退回 DOM 直插 */
                 if (!pushEmojiToStore(true, url, time)) {
                     appendRow(true, '<p class="text msg-emoji"><img src="' + url + '"></p>', null, time);
@@ -1240,7 +1633,66 @@ window.__wxChatExt = {
         peerEmoji(url, time) {
             if (!url) return false;
             if (pushEmojiToStore(false, url, time)) return true;
-            return !!appendRow(false, '<p class="text msg-emoji"><img src="' + url + '"></p>', null, time);
+            const ecls = url.indexOf('/wxemoji3d/') > -1 ? 'text msg-emoji msg-wxemoji' : 'text msg-emoji';
+            return !!appendRow(false, '<p class="' + ecls + '"><img src="' + url + '"></p>', null, time);
+        },
+
+        /* ---- 我方发送 emoji（笑脸面板，微信新版 3D 小表情）----
+           脚本链路：弹笑脸面板 → 逐个高亮点选（进草稿）→ 发送键点亮 → 气泡逐张上屏 → 面板收起。
+           idxs：1 基编号数组（对应 /images/wxemoji3d/e01..e110.png，顺序见 EMOJI3D_ORDER / names.json）。
+           time：时间标注，挂在这一批第一条 emoji 消息前。 */
+        selfEmoji3D(idxs, time, after) {
+            const list = (Array.isArray(idxs) ? idxs : [idxs])
+                .map(Number).filter((n) => n >= 1 && n <= EMOJI3D_MAX_NUM);
+            if (!list.length) return false;
+            let first = true;
+            emojiSheet({ view: 'emoji', after: after }, function (u) {
+                if (!pushEmojiToStore(true, u, first ? time : null)) {
+                    appendRow(true, '<p class="text msg-emoji"><img src="' + u + '"></p>', null, first ? time : null);
+                }
+                first = false;
+            });
+            /* 自动点选序列：等面板滑入(0.75s)后，每 260ms 点一个格子（带按压高亮 ep-emo-hit），
+               点完 200ms 后点发送（草稿逐张上屏，140ms/张），最后留出上屏时间收起面板。 */
+            const STEP = 260, SEND_AFTER = 200, SEND_GAP = 140, CLOSE_AFTER = 400;
+            const t0 = 750;
+            const total = t0 + list.length * STEP + SEND_AFTER +
+                list.length * SEND_GAP + CLOSE_AFTER;
+            setTimeout(() => {
+                const panel = document.querySelector('.wx-emoji-panel');
+                if (!panel) return;
+                let delay = 0;
+                list.forEach((n) => {
+                    setTimeout(() => {
+                        const cell = panel.querySelector('.ep-emo[data-u$="/e' + String(n).padStart(2, '0') + '.png"]');
+                        if (cell) {
+                            /* 编号靠后的表情在滚动区下方：先滚到可见再点选 */
+                            const vp = cell.closest('.ep-egrid-scroll');
+                            if (vp) {
+                                const ct = cell.offsetTop - vp.offsetTop;
+                                if (ct < vp.scrollTop || ct + cell.offsetHeight > vp.scrollTop + vp.clientHeight) {
+                                    vp.scrollTo({ top: Math.max(0, ct - vp.clientHeight + cell.offsetHeight - 6), behavior: 'smooth' });
+                                }
+                            }
+                            cell.click();
+                        }
+                    }, delay);
+                    delay += STEP;
+                });
+                setTimeout(() => {
+                    const send = panel.querySelector('.ep-kb-send');
+                    if (send) send.click();
+                }, delay + SEND_AFTER);
+            }, t0);
+            setTimeout(() => {
+                /* 去向是键盘：走底部面板【直接切换】（表情下滑 + 键盘上滑同帧，A→B 直线），
+                   供「发送emoji → 接着打字」连贯衔接；否则按原样收起面板。 */
+                if ((after === 'kb' || after === 'keyboard' || after === '键盘')
+                    && window.__wxPanels && window.__wxPanels.set
+                    && window.__wxPanels.set('kb')) return;
+                if (window.__wxEmojiPanel && window.__wxEmojiPanel.close) window.__wxEmojiPanel.close();
+            }, total);
+            return true;
         },
 
         /* ---- 我方 / 对方 链接卡片（公众号文章 / 分享链接）----
@@ -1248,13 +1700,13 @@ window.__wxChatExt = {
            保证切画面回来不消失；store 不可用退回 DOM 直插。 */
         selfLink(title, img, source, time) {
             const t = String(title == null ? '' : title).trim();
-            const s = String(source == null || source === '' ? '心灵知行' : source);
+            const s = String(source == null || source === '' ? '恋爱技巧' : source);
             if (t && pushStoreEntry(true, { text: '[链接]', link: { title: t, image: img || '', source: s } }, time)) return true;
             return !!linkCard(true, title, img, source, time);
         },
         peerLink(title, img, source, time) {
             const t = String(title == null ? '' : title).trim();
-            const s = String(source == null || source === '' ? '心灵知行' : source);
+            const s = String(source == null || source === '' ? '恋爱技巧' : source);
             if (t && pushStoreEntry(false, { text: '[链接]', link: { title: t, image: img || '', source: s } }, time)) return true;
             return !!linkCard(false, title, img, source, time);
         },
@@ -1327,16 +1779,18 @@ window.__wxChatExt = {
            主页会话预览显示「[转账]」。store 不可用退回 DOM 直插。 */
         selfTransfer(recipient, amount, note, title) {
             const who = String(recipient == null || recipient === '' ? '对方' : recipient);
-            const amt = String(amount == null || amount === '' ? '1.00' : amount);
+            const amt = _fmtAmt(amount);
             const nt = String(note == null ? '' : note);
-            const subtitle = String(title == null ? '' : title).trim() || nt.trim() || '你发起了一笔转账';
+            /* 无备注/标题时第二行留空——真机卡片没有备注就没有这一行（旧默认文案
+               「你发起了一笔转账」是自造的，真机不存在）。 */
+            const subtitle = String(title == null ? '' : title).trim() || nt.trim();
             if (pushStoreEntry(true, { text: '[转账]', transfer: { amount: amt, title: subtitle } })) return true;
             return transferCard(true, who, amt, nt, title);
         },
         peerTransfer(recipient, amount, note, title) {
-            const amt = String(amount == null || amount === '' ? '1.00' : amount);
+            const amt = _fmtAmt(amount);
             const subtitle = String(title == null ? '' : title).trim()
-                || String(note == null ? '' : note).trim() || '对方发来一笔转账';
+                || String(note == null ? '' : note).trim();
             if (pushStoreEntry(false, { text: '[转账]', transfer: { amount: amt, title: subtitle } })) return true;
             return transferCard(false, recipient, amount, note, title);
         },

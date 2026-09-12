@@ -8,7 +8,7 @@
           {
             "name": "微信支付",
             "text": "已支付¥11.65",
-            "avatar": "/images/ref/pay.png",
+            "avatar": "/images/avatar/30_女人_1_金善慧Keina_来自小红书网页版_20260831_184614_096.jpg",
             "read": false,
             "newMsgCount": 9,
             "timestamp": 1787653320000
@@ -16,7 +16,7 @@
           {
             "name": "梓康群",
             "text": "下午看得怎么样",
-            "avatar": "/images/ref/qun.png",
+            "avatar": "/images/ref/D.png",
             "quiet": true,
             "read": false,
             "timestamp": 1787652960000
@@ -24,7 +24,7 @@
           {
             "name": "陆香儿",
             "text": "我也吃饭去了",
-            "avatar": "/images/ref/luxianger.png",
+            "avatar": "/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg",
             "read": false,
             "newMsgCount": 1,
             "timestamp": 1787652960000
@@ -32,28 +32,28 @@
           {
             "name": "服务号",
             "text": "广东联网售票：已上线！全省客运线路实现“一…”",
-            "avatar": "/images/ref/fuwu.png",
+            "avatar": "/images/avatar/照片输出_1_楠柒_来自小红书网页版_20260902_180914_204.jpg",
             "read": true,
             "timestamp": 1787650140000
           },
           {
             "name": "公众号",
             "text": "快讯：自动驾驶首次被写入法律",
-            "avatar": "/images/ref/gongzhong.png",
+            "avatar": "/images/avatar/御一下_1_涔涔_来自小红书网页版_20260831_184719_470.jpg",
             "read": true,
             "timestamp": 1787626620000
           },
           {
             "name": "微信团队",
             "text": "登录操作通知",
-            "avatar": "/images/ref/weixin_team.png",
+            "avatar": "/images/avatar/110_158_夏天就要大胆穿__5_不吃饭了__来自小红书网页版_20260831_185134_593.jpg",
             "read": true,
             "timestamp": 1787590140000
           },
           {
             "name": "沉默光环",
             "text": "拍得",
-            "avatar": "/images/ref/chenmo.png",
+            "avatar": "/images/avatar/Jennie头像_1_PP酱v_来自小红书网页版_20260831_185616_327.jpg",
             "read": true,
             "timestamp": 1787673120000
           },
@@ -67,7 +67,7 @@
           {
             "name": "妍",
             "text": "在吗",
-            "avatar": "/images/ref/yan.png",
+            "avatar": "/images/avatar/Dark_高质量女头__1_Dark__来自小红书网页版_20260831_185822_457.jpg",
             "read": true,
             "timestamp": 1787659800000
           }
@@ -83,13 +83,13 @@
     {
       "action": "设置头像",
       "params": {
-        "图片": "/images/ref/stitch.png"
+        "图片": "/images/ref/D.png"
       }
     },
     {
       "action": "设置背景",
       "params": {
-        "图片": "/images/ref/grey_cover.png"
+        "图片": "/images/peer/peer_cover.jpg"
       }
     },
     {
@@ -98,10 +98,10 @@
         "数据": [
           {
             "author": "陆香儿",
-            "avatar": "/images/ref/luxianger.png",
+            "avatar": "/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg",
             "text": "就这么丝滑的下班。",
             "images": [
-              "/images/ref/lux_video.png"
+              "/images/peer/peer_v1.jpg"
             ],
             "time": "35分钟前",
             "likes": [],

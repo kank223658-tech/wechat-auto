@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>并发生产 · 微信录屏</title>
+<style>
+    :root {
+    color-scheme: light;
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --panel-2: #f2f3f6;
+    --panel-3: #e9ebef;
+    --field: #f7f8fa;
+    --line: rgba(17, 24, 39, 0.08);
+    --line-strong: rgba(17, 24, 39, 0.16);
+    --text: #1c1e22;
+    --muted: #5c616b;
+    --muted-2: #9095a0;
+    --accent: #0aac5f;
+    --accent-strong: #0a9d57;
+    --accent-soft: rgba(10, 172, 95, 0.10);
+    --accent-border: rgba(10, 172, 95, 0.38);
+    --amber: #b9791e;
+    --red: #d54941;
+    --ink-0: #0f1115;
+    --shadow: 0 24px 64px rgba(17, 24, 39, 0.16);
+    --shadow-soft: 0 6px 20px rgba(17, 24, 39, 0.06);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background:
+      radial-gradient(1100px 480px at 18% -12%, rgba(10, 172, 95, 0.04), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font: 14px/1.5 "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(17, 24, 39, 0.14);
+    background-clip: content-box;
+    border: 2.5px solid transparent;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: rgba(17, 24, 39, 0.24); }
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ---- 顶部工具栏 ---- */
+  .topbar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(16px);
+    flex-wrap: wrap;
+  }
+  .topbar .brand { font-weight: 600; font-size: 15px; margin-right: 4px; color: var(--ink-0); letter-spacing: 0.3px; }
+  .topbar .brand small { color: var(--muted-2); font-weight: 400; }
+  .topbar .spacer { flex: 1; }
+  .topbar button, .panel button, .card button, .task-card button {
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 9px;
+    padding: 6px 12px;
+    transition: background .14s ease, border-color .14s ease, transform .14s ease;
+  }
+  .topbar button:hover, .panel button:hover, .card button:hover, .task-card button:hover {
+    background: var(--panel-3);
+    border-color: var(--line-strong);
+    transform: translateY(-1px);
+  }
+  .topbar button.primary, .panel button.primary {
+    background: linear-gradient(180deg, #15d274, #0cb259);
+    border-color: transparent;
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(10, 172, 95, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  }
+  .topbar button.primary:hover, .panel button.primary:hover {
+    background: linear-gradient(180deg, #1bda7c, #0fbe62);
+    border-color: transparent;
+  }
+  .topbar button.danger { border-color: rgba(213, 73, 65, 0.35); background: rgba(213, 73, 65, 0.1); color: #c73e35; }
+  .topbar button.danger:hover { border-color: var(--red); background: rgba(213, 73, 65, 0.2); }
+  .topbar button.ghost { background: transparent; border-color: transparent; }
+  .topbar button.ghost:hover { background: var(--panel-2); border-color: var(--line); }
+  .topbar select, .topbar input { background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 5px 8px; font: inherit; }
+  .topbar .conf { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+  .topbar .conf input { width: 48px; text-align: center; }
+  .hint { font-size: 12px; color: var(--muted-2); line-height: 1.7; }
+
+  /* ---- 主体：左任务队列 + 右详情/图库 ---- */
+  .main { flex: 1; display: flex; min-height: 0; }
+  .left { width: 42%; min-width: 360px; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+  .left-head { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .left-head b { font-size: 13px; color: var(--ink-0); font-weight: 600; letter-spacing: 1px; }
+  .left-head .count { font-size: 12px; color: var(--muted-2); }
+  .left-head .spacer { flex: 1; }
+
+  .task-scroll { flex: 1; overflow: auto; padding: 10px 12px; }
+  .task-card {
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 10px;
+    background: var(--panel-2); position: relative;
+    transition: border-color .14s ease, background .14s ease, box-shadow .14s ease;
+  }
+  .task-card:hover { border-color: var(--line-strong); }
+  .task-card.selected { border-color: var(--accent-border); background: var(--accent-soft); box-shadow: 0 0 0 3px rgba(10, 172, 95, 0.07); }
+  .task-card .tc-top { display: flex; align-items: center; gap: 8px; }
+  .task-card .tc-cb { flex: 0 0 auto; cursor: pointer; transform: scale(1.15); accent-color: var(--accent); }
+  .task-card .tc-name { flex: 1; min-width: 0; font-weight: 600; color: var(--ink-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .task-card .tc-name:hover { color: #0a8a4f; }
+  .status-badge { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .status-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .status-badge.idle { background: var(--panel-3); color: var(--muted); border: 1px solid var(--line); }
+  .status-badge.queued { background: rgba(71, 86, 216, 0.13); color: #4756d8; border: 1px solid rgba(71, 86, 216, 0.3); }
+  .status-badge.running { background: var(--accent-soft); color: #0a8a4f; border: 1px solid var(--accent-border); }
+  .status-badge.running::before { animation: pulse 1s infinite; }
+  .status-badge.success { background: var(--accent-soft); color: #0a8a4f; border: 1px solid var(--accent-border); }
+  .status-badge.failed { background: rgba(213, 73, 65, 0.12); color: #c73e35; border: 1px solid rgba(213, 73, 65, 0.35); }
+  .status-badge.stopped { background: rgba(202, 138, 20, 0.12); color: #b9791e; border: 1px solid rgba(202, 138, 20, 0.35); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  .tc-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 11px; color: var(--muted-2); }
+  .tc-meta .chip { background: var(--panel-3); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  .tc-meta .chip.warn { border-color: rgba(202, 138, 20, 0.35); color: #b9791e; }
+  .tc-meta .chip.ok { border-color: var(--accent-border); color: #0a8a4f; }
+  .tc-meta .chip.err { border-color: rgba(213, 73, 65, 0.35); color: #c73e35; }
+  .tc-actions { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+  .tc-actions button { padding: 4px 10px; font-size: 12px; }
+  .tc-actions .run {
+    background: linear-gradient(180deg, #15d274, #0cb259); border-color: transparent;
+    color: #ffffff; font-weight: 600;
+  }
+  .tc-actions .run:hover { background: linear-gradient(180deg, #1bda7c, #0fbe62); border-color: transparent; }
+  .tc-actions .stop { border-color: rgba(213, 73, 65, 0.35); background: rgba(213, 73, 65, 0.1); color: #c73e35; }
+  .tc-empty { color: var(--muted-2); text-align: center; padding: 40px 20px; font-size: 13px; line-height: 1.8; }
+
+  /* ---- 右侧：详情 / 图库 ---- */
+  .right { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+  .panel-tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .panel-tabs button {
+    flex: 1; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    background: transparent; color: var(--muted); font-weight: 500; padding: 11px 0;
+    transition: color .14s ease, border-color .14s ease;
+  }
+  .panel-tabs button:hover { background: transparent; border-color: transparent; border-bottom-color: transparent; transform: none; color: var(--text); }
+  .panel-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel-body { flex: 1; overflow: auto; padding: 14px; }
+
+  .field { margin-top: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; letter-spacing: 0.3px; }
+  .field input, .field select, .field textarea {
+    width: 100%; background: var(--field); color: var(--text);
+    border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; font: inherit;
+    transition: border-color .14s ease, box-shadow .14s ease;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent-border);
+    box-shadow: 0 0 0 3px rgba(10, 172, 95, 0.12);
+  }
+  .field textarea { min-height: 90px; resize: vertical; font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+  .field-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .field-row .field { flex: 1; min-width: 130px; margin-top: 0; }
+  .btn-row { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+  .opt-checks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .opt-checks label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .opt-checks input { accent-color: var(--accent); }
+
+  .warn-panel { border: 1px solid rgba(202, 138, 20, 0.35); background: rgba(202, 138, 20, 0.08); border-radius: 10px; padding: 8px 10px; color: #8a5a0b; font-size: 12px; margin-top: 10px; line-height: 1.6; }
+  .warn-panel b { color: #b9791e; }
+
+  .steps-wrap { margin-top: 14px; }
+  .steps-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .steps-head b { font-size: 13px; color: var(--ink-0); font-weight: 600; }
+  .steps-head .spacer { flex: 1; }
+  .step-row { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 7px 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .step-row .no { flex: 0 0 26px; text-align: center; background: var(--panel-3); color: var(--muted); border-radius: 6px; font-size: 11px; padding: 2px 0; }
+  .step-row .act { flex: 0 0 auto; font-weight: 600; color: var(--text); }
+  .step-row .sum { flex: 1; min-width: 0; font-size: 12px; color: var(--muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step-row .imgslot { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-3); cursor: pointer; }
+  .step-row .imgslot:hover { border-color: var(--accent); }
+  .step-row .imgslot img { width: 100%; height: 100%; border-radius: 6px; object-fit: cover; }
+  .step-row .imgslot .nopic { font-size: 16px; line-height: 1; }
+  /* 图片消息步骤：绿色高亮便于区分（发图片/图片消息） */
+  .step-row.img { border-color: var(--wxp-amber-line); background: #fff8ea; }
+  .step-row.img .act { color: #8a5306; }
+  .step-row.img .no { background: rgba(233, 162, 59, 0.20); color: #a5650a; }
+  .step-row.img .empty-sum { color: #8a5306; }
+  .step-row.img.filled { border-color: var(--wxp-accent-line); background: #f2fbf7; }
+  .step-row.img.filled .act { color: #0a7a4a; }
+  .step-row.img.filled .no { background: #e8f7ef; color: #0a8a4f; }
+  .step-row.img.filled .empty-sum { color: #0a7a4a; }
+  .step-row .need { flex: 0 0 auto; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(233, 162, 59, 0.18); color: #a5650a; border: 1px solid var(--wxp-amber-line); }
+  .step-row .need.ok { background: #e8f7ef; color: #0a8a4f; border-color: var(--wxp-accent-line); }
+  .step-row .imgslot.need { border-color: var(--wxp-amber-line); background: #fff8ea; }
+  .step-row .imgslot.ok { border-color: var(--wxp-accent); }
+  .step-row button.del { color: #c73e35; }
+  .step-row button.del:hover { background: rgba(213, 73, 65, 0.15); border-color: rgba(213, 73, 65, 0.4); }
+  .step-row button { padding: 3px 8px; font-size: 11px; }
+  .step-row button.pick {
+    background: linear-gradient(180deg, #15d274, #0cb259); border-color: transparent;
+    color: #ffffff; font-weight: 600;
+  }
+  .step-row .empty-sum { color: var(--muted-2); font-style: italic; }
+  .steps-head .upbtn {
+    background: linear-gradient(180deg, #15d274, #0cb259); border-color: transparent;
+    color: #ffffff; font-weight: 600; padding: 5px 12px; font-size: 12px;
+  }
+  .steps-head .upbtn:hover { background: linear-gradient(180deg, #1bda7c, #0fbe62); border-color: transparent; }
+  .steps-head .upbtn[disabled] { opacity: .5; cursor: not-allowed; }
+
+  .detail-empty { color: var(--muted-2); text-align: center; padding: 40px 20px; font-size: 13px; line-height: 1.8; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(5, 6, 8, 0.62); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-mask.show { display: flex; }
+  .modal { width: 520px; max-width: 94vw; max-height: 90vh; overflow: auto; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+  .modal h4 { margin: 0 0 10px; font-size: 15px; color: var(--ink-0); font-weight: 600; }
+  .modal textarea { width: 100%; min-height: 180px; background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 8px; font-family: Consolas, "Courier New", monospace; font-size: 12px; resize: vertical; }
+  .modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .modal .btns button.primary {
+    background: linear-gradient(180deg, #15d274, #0cb259); border-color: transparent;
+    color: #ffffff; font-weight: 600;
+  }
+
+  /* ---- 运行状态 / 日志 / 视频 ---- */
+  .run-status { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); padding: 10px; }
+  .run-status .rs-top { display: flex; align-items: center; gap: 8px; }
+  .run-status .rs-top b { font-size: 13px; color: var(--ink-0); }
+  .run-status .rs-top .spacer { flex: 1; }
+  .run-log { margin-top: 8px; background: #0a0b0d; border: 1px solid var(--line); border-radius: 9px; padding: 8px; height: 180px; overflow: auto; font-family: Consolas, "Courier New", monospace; font-size: 11px; line-height: 1.5; color: #a8c0b0; white-space: pre-wrap; word-break: break-all; }
+  .run-log .muted { color: var(--muted-2); }
+  .video-link { display: inline-flex; align-items: center; gap: 6px; color: #4756d8; text-decoration: none; font-weight: 600; }
+  .video-link:hover { color: #6474e8; }
+
+  /* ---- 图片库 ---- */
+  .lib-toolbar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .lib-toolbar input { flex: 1; min-width: 150px; background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; font: inherit; }
+  .lib-toolbar select { background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; font: inherit; }
+  .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .lib-item { cursor: pointer; border: 1px solid transparent; border-radius: 10px; padding: 5px; text-align: center; }
+  .lib-item:hover { background: var(--panel-2); }
+  .lib-item.sel { border-color: var(--accent-border); background: var(--accent-soft); }
+  .lib-thumb { height: 72px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: var(--panel-2); position: relative; }
+  .lib-thumb img { max-width: 100%; max-height: 100%; object-fit: cover; }
+  .lib-thumb .tag { position: absolute; top: 3px; right: 3px; font-size: 9px; padding: 1px 4px; border-radius: 4px; color: var(--text); }
+  .lib-thumb .tag-icon { background: rgba(71, 86, 216, 0.25); }
+  .lib-thumb .tag-image { background: rgba(10, 172, 95, 0.25); }
+  .lib-name { font-size: 11px; color: var(--muted); margin-top: 4px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lib-empty { grid-column: 1 / -1; color: var(--muted-2); text-align: center; padding: 36px 0; font-size: 13px; }
+  .lib-detail { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .lib-detail .ld-path { font-size: 12px; color: var(--muted-2); word-break: break-all; margin-bottom: 8px; }
+  .lib-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .lib-actions button.danger { border-color: rgba(213, 73, 65, 0.35); background: rgba(213, 73, 65, 0.1); color: #c73e35; }
+  /* 拖图到分类按钮 ＝ 搬家；面板拖入上传高亮 */
+  .lib-typebtn.drop { border-color: var(--accent); color: var(--accent); background: var(--panel-2); transform: scale(1.06); }
+  .lib-item[draggable="true"] { cursor: grab; }
+  .lib-item[draggable="true"]:active { cursor: grabbing; }
+  .panel-body.drop { outline: 2px dashed var(--accent); outline-offset: -4px; }
+  .lib-detail img.ld-preview { max-width: 100%; max-height: 260px; border-radius: 10px; display: block; margin-bottom: 8px; background: var(--field); }
+  .lib-rename-row { display: flex; gap: 8px; margin-top: 10px; }
+  .lib-rename-row input { flex: 1; background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; font: inherit; }
+  .lib-rename-row button.primary { background: linear-gradient(180deg, #15d274, #0cb259); border-color: transparent; color: #ffffff; font-weight: 600; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);
+    background: linear-gradient(180deg, #15d274, #0cb259); color: #ffffff;
+    padding: 10px 18px; border-radius: 10px; font-weight: 600;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 80vw; text-align: center; z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+  .toast.err { background: var(--red); color: #fff; }
+
+
+  /* ---- UI v2: 顶栏菜单与统一尺寸 ---- */
+  .topbar .btn { height: 32px; }
+  .topbar .btn.small { height: 30px; }
+  .topbar .btn.primary { height: 34px; }
+  .menu-wrap { position: relative; display: inline-flex; }
+  .menu-btn .caret { font-style: normal; font-size: 10px; opacity: .55; margin-left: 3px; }
+  .menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 90;
+    min-width: 176px; display: none; flex-direction: column; gap: 2px; padding: 6px;
+    background: var(--panel); border: 1px solid var(--line-strong); border-radius: 12px;
+    box-shadow: var(--shadow-pop, 0 12px 32px rgba(17, 24, 39, 0.14));
+  }
+  .menu-wrap.open .menu { display: flex; }
+  .menu .btn, .menu button {
+    display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 8px;
+    height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent;
+    transform: none; box-shadow: none;
+  }
+  .menu .btn:hover, .menu button:hover { background: var(--panel-2); border: 0; transform: none; }
+  .menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+
+  /* 深色部件与浅色界面的接缝 */
+  .run-log { border-color: rgba(255, 255, 255, 0.08); }
+  .log-head { border-color: rgba(255, 255, 255, 0.08); }
+  
+  .live-panel { border-color: #26282e; }
+  .live-head { border-color: rgba(255, 255, 255, 0.08); }
+  .live-tip { border-color: rgba(255, 255, 255, 0.08); }
+  .live-typebar { border-color: rgba(255, 255, 255, 0.08); }
+  
+  
+
+/* ---------- 说明文字折叠成「?」 ---------- */
+.hint.compacted { display: flex; align-items: flex-start; gap: 7px; }
+.hint-q {
+  flex: none; width: 16px; height: 16px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--panel-2);
+  color: var(--muted); font-size: 10.5px; font-weight: 700; line-height: 1; cursor: help;
+}
+.hint-q:hover { color: var(--accent); border-color: var(--accent-border); background: var(--panel-3); }
+.hint-body { display: none; flex: 1; }
+.hint.compacted.open .hint-body { display: block; }
+
+/* ---------- 浅色状态配色令牌（配图相关） ---------- */
+:root {
+  --wxp-amber-soft: #fff8ea;
+  --wxp-amber-line: rgba(214, 148, 32, .55);
+  --wxp-accent-line: rgba(10, 172, 95, .40);
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <div class="brand">⚡ 并发生产 <small>· 一次跑多条剧本，各自出片</small></div>
+  <div class="menu-wrap" id="ccImportMenuWrap">
+    <button type="button" class="menu-btn" id="btnCcImportMenu" data-tip="导入菜单：粘贴单个剧本，或从文件夹批量导入">导入<i class="caret">▾</i></button>
+    <div class="menu">
+      <button id="btnImport" class="menu-item" data-tip="粘贴/加载一段剧本，新建一条任务">📜 导入剧本</button>
+      <button id="btnImportFolder" class="menu-item" data-tip="从一个文件夹读取所有 .txt 剧本，每个文件新建一条任务">📁 从文件夹导入</button>
+    </div>
+  </div>
+  <button id="btnParseAll" data-tip="对所有还没解析的任务调用 AI 转译">🤖 全部解析(AI)</button>
+  <button id="btnParseAllOffline" data-tip="对所有还没解析的任务做离线规则解析（不需要 API Key）">⚙ 全部解析(离线)</button>
+  <span class="spacer"></span>
+  <div class="conf" title="同时最多跑几条（1~8）">同时跑
+    <input type="number" id="maxConcurrent" data-tip="同时最多运行的任务数（1~8），其余自动排队" min="1" max="8" value="3"></div>
+  <button id="btnStopAll" class="danger" data-tip="停止所有正在跑/排队的任务">⏹ 全部停止</button>
+  <button id="btnRunAll" class="primary" data-tip="把已解析的任务全部排队，按上限同时开跑">▶ 全部开始</button>
+  <span class="spacer"></span>
+  <div class="menu-wrap" id="ccToolMenuWrap">
+    <button type="button" class="menu-btn" id="btnCcToolMenu" data-tip="工具菜单：图片库、视频目录、清空已完成任务">工具<i class="caret">▾</i></button>
+    <div class="menu">
+      <button id="btnLib" data-tip="打开图片库：管理配图素材" class="menu-item">🖼 图片库</button>
+      <button id="btnVideos" data-tip="打开生成视频所在的文件夹" class="menu-item">📂 打开视频目录</button>
+      <div class="menu-sep"></div>
+      <button id="btnCleanDone" data-tip="删除所有已完成 / 已失败的任务记录" class="menu-item">🗑 清空已完成</button>
+    </div>
+  </div>
+  <button id="btnBack" data-tip="回到可视化工作流编辑器">↩ 工作流编辑器</button>
+</div>
+  <div class="hint" style="padding:0 14px 6px">在左侧导入一条或多条剧本 → 逐条解析（AI 或离线）→ 在「配图清单」点「📤 上传图片（按顺序）」或拖图/单张选图，给每个图槽配好图 → 点「全部开始」即可同时跑多条，每条各自独立生成视频。顶部「图片库」可上传/管理图片；倍速、音乐等运行选项改动即自动保存，并作为后续导入任务的默认值。</div>
+
+  <div class="main">
+    <div class="left">
+      <div class="left-head">
+        <b>任务队列</b><span class="count" id="taskCount">0 条</span>
+        <span class="spacer"></span>
+        <button id="btnDeselect" class="ghost" data-tip="取消所有勾选">取消勾选</button>
+        <button id="btnRunSelected" data-tip="只跑勾选的任务">▶ 跑选中</button>
+        <button id="btnSelectAll" data-tip="勾选全部任务">全选</button>
+      </div>
+      <div class="task-scroll" id="taskList"></div>
+    </div>
+
+    <div class="right">
+      <div class="panel-tabs">
+        <button data-tab="detail" class="active">任务详情</button>
+        <button data-tab="library">图片库</button>
+      </div>
+      <div class="panel-body" id="panelBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 导入剧本弹窗 -->
+<div class="modal-mask" id="importMask">
+  <div class="modal">
+    <h4>📜 导入剧本</h4>
+    <div class="field"><label>任务名称（可空）</label><input id="importName" placeholder="默认取剧本第一行或“未命名任务”"></div>
+    <div class="field"><label>剧本文本</label><textarea id="importScript" spellcheck="false" placeholder="粘贴标准格式或自然语言剧本"></textarea></div>
+    <div class="opt-checks"><label data-tip="导入后立即自动做离线解析，省一步手动点解析（可再点「全部解析(AI)」升级为 AI 转译）"><input type="checkbox" id="importAutoParse" checked> 导入后自动离线解析</label></div>
+    <div class="btns">
+      <button id="importCancel">取消</button>
+      <button id="importOk" class="primary">导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑步骤 JSON 弹窗 -->
+<div class="modal-mask" id="stepMask">
+  <div class="modal">
+    <h4>编辑步骤（JSON）</h4>
+    <textarea id="stepJson" spellcheck="false"></textarea>
+    <div class="btns">
+      <button id="stepCancel">取消</button>
+      <button id="stepOk" class="primary">应用修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- 文件选择（隐藏） -->
+<input type="file" id="folderInput" class="sr-only" multiple accept=".txt,text/plain" style="display:none">
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+let tasks = [];               // 完整任务列表（含 steps）
+let tasksStatus = [];         // 轻量轮询状态（id/name/status/video/error/source）
+let selectedId = null;        // 当前选中的任务 id
+let panelTab = 'detail';
+let ACTIONS = [];             // /api/actions 元信息（判断图片参数）
+let logOffsets = {};          // id -> 日志读取 offset
+let libQuery = '', libFiles = [], libSel = null, libCats = [], libCat = '';
+let pollTimer = null;
+let renderedTaskId = null;    // 当前详情面板正在渲染的任务 id（saveTaskMeta 据此决定是否从 DOM 回读）
+const busyFlags = {};         // 每个任务正在执行的操作（防重复点击）
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let toastTimer = null;
+function debounce(fn, ms) {
+  let h;
+  return function () { clearTimeout(h); h = setTimeout(fn, ms); };
+}
+function toast(msg, isErr) {
+  const t = $('toast');
+  t.classList.toggle('err', !!isErr);
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+async function api(url, opts) {
+  const r = await fetch(url, opts || {});
+  return r.json();
+}
+async function apiPost(url, data) {
+  return api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data || {}) });
+}
+
+function setSelected(id) { selectedId = id; renderTaskList(); renderPanel(); }
+
+/* ---------- 任务列表 ---------- */
+function statusInfo(st) {
+  const label = { idle: '空', queued: '排队', running: '运行中', success: '成功', failed: '失败', stopped: '已停' }[st] || st || '空';
+  return { label, cls: st || 'idle' };
+}
+
+function renderTaskList() {
+  const list = $('taskList');
+  $('taskCount').textContent = tasks.length + ' 条';
+  if (!tasks.length) {
+    list.innerHTML = '<div class="tc-empty">还没有任务。点击顶部「📜 导入剧本」或「📁 从文件夹导入」<br>新建一条剧本任务后即可解析、配图、并发运行。</div>';
+    return;
+  }
+  list.innerHTML = tasks.map(t => {
+    const st = statusInfo(t.status);
+    const stepsN = (t.steps || []).length;
+    const wN = (t.warnings || []).length;
+    const srcLabel = !t.source ? '' : (t.source === 'llm' ? 'AI' : (t.source === 'offline' ? '离线' : t.source));
+    const noSteps = stepsN === 0;
+    let meta = [
+      (noSteps ? '<span class="chip warn">未解析</span>' : '<span class="chip ok">步骤 ' + stepsN + '</span>'),
+      (srcLabel ? '<span class="chip">来源 ' + esc(srcLabel) + '</span>' : ''),
+      (wN ? '<span class="chip warn">⚠ ' + wN + ' 条提示</span>' : ''),
+    ].filter(Boolean).join('');
+    let videoChip = '';
+    if (t.status === 'success' && t.video) videoChip = '<span class="chip ok">▶ ' + esc(t.video) + '</span>';
+    if (t.status === 'failed' && t.error) videoChip = '<span class="chip err">✖ ' + esc(truncate(t.error, 34)) + '</span>';
+    const canRun = !['running', 'queued'].includes(t.status) && stepsN > 0;
+    return '<div class="task-card' + (t.id === selectedId ? ' selected' : '') + '" data-id="' + esc(t.id) + '">' +
+      '<div class="tc-top">' +
+        '<input type="checkbox" class="tc-cb" data-cb="' + esc(t.id) + '" ' + (t._checked ? 'checked' : '') + ' title="勾选后可用「跑选中」批量运行">' +
+        '<span class="tc-name" data-name>· ' + esc(t.name || '未命名任务') + '</span>' +
+        '<span class="status-badge ' + st.cls + '">' + st.label + '</span></div>' +
+      '<div class="tc-meta">' + meta + videoChip + '</div>' +
+      '<div class="tc-actions">' +
+        (canRun ? '<button class="run" data-act="run">▶ 运行</button>' : '') +
+        (t.status === 'running' || t.status === 'queued' ? '<button class="stop" data-act="stop">⏹ 停止</button>' : '') +
+        '<button data-act="parse" ' + (['running','queued'].includes(t.status) ? 'disabled' : '') + '>🤖 解析</button>' +
+        '<button data-act="del" ' + (['running','queued'].includes(t.status) ? 'disabled' : '') + '>删除</button>' +
+      '</div></div>';
+  }).join('');
+
+  // 绑定事件
+  list.querySelectorAll('.task-card').forEach(card => {
+    const id = card.getAttribute('data-id');
+    card.querySelector('[data-name]').onclick = () => setSelected(id);
+    card.querySelector('.tc-cb').onchange = (e) => { const t = tasks.find(x => x.id === id); if (t) t._checked = e.target.checked; };
+    card.querySelectorAll('[data-act]').forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const act = btn.getAttribute('data-act');
+        if (act === 'run') await runTask(id);
+        else if (act === 'stop') await stopTask(id);
+        else if (act === 'parse') { setSelected(id); await parseTask(id, false); }
+        else if (act === 'del') await deleteTask(id);
+      };
+    });
+  });
+}
+
+function truncate(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+/* ---------- 右侧面板 ---------- */
+function setPanelTab(tab) {
+  panelTab = tab;
+  document.querySelectorAll('.panel-tabs button').forEach(x => x.classList.toggle('active', x.getAttribute('data-tab') === tab));
+  renderPanel();
+}
+
+function renderPanel() {
+  if (panelTab === 'library') {
+    libCat = libRestoreCat();          // 打开图片库 = 回到上次所在的分类
+    let s = '';
+    try { s = localStorage.getItem('wx-lib-sort') || ''; } catch (e) { /* 忽略 */ }
+    if (['new', 'old', 'name', 'size'].includes(s)) libSort = s;
+    renderLibrary();
+    return;
+  }
+  renderDetail();
+}
+
+function getSelected() { return tasks.find(t => t.id === selectedId) || null; }
+
+function renderDetail() {
+  const body = $('panelBody');
+  const t = getSelected();
+  renderedTaskId = t ? t.id : null;
+  if (!t) {
+    body.innerHTML = '<div class="detail-empty">在左侧点选一个任务查看详情：<br>编辑剧本 → 解析 → 配图 → 设置运行选项。</div>';
+    return;
+  }
+  const opt = t.options || {};
+  const wN = (t.warnings || []).length;
+  body.innerHTML =
+    '<div class="field"><label>任务名称</label><input id="dName" value="' + esc(t.name) + '"></div>' +
+    '<div class="field"><label>剧本文本</label><textarea id="dScript" spellcheck="false">' + esc(t.script) + '</textarea></div>' +
+    '<div class="btn-row">' +
+      '<button id="dParseAI" class="primary">🤖 AI 转译剧本</button>' +
+      '<button id="dParseOff">⚙ 离线解析</button>' +
+      '<button id="dSave">💾 保存</button>' +
+    '</div>' +
+    (wN ? '<div class="warn-panel"><b>解析提示（' + wN + ' 条）</b><br>' + esc((t.warnings || []).join('；')) + '</div>' : '') +
+    '<div class="field-row">' +
+      '<div class="field"><label>打字倍速</label><input id="dSpeed" type="number" value="' + esc(opt.typing_speed) + '" min="1" max="40" step="0.5"></div>' +
+      '<div class="field"><label>背景音乐路径（可空）</label><input id="dBgmPath" value="' + esc(opt.bgm_path || '') + '" placeholder="默认内置曲"></div>' +
+    '</div>' +
+    '<div class="opt-checks">' +
+      '<label><input type="checkbox" id="dIntro" ' + (opt.intro ? 'checked' : '') + '> 开场锁屏动画</label>' +
+      '<label><input type="checkbox" id="dBgm" ' + (opt.bgm !== false ? 'checked' : '') + '> 背景音乐</label>' +
+    '</div>' +
+    '<div class="steps-wrap"><div class="steps-head"><b>步骤（' + (t.steps || []).length + '）</b><span class="spacer"></span>' +
+      '<span class="hint">点步骤卡片可编辑 JSON；图片在下方「配图清单」统一上传/换图</span></div>' +
+      '<div id="stepsList"></div></div>' +
+    '<div id="taskAttach" style="display:none"></div>' +
+    '<div class="run-status" id="runStatus"></div>';
+
+  renderStepsBody(t);
+  renderTaskAttach(t);
+  renderRunStatus(t);
+
+  const autoSave = debounce(() => saveTaskMeta(t, true), 650);
+  $('dSave').onclick = async () => { await saveTaskMeta(t); };
+  $('dParseAI').onclick = async () => { await parseTask(t.id, false); };
+  $('dParseOff').onclick = async () => { await parseTask(t.id, true); };
+  $('dName').onchange = () => { t.name = $('dName').value.trim() || '未命名任务'; saveTaskMeta(t, true); };
+  // 运行选项/剧本文本改动即自动保存（无需点「保存」）
+  $('dScript').addEventListener('input', autoSave);
+  $('dSpeed').onchange = () => saveTaskMeta(t, true);
+  $('dBgmPath').onchange = () => saveTaskMeta(t, true);
+  $('dIntro').onchange = () => saveTaskMeta(t, true);
+  $('dBgm').onchange = () => saveTaskMeta(t, true);
+}
+
+function imgPathFilled(v) {
+  const t = String(v == null ? '' : v).trim();
+  return !!t && (t.startsWith('/') || /^https?:/i.test(t));
+}
+function stepSummary(p) {
+  const keys = Object.keys(p || {});
+  if (!keys.length) return '';
+  return keys.map(k => {
+    let v = p[k];
+    if (Array.isArray(v) || (v && typeof v === 'object')) v = JSON.stringify(v);
+    return k + '=' + truncate(v, 40);
+  }).join(' · ');
+}
+
+function imageParamFor(step) {
+  // 表情动作：参数 key 是「表情」而不是「图片」。这些动作永远需要配图——
+  // 在步骤卡片 / 配图清单里给出上传槽，配哪张图运行时发哪张（不经过名字匹配选图）。
+  const EMOJI_IMG_ACTIONS = new Set(['发送表情', '对方表情', '对方后台发表情']);
+  if (EMOJI_IMG_ACTIONS.has(step && step.action)) return '表情';
+  const a = step && ACTIONS.find(x => x.action === step.action);
+  if (!a) return null;
+  if (!a.params.some(pp => pp.key === '图片')) return null;
+  // 对方后台发消息：仅当内容以 [图片]/[配图] 开头或已有 图片 参数时才需要配图，
+  // 避免纯文本后台消息也冒出「选图」按钮。
+  if (step.action === '对方后台发消息') {
+    const params = step.params || {};
+    const content = params['内容'] || '';
+    const already = params['图片'] !== undefined && String(params['图片']).trim() !== '';
+    const marked = typeof content === 'string' && /^\s*[\[【]\s*(?:图片|配图)\s*[\]】]/.test(content);
+    return (already || marked) ? '图片' : null;
+  }
+  return '图片';
+}
+
+/* ---- 配图清单（脚本模式同款方便界面）---- */
+const IMG_MARKER_RE = /^\s*(?:[\[【]\s*(?:图片|配图)\s*[\]】])/;
+function imgDesc(v) { const m = IMG_MARKER_RE.exec(v || ""); return m ? v.slice(m[0].length).trim() : (v || ""); }
+function markerToDesc(v) {
+  if (typeof v !== "string") return null;
+  const m = IMG_MARKER_RE.exec(v);
+  return m ? (v.slice(m[0].length).trim() || "") : null;
+}
+// 插话里的对方表情标记（镜像 main.py 的 _IJ_EMOJI_RE）：命中表示这条插话应渲染成「对方表情贴纸」。
+const IJ_EMOJI_RE = /^\s*[\[【]\s*(?:对方表情|对方发表情|对方表情包|对面发表情|表情|表情包)\s*[\]】]\s*(.*)$/;
+// 收集「打字不发 / 我方打字」带插话的动作里，插话参数中带「对方表情/表情」标记的槽位。
+// 写回时只替换对应那一段的表情关键词为真实路径，其余插话保持不变。
+function pushIjEmojiSlots(slots, step) {
+  if (!step || typeof step !== "object") return;
+  const params = step.params || {};
+  const ij = params["插话"];
+  if (typeof ij !== "string" || !ij.trim()) return;
+  ij.split(/[；;]/).forEach((seg, idx) => {
+    const s = (seg || "").trim();
+    const m = IJ_EMOJI_RE.exec(s);
+    if (!m) return;
+    const ref = (m[1] || "").trim();
+    const isReal = ref.startsWith("/") || /^https?:/i.test(ref);
+    const desc = ref || "对方表情";
+    slots.push({
+      id: "tsk_slot_" + slots.length, no: "图" + (slots.length + 1),
+      desc: "对方表情：" + desc, path: isReal ? ref : "", emoji: true, step,
+      setPath: (p) => {
+        const whole = params["插话"] || "";
+        const parts = whole.split(/[；;]/);
+        if (parts[idx] === undefined) return;
+        const trimmed = parts[idx].trim();
+        const mm = IJ_EMOJI_RE.exec(trimmed);
+        if (!mm) return;
+        const prefix = trimmed.slice(0, trimmed.length - mm[1].length);
+        parts[idx] = prefix + (p || "");
+        params["插话"] = parts.join("；");
+      }
+    });
+  });
+}
+
+/* 运行时支持「打开动画」的图片动作：主程序对这两个动作解析 打开/停留/焦点/放大倍率 参数。
+   （查看图片 不算——它运行时默认就是打开，参数缺省即"是"，放进下拉会误导） */
+const OPENABLE_IMG_ACTIONS = new Set(['发送图片', '对方发图片']);
+/* 给步骤类图片槽位挂「打开动画」读写访问器：open/openHold/openFocus/openZoom
+   全部透传到 step.params（打开/停留/焦点/放大倍率），供 shared_picker 配图清单控件使用。
+   onChange：选项变化后的持久化回调（并发页=刷新步骤列表+保存任务）。 */
+function withStepOpenAccessors(slot, onChange) {
+  const step = slot.step;
+  if (!step || !OPENABLE_IMG_ACTIONS.has(step.action)) return slot;
+  const get = (k) => {
+    const v = (step.params || {})[k];
+    return (v === undefined || v === null) ? "" : String(v);
+  };
+  const set = (k, v) => {
+    if (!step.params) step.params = {};
+    if (v === "") delete step.params[k];
+    else step.params[k] = v;
+  };
+  Object.defineProperties(slot, {
+    open:      { get: () => get("打开"),     set: (v) => set("打开", v) },
+    openHold:  { get: () => get("停留"),     set: (v) => set("停留", v) },
+    openFocus: { get: () => get("焦点"),     set: (v) => set("焦点", v) },
+    openZoom:  { get: () => get("放大倍率"), set: (v) => set("放大倍率", v) },
+  });
+  slot.openable = true;
+  if (typeof onChange === 'function') slot.onOptsChange = onChange;
+  return slot;
+}
+
+// 收集一个任务里所有需要配图的步骤，生成配图清单槽位（供 renderAttachPanel 展示）。
+// 槽位带 step 引用，配图后写回该步的「图片」参数；desc 去掉 [图片] 前缀，只留下描述。
+function collectTaskImageSlots(t) {
+  const slots = [];
+  (t.steps || []).forEach((step) => {
+    // 插话里带「对方表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
+    pushIjEmojiSlots(slots, step);
+    const imgKey = imageParamFor(step);
+    if (imgKey) {
+      const params = step.params || {};
+      let desc, path;
+      const raw = params[imgKey] || "";
+      if (imgKey === '表情') {
+        // 表情动作（发送表情/对方表情/对方后台发表情）：参数存表情引用（短名或真实路径）。
+        // 只有真实路径才显示缩略图；文件名/短名显示「未配图」让用户上传自己的表情图。
+        // 上传后写回 params.表情，运行时按该路径直接发送（不经过名字匹配选图）。
+        path = (raw && (raw.startsWith('/') || /^https?:/i.test(raw) || /[\\/]/.test(raw) || /\.(png|jpe?g|gif|webp|bmp)$/i.test(raw))) ? raw : "";
+        desc = raw || '表情';
+      } else {
+        const md = markerToDesc(raw);
+        path = md !== null ? "" : raw;
+        const content = params["内容"] !== undefined ? params["内容"] : (params["文案"] || "");
+        desc = (md !== null ? md : imgDesc(content)) || "图片消息";
+        // 链接卡片封面：图片参数是封面关键词（视频封面/封面…）、文件名或真实路径。
+        // 真实路径显示缩略图；关键词/文件名显示「未配图」让用户上传自己的封面。
+        if (step.action === "我方发链接" || step.action === "对方发链接") {
+          if (raw === "") return;   // 无封面引用 -> 按标题自动匹配，不需要配图
+          path = (raw && md === null && (raw.startsWith("/") || /^https?:/i.test(raw))) ? raw : "";
+          desc = params["标题"] || raw || "链接封面";
+        }
+      }
+      slots.push(withStepOpenAccessors(
+        { id: "tsk_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step, imgKey },
+        () => { renderStepsBody(t); saveTaskMeta(t, true); }
+      ));
+      return;
+    }
+    // 历史会话块生成的 [编辑主页]/[应用场景]/[编辑会话]，其「数据」数组里
+    // kind==image 的消息 -> 图片槽（含已配图；可配「打开动画」补/换图）。
+    // 配图写回该消息的 image 字段；open/openHold/openFocus/openZoom 写回消息自身。
+    if ((step.action === "编辑主页" || step.action === "应用场景" || step.action === "编辑会话") && Array.isArray((step.params || {})["数据"])) {
+      ((step.params || {})["数据"]).forEach((conv) => {
+        if (!conv || !Array.isArray(conv.messages)) return;
+        conv.messages.forEach((m) => {
+          if (!m) return;
+          const speaker = m.dir === "me" ? "我" : (conv.name || "对方");
+          if (m.kind === "image") {
+            const desc = (m.text || m.image || conv.name || "图片消息");
+            slots.push({
+              id: "hist_" + slots.length,
+              no: "图" + (slots.length + 1),
+              speaker, desc,
+              path: (m.image || "").trim(),
+              autoplayable: true,
+              setPath: (p) => { m.image = p; },
+              get open() { return m.open || ""; },
+              set open(v) { m.open = v || ""; },
+              get openHold() { return (m.openHold === undefined || m.openHold === null || m.openHold === "") ? "" : m.openHold; },
+              set openHold(v) { m.openHold = v; },
+              get openFocus() { return m.openFocus || ""; },
+              set openFocus(v) { m.openFocus = v; },
+              get openZoom() { return m.openZoom || ""; },
+              set openZoom(v) { m.openZoom = v || ""; },
+              onOptsChange: () => { renderStepsBody(t); saveTaskMeta(t, true); }
+            });
+          } else if (m.kind === "emoji") {
+            // 表情贴纸消息：历史会话块里 [表情] 消息的 image 是表情图路径（可能是已解析
+            // 出的 /images/... 真实路径，也可能是短名/占位词）。给出可手动上传表情图的槽，
+            // 真实路径写回 m.image；非真实路径显示「未配图」让用户上传自己的表情。
+            const _raw = (m.image || "").trim();
+            const _isReal = _raw.startsWith("/") || /^https?:/i.test(_raw);
+            const _desc = (m.text || _raw || conv.name || "表情");
+            slots.push({
+              id: "hist_" + slots.length,
+              no: "图" + (slots.length + 1),
+              speaker,
+              desc: _desc,
+              path: _isReal ? _raw : "",
+              emoji: true,
+              setPath: (p) => { m.image = p; },
+              onOptsChange: () => { renderStepsBody(t); saveTaskMeta(t, true); }
+            });
+          }
+        });
+      });
+    }
+  });
+  return slots;
+}
+
+function renderTaskAttach(t) {
+  const box = $("taskAttach");
+  if (!box || !window.__wxPick) return;
+  const slots = collectTaskImageSlots(t);
+  if (!slots.length) { box.style.display = "none"; box.innerHTML = ""; return; }
+  box.style.display = "";
+  window.__wxPick.renderAttachPanel(box, slots, (id, path) => {
+    const s = slots.find(x => x.id === id);
+    if (!s) return;
+    if (s.setPath) {
+      s.setPath(path || "");       // 历史会话块的图片：写回消息的 image 字段
+    } else if (s.step) {
+      s.step.params = s.step.params || {};
+      // 只写图片路径，不改内容里的 [图片] 标记——保留标记才能保证清图后仍被识别为图片消息
+      // 表情步骤若只有 图片 key（AI 手写）就沿用 图片 写回，避免空 表情 顶掉真值
+      let k = s.imgKey;
+      if (k === '表情' && s.step.params['表情'] === undefined && s.step.params['图片'] !== undefined) k = '图片';
+      s.step.params[k] = path || "";
+    }
+    s.path = path || "";
+    renderStepsBody(t);          // 只刷新步骤列表缩略图，不重建配图面板
+    saveTaskMeta(t, true);
+  });
+}
+
+/* ---------- 运行选项默认值持久化（本地记忆，新建任务自动沿用） ---------- */
+const BATCH_DEFAULTS_KEY = 'concurrent.batchDefaults';
+function loadBatchDefaults() {
+  try {
+    const d = JSON.parse(localStorage.getItem(BATCH_DEFAULTS_KEY) || '{}') || {};
+    return {
+      typing_speed: isFinite(Number(d.typing_speed)) ? Number(d.typing_speed) : 30,
+      intro: !!d.intro,
+      bgm: d.bgm !== false,
+      bgm_path: (typeof d.bgm_path === 'string' ? d.bgm_path : '') || '',
+    };
+  } catch (e) {
+    return { typing_speed: 30, intro: false, bgm: true, bgm_path: '' };
+  }
+}
+function rememberBatchDefaults(opt) {
+  const d = {
+    typing_speed: isFinite(Number(opt.typing_speed)) ? Number(opt.typing_speed) : 30,
+    intro: !!opt.intro,
+    bgm: opt.bgm !== false,
+    bgm_path: (typeof opt.bgm_path === 'string' ? opt.bgm_path : '') || '',
+  };
+  try { localStorage.setItem(BATCH_DEFAULTS_KEY, JSON.stringify(d)); } catch (e) { /* 忽略 */ }
+  return d;
+}
+
+function renderStepsBody(t) {
+  const el = $('stepsList');
+  if (!el) return;
+  const steps = t.steps || [];
+  if (!steps.length) {
+    el.innerHTML = '<div class="hint">还没有步骤。先点「🤖 AI 转译剧本」或「⚙ 离线解析」生成步骤；或在上方剧本文本框粘贴后保存。</div>';
+    return;
+  }
+  el.innerHTML = steps.map((s, i) => {
+    const imgKey = imageParamFor(s);
+    let imgHtml = '';
+    if (imgKey) {
+      const cur = (s.params && s.params[imgKey]) || '';
+      imgHtml = '<button type="button" class="imgslot' + (imgPathFilled(cur) ? ' ok' : ' need') + '" data-step="' + i + '" data-act="pickimg" title="' +
+        (cur ? esc(cur) : '点击选一张图（也可在下方配图清单批量上传）') + '">' +
+        (cur ? '<img src="' + esc(cur) + '">' : '<span class="nopic">📷</span>') +
+      '</button>';
+    }
+    const rowFilled = imgKey ? imgPathFilled((s.params || {})[imgKey]) : false;
+    return '<div class="step-row' + (imgKey ? (' img' + (rowFilled ? ' filled' : '')) : '') + '" data-step="' + i + '">' +
+      '<span class="no">' + (i + 1) + '</span>' +
+      '<span class="act">' + esc(s.action || '?') + '</span>' +
+      (imgKey ? '<span class="need' + (rowFilled ? ' ok' : '') + '">' + (rowFilled ? '已配图' : '待配图') + '</span>' : '') +
+      '<span class="sum' + (stepSummary(s.params) ? '' : ' empty-sum') + '">' + (stepSummary(s.params) || '（无参数）') + '</span>' +
+      imgHtml +
+      '<button data-act="edit">编辑</button>' +
+      '<button data-act="del" title="删除这一步">×</button></div>';
+  }).join('');
+
+  el.querySelectorAll('.step-row').forEach(row => {
+    const i = Number(row.getAttribute('data-step'));
+    const s = steps[i];
+    row.querySelector('[data-act="edit"]').onclick = () => openStepEdit(t, i);
+    const del = row.querySelector('[data-act="del"]');
+    if (del) del.onclick = () => {
+      if (!confirm('确定删除这一步吗？')) return;
+      steps.splice(i, 1);
+      renderStepsBody(t);
+      renderTaskAttach(t);
+      saveTaskMeta(t, true);
+    };
+    const pick = row.querySelector('[data-act="pickimg"]');
+    if (pick) pick.onclick = () => {
+      if (!window.__wxPick) { toast('配图组件未就绪，请刷新后重试', true); return; }
+      const imgKey = imageParamFor(s);
+      const cur = (s.params && s.params[imgKey]) || '';
+      window.__wxPick.openPicker({ current: cur, onPick: (path) => {
+        s.params = s.params || {};
+        s.params[imgKey] = path;
+        renderStepsBody(t);
+        renderTaskAttach(t);
+        saveTaskMeta(t, true);
+      }});
+    };
+  });
+}
+
+function openStepEdit(t, i) {
+  const s = (t.steps || [])[i];
+  if (!s) return;
+  $('stepJson').value = JSON.stringify(s, null, 2);
+  $('stepMask').classList.add('show');
+  $('stepOk').onclick = async () => {
+    let parsed;
+    try { parsed = JSON.parse($('stepJson').value); }
+    catch (e) { toast('JSON 格式错误：' + e.message, true); return; }
+    if (!parsed || typeof parsed !== 'object' || !parsed.action) { toast('步骤需要有 action 字段', true); return; }
+    (t.steps || [])[i] = parsed;
+    $('stepMask').classList.remove('show');
+    await saveTaskMeta(t, true);
+    renderDetail();
+  };
+  $('stepCancel').onclick = () => $('stepMask').classList.remove('show');
+}
+
+/* ---------- 任务元信息保存 ---------- */
+async function saveTaskMeta(t, silent) {
+  if (busyFlags[t.id]) { busyFlags[t.id + 'P'] = true; return; }
+  busyFlags[t.id] = true;
+  try {
+    // 从 DOM 回读（仅当详情面板正显示这个任务；批量操作时用内存里的值，避免串任务）
+    const onScreen = t.id === renderedTaskId;
+    if (onScreen && $('dScript')) t.script = $('dScript').value;
+    if (onScreen && $('dSpeed')) {
+      t.options = t.options || {};
+      const spv = Number($('dSpeed').value);
+      t.options.typing_speed = isFinite(spv) && spv >= 0.1 ? spv : t.options.typing_speed;
+    }
+    if (onScreen && $('dBgmPath')) t.options = t.options || {}, t.options.bgm_path = $('dBgmPath').value.trim();
+    if (onScreen && $('dIntro')) t.options = t.options || {}, t.options.intro = $('dIntro').checked;
+    if (onScreen && $('dBgm')) t.options = t.options || {}, t.options.bgm = $('dBgm').checked;
+    rememberBatchDefaults(t.options);
+    const res = await apiPost('/api/tasks/' + t.id, {
+      name: t.name, script: t.script, options: t.options, steps: t.steps
+    });
+    if (res.ok) {
+      // 保留本地 t.steps 的引用（配图面板持续写回同一个对象数组），只更新其它字段。
+      // 若用 Object.assign 整体覆盖，服务端返回的 steps 会把 t.steps 换成新对象，
+      // 导致配图面板持有的 step 引用失联、后续再写回会丢图。
+      const fresh = res.task || {};
+      const freshSteps = Array.isArray(fresh.steps) ? fresh.steps : null;
+      const rest = Object.assign({}, fresh);
+      delete rest.steps;
+      Object.assign(t, rest);
+      if (!Array.isArray(t.steps) && freshSteps) t.steps = freshSteps;
+      if (!silent) toast('已保存');
+    } else toast(res.msg || '保存失败', true);
+  } catch (e) { toast('保存失败：' + e.message, true); }
+  finally {
+    delete busyFlags[t.id];
+    if (busyFlags[t.id + 'P']) { delete busyFlags[t.id + 'P']; saveTaskMeta(t, silent); }
+  }
+}
+
+/* ---------- 解析 ---------- */
+async function parseTask(id, offline) {
+  // 先把当前剧本文本/选项落盘，确保解析用的是最新内容（避免刚编辑、防抖尚未触发时点解析拿旧文本）
+  const t = tasks.find(x => x.id === id);
+  if (t) { try { await saveTaskMeta(t, true); } catch (e) { /* 忽略 */ } }
+  try {
+    const res = await apiPost('/api/tasks/' + id + '/parse', { offline: !!offline });
+    if (res.ok) {
+      toast(offline ? '离线解析完成' : 'AI 转译完成');
+      await refreshTasks();
+      if (selectedId === id) renderDetail();
+    } else toast(res.msg || '解析失败', true);
+  } catch (e) { toast('解析失败：' + e.message, true); }
+}
+
+/* ---------- 运行 / 停止 ---------- */
+async function runTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (t && !(t.steps || []).length) { toast('请先解析剧本再运行', true); return; }
+  const missing = t ? collectTaskImageSlots(t).filter(s => !s.path).length : 0;
+  if (missing) toast('提醒：还有 ' + missing + ' 张图片未配图，运行会得到空图，建议先在下「配图清单」补图', true);
+  try {
+    const res = await apiPost('/api/tasks/' + id + '/run', {});
+    if (res.ok) {
+      toast('已排队，等待空闲槽启动…');
+      if (t) { t.status = 'queued'; }
+      renderTaskList(); renderDetail();
+    } else toast(res.msg || '启动失败', true);
+  } catch (e) { toast('启动失败：' + e.message, true); }
+}
+async function stopTask(id) {
+  try {
+    const res = await apiPost('/api/tasks/' + id + '/stop', {});
+    if (res.ok) toast('已发送停止请求');
+    else toast(res.msg || '停止失败', true);
+    await refreshTasks();
+  } catch (e) { toast('停止失败：' + e.message, true); }
+}
+async function deleteTask(id) {
+  if (!confirm('确定删除这条任务吗？（不会删除已生成的视频）')) return;
+  try {
+    const res = await api('/api/tasks/' + id, { method: 'DELETE' });
+    if (res.ok) {
+      if (selectedId === id) selectedId = null;
+      await refreshTasks();
+    } else toast(res.msg || '删除失败', true);
+  } catch (e) { toast('删除失败：' + e.message, true); }
+}
+
+/* ---------- 运行状态 / 日志 ---------- */
+function renderRunStatus(t) {
+  const el = $('runStatus');
+  if (!el) return;
+  const st = statusInfo(t.status);
+  let inner = '<div class="rs-top"><span class="status-badge ' + st.cls + '">' + st.label + '</span><span class="spacer"></span>';
+  if (t.status === 'running' || t.status === 'queued') {
+    inner += '<button data-act="stop" class="stop">⏹ 停止</button>';
+  }
+  inner += '</div>';
+  if (t.status === 'success' && t.video) {
+    inner += '<div style="margin-top:8px">出片：<a class="video-link" href="/videos/' + esc(t.video) + '" target="_blank" rel="noopener">▶ ' + esc(t.video) + '</a>' +
+             ' <a class="video-link" href="/api/openvideos" style="margin-left:8px">📂 打开目录</a></div>';
+  }
+  if (t.status === 'failed') {
+    inner += '<div style="margin-top:8px;color:#c73e35;font-size:12px">✖ ' + esc(t.error || '失败') + '</div>';
+  }
+  inner += '<div class="run-log" id="taskLog"></div>';
+  el.innerHTML = inner;
+  const sb = el.querySelector('[data-act="stop"]');
+  if (sb) sb.onclick = () => stopTask(t.id);
+}
+
+async function pollTaskLog(t) {
+  const el = $('taskLog');
+  if (!el) return;
+  const offset = logOffsets[t.id] || 0;
+  try {
+    const res = await api('/api/tasks/' + t.id + '/log?offset=' + offset);
+    logOffsets[t.id] = res.offset;
+    if (res.text) {
+      el.insertAdjacentText('beforeend', res.text);
+      el.scrollTop = el.scrollHeight;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+/* ---------- 全局轮询 ---------- */
+async function refreshTasks() {
+  try {
+    const res = await api('/api/tasks');
+    if (res && Array.isArray(res.tasks)) {
+      const prevChecked = {};
+      tasks.forEach(t => { prevChecked[t.id] = !!t._checked; });
+      tasks = res.tasks.map(t => { t._checked = prevChecked[t.id] || false; return t; });
+      if (selectedId && !tasks.find(t => t.id === selectedId)) selectedId = null;
+      renderTaskList();
+      if (panelTab === 'detail') {
+        // 若详情对象还在，更新其状态字段
+        const sel = getSelected();
+        if (sel) { renderRunStatus(sel); }
+      }
+    }
+  } catch (e) { /* server not ready */ }
+}
+
+async function pollStatus() {
+  let res;
+  try { res = await api('/api/tasks/status'); } catch (e) { return; }
+  if (!res || !Array.isArray(res.tasks)) return;
+  // 用轻量状态刷新 tasks 里的状态字段，并同步 UI
+  res.tasks.forEach(s => {
+    const t = tasks.find(x => x.id === s.id);
+    if (!t) return;
+    ['status', 'video', 'error', 'source', 'name'].forEach(k => { if (s[k] !== undefined) t[k] = s[k]; });
+  });
+  renderTaskList();
+  if (panelTab === 'detail') {
+    const sel = getSelected();
+    if (sel) {
+      renderRunStatus(sel);
+      if (sel.status === 'running') pollTaskLog(sel);
+    }
+  }
+}
+
+/* ---------- 批量操作 ---------- */
+async function runSelected(ids) {
+  const target = tasks.filter(x => ids.includes(x.id));
+  const missing = target.reduce((n, x) => n + (x ? collectTaskImageSlots(x).filter(s => !s.path).length : 0), 0);
+  if (missing) toast('提醒：这些任务里还有 ' + missing + ' 张图片未配图，运行会得到空图', true);
+  const res = await apiPost('/api/tasks/run-selected', { ids });
+  if (res.ok) {
+    toast(res.started ? ('已排队 ' + res.started + ' 条') : '没有可运行的任务（需先解析）');
+    await refreshTasks();
+  } else toast(res.msg || '启动失败', true);
+}
+async function stopAll() {
+  const res = await apiPost('/api/tasks/stop');
+  toast(res.ok ? '已发送全部停止请求' : '停止失败', !res.ok);
+  await refreshTasks();
+}
+async function parseAll(offline) {
+  const todo = tasks.filter(t => !['running', 'queued'].includes(t.status) && !(t.steps || []).length);
+  if (!todo.length) { toast('没有待解析的任务'); return; }
+  toast('正在解析 ' + todo.length + ' 条任务…');
+  for (const t of todo) {
+    try {
+      const res = await apiPost('/api/tasks/' + t.id + '/parse', { offline: !!offline });
+      if (res.ok) { /* ok */ } else toast(t.name + '：' + (res.msg || '解析失败'), true);
+      await refreshTasks();
+    } catch (e) { toast(t.name + '：' + e.message, true); }
+  }
+  toast('解析完成');
+  await refreshTasks();
+}
+
+/* ---------- 导入 ---------- */
+function openImport() {
+  $('importName').value = '';
+  $('importScript').value = '';
+  $('importMask').classList.add('show');
+}
+async function doImport(name, script, autoParse) {
+  if (!script || !script.trim()) { toast('剧本内容为空', true); return false; }
+  const res = await apiPost('/api/tasks', { name, script, options: loadBatchDefaults() });
+  if (!res.ok || !res.task) { toast(res.msg || '导入失败', true); return false; }
+  // 默认按文件名/每行建议命名
+  if (!name) {
+    const first = script.split('\n').map(s => s.trim()).filter(Boolean)[0] || '';
+    const derived = first.replace(/^\[(.+?)\]\s*/, '$1').slice(0, 20);
+    res.task.name = derived || '未命名任务';
+  }
+  await refreshTasks();
+  let task = tasks.find(t => t.id === res.task.id);
+  window.__wxPick && window.__wxPick.onReady();
+  if (autoParse) {
+    await apiPost('/api/tasks/' + res.task.id + '/parse', { offline: true });
+    await refreshTasks();
+    task = tasks.find(t => t.id === res.task.id);
+  }
+  setSelected(res.task.id);
+  return true;
+}
+
+/* ---------- 图片库 ---------- */
+function libCatLabel(key) {
+  const c = (libCats || []).find(x => x.key === key);
+  return c ? c.label : ({ avatar: '头像', sticker: '表情包', emoji: 'emoji',
+                          bg: '背景', asset: '配图素材', icon: '系统图标' }[key] || key);
+}
+let libSort = 'new';      // 排序：new/old/name/size
+let libDragPaths = [];    // 正在拖动的缩略图（拖到分类按钮上＝搬过去）
+function libCatCount(key) {
+  if (key === '') return libFiles.length;
+  return libFiles.filter(f => f.category === key).length;
+}
+function libRestoreCat() {
+  let v = null;
+  try { v = localStorage.getItem('wx-lib-cat'); } catch (e) { /* 忽略 */ }
+  const fallback = libCatCount('asset') > 0 ? 'asset' : '';
+  if (v === null) return fallback;
+  if (v === '') return v;
+  return (libCats || []).some(c => c.key === v) ? v : fallback;
+}
+function libSorted(list) {
+  const arr = (list || []).slice();
+  const nm = x => String((x && (x.label || x.name)) || '');
+  arr.sort((a, b) => {
+    if (libSort === 'old') return (a.ctime || a.mtime || 0) - (b.ctime || b.mtime || 0) || nm(a).localeCompare(nm(b), 'zh');
+    if (libSort === 'name') return nm(a).localeCompare(nm(b), 'zh');
+    if (libSort === 'size') return (b.size || 0) - (a.size || 0);
+    return (b.ctime || b.mtime || 0) - (a.ctime || a.mtime || 0) || nm(a).localeCompare(nm(b), 'zh');
+  });
+  return arr;
+}
+function libUploadCats() {
+  return (libCats || []).filter(c => c.canUpload !== false);
+}
+function libSyncUpcat() {
+  const sel = $('libUpcat');
+  if (!sel) return;
+  if (libUploadCats().some(c => c.key === libCat)) {
+    sel.value = libCat;
+    try { localStorage.setItem('wx-lib-upcat', libCat); } catch (e) { /* 忽略 */ }
+  }
+}
+async function libMovePaths(paths, catKey) {
+  const P = (paths || []).filter(p => p && !String(p).startsWith('/videos/'));
+  if (!P.length) return;
+  if (!catKey || !libUploadCats().some(c => c.key === catKey)) {
+    toast('这个分类不能作为搬运目标', true);
+    return;
+  }
+  const r = await apiPost('/api/gallery/batch', { op: 'move', paths: P, category: catKey });
+  if (!r.ok) { toast(r.msg || '移动失败', true); return; }
+  const moved = (r.results || []).filter(x => x.ok);
+  if (moved.length === 1 && moved[0].newPath) libSel = moved[0].newPath;
+  await loadLibrary();
+  renderLibrary();
+  toast('已把 ' + moved.length + ' 张搬到「' + libCatLabel(catKey) + '」');
+}
+async function loadLibrary() {
+  const res = await api('/api/gallery');
+  libFiles = (res && res.files) || [];
+  libCats = (res && res.categories) || libCats;
+}
+function filteredLib() {
+  const q = (libQuery || '').toLowerCase();
+  return libFiles.filter(f => {
+    if (libCat && f.category !== libCat) return false;
+    if (q) {
+      const hay = ((f.label || '') + ' ' + (f.name || '') + ' ' + (f.path || '')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+function renderLibrary() {
+  const body = $('panelBody');
+  const list = libSorted(filteredLib());
+  const cats = (libCats && libCats.length) ? libCats
+    : ['avatar', 'sticker', 'emoji', 'bg', 'asset', 'icon'].map(k => ({ key: k, label: libCatLabel(k) }));
+  const cnt = key => key === '' ? libFiles.length : libFiles.filter(f => f.category === key).length;
+  body.innerHTML =
+    '<div class="lib-toolbar">' +
+      '<input id="libSearch" placeholder="搜索文件名/命名…" value="' + esc(libQuery) + '">' +
+      '<select id="libSort" title="列表排序方式">' +
+        [['new', '⇅ 最新在前'], ['old', '⇅ 最早在前'], ['name', '⇅ 按名称'], ['size', '⇅ 按体积']].map(o =>
+          '<option value="' + o[0] + '"' + (o[0] === libSort ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
+      '</select>' +
+      '<select id="libUpcat" title="上传的图片存入哪个分类（拖进来也存这里）">' +
+        libUploadCats().map(c => {
+          let saved = 'asset';
+          try { saved = localStorage.getItem('wx-lib-upcat') || 'asset'; } catch (e) { /* 忽略 */ }
+          return '<option value="' + esc(c.key) + '"' + (c.key === saved ? ' selected' : '') + '>存到 · ' + esc(c.label) + '</option>';
+        }).join('') +
+      '</select>' +
+      '<button id="libUpload" class="primary">⬆ 上传图片</button>' +
+      '<button id="libCatMgr" title="给分类改名，或新建自己的分类">⚙ 分类</button>' +
+    '</div>' +
+    '<div class="lib-typebar">' +
+      '<span class="lib-typebtn' + (libCat === '' ? ' on' : '') + '" data-cat="">全部<span style="margin-left:5px;font-size:10px;opacity:.75;background:rgba(127,127,127,.18);border-radius:999px;padding:0 5px">' + cnt('') + '</span></span>' +
+      cats.map(c => '<span class="lib-typebtn' + (libCat === c.key ? ' on' : '') + '" data-cat="' + esc(c.key) + '">' + esc(c.label) +
+        '<span style="margin-left:5px;font-size:10px;opacity:.75;background:rgba(127,127,127,.18);border-radius:999px;padding:0 5px">' + cnt(c.key) + '</span></span>').join('') +
+    '</div>' +
+    '<div class="hint" style="margin:0 0 8px">💡 把图片拖到本面板任意位置即可上传；把缩略图拖到分类按钮上＝把这张图搬过去。</div>' +
+    '<div class="lib-grid">' +
+      (list.length ? libSorted(list).map(f => {
+        const sel = f.path === libSel ? ' sel' : '';
+        const tag = libCatLabel(f.category);
+        const tagCls = f.category === 'icon' ? 'tag-icon' : 'tag-image';
+        return '<div class="lib-item' + sel + '" data-path="' + esc(f.path) + '" draggable="true" title="' + esc(f.path) + '">' +
+          '<div class="lib-thumb"><img src="' + esc(f.path) + '" draggable="false" onerror="this.style.opacity=.25">' +
+          '<span class="tag ' + tagCls + '">' + tag + '</span></div>' +
+          '<span class="lib-name" title="' + esc(f.name) + '">' + esc(f.label || f.name) + '</span></div>';
+      }).join('') : '<div class="lib-empty">这里还没有图片。把图片拖到本面板任意位置即可上传（存进上面选的分类），或点「⬆ 上传图片」。</div>') +
+    '</div>' +
+    '<div class="lib-detail" id="libDetail"></div>';
+
+  libSyncUpcat();
+  $('libSearch').oninput = e => { libQuery = e.target.value; renderLibrary(); };
+  const sortSel = $('libSort');
+  if (sortSel) sortSel.onchange = e => {
+    libSort = e.target.value;
+    try { localStorage.setItem('wx-lib-sort', libSort); } catch (err) { /* 忽略 */ }
+    renderLibrary();
+  };
+  body.querySelectorAll('.lib-typebtn').forEach(btn => {
+    const key = btn.getAttribute('data-cat') || '';
+    btn.onclick = () => {
+      libCat = key;
+      try { localStorage.setItem('wx-lib-cat', key); } catch (e) { /* 忽略 */ }
+      libSyncUpcat();
+      renderLibrary();
+    };
+    btn.addEventListener('dragover', e => {
+      if (!libDragPaths.length) return;
+      e.preventDefault(); e.stopPropagation();
+      btn.classList.add('drop');
+    });
+    btn.addEventListener('dragleave', () => btn.classList.remove('drop'));
+    btn.addEventListener('drop', e => {
+      if (!libDragPaths.length) return;
+      e.preventDefault(); e.stopPropagation();
+      btn.classList.remove('drop');
+      const paths = libDragPaths.slice();
+      libDragPaths = [];
+      libMovePaths(paths, key);
+    });
+  });
+  const mgr = $('libCatMgr');
+  if (mgr) mgr.onclick = () => {
+    if (window.__wxPick && typeof window.__wxPick.openCategoryManager === 'function') {
+      window.__wxPick.openCategoryManager();
+    } else toast('分类管理组件还没加载好，请刷新页面再试', true);
+  };
+  bindLibDrop(body);
+  bindLibItems(body);
+  $('libUpload').onclick = () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true;
+    inp.accept = 'image/png,image/jpeg,image/gif,image/webp,image/bmp';
+    inp.onchange = async () => {
+      if (!inp.files.length) return;
+      toast('上传中…');
+      const cat = libTargetCat();
+      let last = '';
+      for (const f of Array.from(inp.files)) {
+        const reader = new FileReader();
+        const data = await new Promise(r => { reader.onload = () => r(reader.result); reader.readAsDataURL(f); });
+        const res = await apiPost('/api/upload-image', { data, name: f.name, category: cat });
+        if (res.ok) last = res.path;
+      }
+      libCat = cat;                       // 传完自动切到目标分类，立刻看到刚传的
+      try { localStorage.setItem('wx-lib-cat', cat); } catch (e) { /* 忽略 */ }
+      await loadLibrary();
+      if (last) libSel = last;
+      renderLibrary();
+      toast('上传完成');
+    };
+    inp.click();
+  };
+  renderLibDetail();
+}
+
+/* 缩略图：点选 / 双击放大 / 拖到分类按钮上搬家 */
+function bindLibItems(body) {
+  body.querySelectorAll('.lib-item').forEach(el => {
+    const path = el.getAttribute('data-path') || '';
+    el.addEventListener('dragstart', (e) => {
+      libDragPaths = [path];
+      el.style.opacity = '.45';
+      try {
+        e.dataTransfer.setData('text/plain', path);
+        e.dataTransfer.effectAllowed = 'move';
+      } catch (err) { /* 忽略 */ }
+    });
+    el.addEventListener('dragend', () => { libDragPaths = []; el.style.opacity = ''; });
+    el.onclick = () => { libSel = path; renderLibrary(); };
+    el.ondblclick = () => { if (path) window.open(path, '_blank'); };
+  });
+}
+
+/* 整个面板都是「拖图上传」的落点 */
+function bindLibDrop(body) {
+  if (!body || body.__wxDropBound) return;
+  body.__wxDropBound = true;
+  let depth = 0;
+  const isFileDrag = e => !libDragPaths.length && e.dataTransfer &&
+    Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0;
+  body.addEventListener('dragenter', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); depth++;
+    body.classList.add('drop');
+  });
+  body.addEventListener('dragover', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (err) { /* 忽略 */ }
+  });
+  body.addEventListener('dragleave', e => {
+    if (!isFileDrag(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (!depth) body.classList.remove('drop');
+  });
+  body.addEventListener('drop', async e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    depth = 0;
+    body.classList.remove('drop');
+    const files = Array.from(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : []);
+    if (!files.length) return;
+    toast('上传中…');
+    const cat = libTargetCat();
+    let last = '', fail = 0;
+    for (const f2 of files) {
+      if (f2.size > 10 * 1024 * 1024) { fail++; continue; }
+      const reader = new FileReader();
+      const data = await new Promise(r => { reader.onload = () => r(reader.result); reader.readAsDataURL(f2); });
+      const res = await apiPost('/api/upload-image', { data, name: f2.name, category: cat });
+      if (res.ok) last = res.path; else fail++;
+    }
+    libCat = cat;
+    try { localStorage.setItem('wx-lib-cat', cat); } catch (err) { /* 忽略 */ }
+    await loadLibrary();
+    if (last) libSel = last;
+    renderLibrary();
+    toast('上传完成' + (fail ? '（' + fail + ' 个失败/超限）' : ''));
+  });
+}
+
+function renderLibDetail() {
+  const el = $('libDetail');
+  if (!el) return;
+  const f = libFiles.find(x => x.path === libSel);
+  if (!f) { el.innerHTML = '<div class="hint">选中一张图片可重命名 / 命名 / 删除 / 复制路径。</div>'; return; }
+  el.innerHTML =
+    '<img class="ld-preview" src="' + esc(f.path) + '" onerror="this.style.opacity=.25">' +
+    '<div class="ld-path">' + esc(f.path) + '</div>' +
+    '<div class="lib-actions">' +
+      '<button id="libCopy">📋 复制路径</button>' +
+      '<button id="libLabel">✏️ 命名</button>' +
+      '<button id="libRename">🔤 改文件名</button>' +
+      '<select id="libMove" title="移动到指定分类（自动更新剧本/场景里的引用）">' +
+        '<option value="">📂 移动到分类…</option>' +
+        libUploadCats().map(c => '<option value="' + esc(c.key) + '">' + esc(c.label) + '</option>').join('') +
+      '</select>' +
+      '<button id="libDel" class="danger">🗑 删除</button>' +
+    '</div>' +
+    '<div class="lib-rename-row" id="libRenameRow" style="display:none">' +
+      '<input id="libRenameInput" placeholder="新文件名（含扩展名）">' +
+      '<button id="libRenameOk" class="primary">确定</button>' +
+    '</div>';
+
+  $('libCopy').onclick = () => { navigator.clipboard.writeText(f.path).then(() => toast('已复制 ' + f.path)); };
+  $('libLabel').onclick = async () => {
+    const label = prompt('给这张图起个便于识别的名字（不改文件路径，可留空清除）：', f.label || '');
+    if (label === null) return;
+    const res = await apiPost('/api/gallery/label', { path: f.path, label });
+    if (res.ok) { await loadLibrary(); renderLibrary(); toast('已命名'); }
+    else toast(res.msg || '命名失败', true);
+  };
+  $('libRename').onclick = () => { $('libRenameRow').style.display = 'flex'; $('libRenameInput').focus(); };
+  $('libMove').onchange = async (e) => {
+    const cat = e.target.value || '';
+    if (!cat) return;
+    const res = await apiPost('/api/gallery/move', { path: f.path, category: cat });
+    if (res.ok) {
+      libSel = res.path; await loadLibrary(); renderLibrary();
+      toast('已移动到「' + libCatLabel(cat) + '」' + (res.changed && res.changed.length ? '，已更新引用：' + res.changed.join('、') : ''));
+    } else { toast(res.msg || '移动失败', true); e.target.value = ''; }
+  };
+  $('libRenameOk').onclick = async () => {
+    const nn = $('libRenameInput').value.trim();
+    if (!nn) { toast('请输入新文件名', true); return; }
+    const res = await apiPost('/api/gallery/rename', { path: f.path, name: nn });
+    if (res.ok) { libSel = res.path; await loadLibrary(); renderLibrary(); toast('已改名'); }
+    else toast(res.msg || '改名失败', true);
+  };
+  $('libDel').onclick = async () => {
+    if (!confirm('确定删除「' + (f.name || f.path) + '」吗？')) return;
+    const res = await apiPost('/api/gallery/delete', { path: f.path });
+    if (res.ok) { libSel = null; await loadLibrary(); renderLibrary(); toast('已删除'); }
+    else toast(res.msg || '删除失败', true);
+  };
+}
+
+/* ---------- 入口绑定 ---------- */
+function bindTopbar() {
+  $('btnImport').onclick = () => {
+    openImport();
+    $('importOk').onclick = async () => {
+      const name = $('importName').value.trim();
+      const script = $('importScript').value;
+      const auto = $('importAutoParse').checked;
+      await doImport(name, script, auto);
+      $('importMask').classList.remove('show');
+    };
+    $('importCancel').onclick = () => $('importMask').classList.remove('show');
+  };
+  $('btnImportFolder').onclick = () => $('folderInput').click();
+  $('folderInput').onchange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    toast('正在导入 ' + files.length + ' 个文件…');
+    let imported = 0;
+    for (const f of files) {
+      const text = f.name.toLowerCase().endsWith('.txt') ? await f.text() : await f.text();
+      const ok = await doImport(f.name.replace(/\.txt$/i, ''), text, true);
+      if (ok) imported++;
+    }
+    toast('已导入 ' + imported + ' 条任务');
+    e.target.value = '';
+  };
+  $('btnRunAll').onclick = async () => {
+    const ids = tasks.filter(t => !['running','queued'].includes(t.status) && (t.steps||[]).length).map(t => t.id);
+    if (!ids.length) { toast('没有可运行的任务（需先解析）', true); return; }
+    await runSelected(ids);
+  };
+  $('btnRunSelected').onclick = async () => {
+    const ids = tasks.filter(t => t._checked && (t.steps||[]).length).map(t => t.id);
+    if (!ids.length) { toast('请勾选至少一条已解析的任务', true); return; }
+    await runSelected(ids);
+  };
+  $('btnSelectAll').onclick = () => { tasks.forEach(t => t._checked = true); renderTaskList(); };
+  $('btnDeselect').onclick = () => { tasks.forEach(t => t._checked = false); renderTaskList(); };
+  $('btnStopAll').onclick = stopAll;
+  $('btnParseAll').onclick = () => parseAll(false);
+  $('btnParseAllOffline').onclick = () => parseAll(true);
+  $('btnLib').onclick = () => setPanelTab('library');
+  $('btnVideos').onclick = () => api('/api/openvideos', { method: 'POST' });
+  $('btnCleanDone').onclick = async () => {
+    const done = tasks.filter(t => ['success','failed','stopped'].includes(t.status));
+    if (!done.length) { toast('没有已完成的任务'); return; }
+    if (!confirm('确定删除 ' + done.length + ' 条已完成的任务吗？（不会删除视频）')) return;
+    let n = 0;
+    for (const t of done) {
+      const res = await api('/api/tasks/' + t.id, { method: 'DELETE' });
+      if (res.ok) n++;
+    }
+    toast('已删除 ' + n + ' 条');
+    await refreshTasks();
+  };
+  $('btnBack').onclick = () => { location.href = '/'; };
+  document.querySelectorAll('.panel-tabs button').forEach(b => {
+    b.onclick = () => setPanelTab(b.getAttribute('data-tab'));
+  });
+  $('maxConcurrent').onchange = async () => {
+    const v = Number($('maxConcurrent').value);
+    const res = await apiPost('/api/batch/config', { max_concurrent: v });
+    if (res.ok) { toast('并发上限已设为 ' + res.max_concurrent); $('maxConcurrent').value = res.max_concurrent; }
+    else toast(res.msg || '设置失败', true);
+  };
+  $('importMask').addEventListener('click', e => { if (e.target === $('importMask')) $('importMask').classList.remove('show'); });
+  $('stepMask').addEventListener('click', e => { if (e.target === $('stepMask')) $('stepMask').classList.remove('show'); });
+}
+
+/* ---------- 初始化 ---------- */
+async function init() {
+  bindTopbar();
+  try { ACTIONS = (await api('/api/actions')) || []; } catch (e) {}
+  await loadLibrary();
+  await refreshTasks();
+  try {
+    const cfg = await api('/api/batch/config');
+    if (cfg && cfg.max_concurrent) { $('maxConcurrent').value = cfg.max_concurrent; }
+  } catch (e) {}
+  // 默认显示图片库面板里已加载的图
+  if (!tasks.length) setSelected(null);
+  else setSelected(tasks[0].id);
+
+  pollTimer = setInterval(pollStatus, 1500);
+}
+
+window.addEventListener('beforeunload', () => { if (pollTimer) clearInterval(pollTimer); });
+document.addEventListener('DOMContentLoaded', init);
+
+/* ---------- 说明性 hint 折叠成小问号（空状态/警告/含控件的保留） ---------- */
+const HINT_KEEP = ['还没有', '先在上方', '这套方案还没有', '⚠', '加载失败', '请确认'];
+function compressHints(root) {
+  (root || document).querySelectorAll('.hint').forEach(h => {
+    if (h.querySelector('.hint-q')) return;
+    if (h.querySelector('button, input, select, textarea, video, a')) return;
+    const t = (h.textContent || '').trim();
+    if (!t || HINT_KEEP.some(k => t.includes(k))) return;
+    if (t.length < 12) return;
+    h.classList.add('compacted');
+    const q = document.createElement('button');
+    q.type = 'button';
+    q.className = 'hint-q';
+    q.title = '点开查看说明';
+    const body = document.createElement('div');
+    body.className = 'hint-body';
+    while (h.firstChild) body.appendChild(h.firstChild);
+    h.appendChild(q);
+    h.appendChild(body);
+    q.onclick = (e) => { e.stopPropagation(); h.classList.toggle('open'); };
+  });
+}
+let _hintObsT = null;
+new MutationObserver(() => {
+  if (_hintObsT) clearTimeout(_hintObsT);
+  _hintObsT = setTimeout(() => compressHints(document.body), 120);
+}).observe(document.body, { childList: true, subtree: true });
+compressHints(document.body);
+</script>
+
+<script>
+/* UI v2: 顶栏下拉菜单（纯展示层，不改动任何既有功能绑定） */
+(function () {
+  "use strict";
+  var wraps = document.querySelectorAll(".menu-wrap");
+  wraps.forEach(function (w) {
+    var btn = w.querySelector(".menu-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var wasOpen = w.classList.contains("open");
+      wraps.forEach(function (o) { o.classList.remove("open"); });
+      if (!wasOpen) w.classList.add("open");
+    });
+    w.querySelectorAll(".menu-item").forEach(function (it) {
+      it.addEventListener("click", function () { w.classList.remove("open"); });
+    });
+  });
+  document.addEventListener("click", function () {
+    wraps.forEach(function (o) { o.classList.remove("open"); });
+  });
+})();
+</script>
+<script src="/shared_picker.js"></script>
+<script>
+/* 图片库与选图器共用同一份分类数据：分类被改名/新增后，把本页图库一并刷新 */
+(function () {
+  if (!window.__wxPick) return;
+  window.__wxPick.onCategoriesChanged = function () {
+    if (panelTab !== 'library') return;
+    loadLibrary().then(function () { renderLibrary(); }).catch(function () { /* 静默 */ });
+  };
+})();
+</script>
+<style id="qtTipsStyle">
+/* 悬停问号提示 */
+.qt-host { position: relative; }
+.qt-badge {
+  position: absolute; top: 1px; right: 2px; width: 11px; height: 11px;
+  border-radius: 50%; background: #0aac5f; color: #fff;
+  font-size: 8px; line-height: 11px; text-align: center; font-style: normal;
+  font-weight: 700; pointer-events: none; opacity: .85;
+}
+.qt-pop {
+  position: fixed; z-index: 99999; max-width: 300px;
+  background: #23272e; color: #e8eaee; font-size: 12px; line-height: 1.75;
+  padding: 7px 11px; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  pointer-events: none; opacity: 0; transition: opacity .12s ease;
+}
+.qt-pop.show { opacity: 1; }
+</style>
+<script id="qtTipsJs">
+(function () {
+  var VOID_TAGS = { INPUT: 1, SELECT: 1, TEXTAREA: 1, IMG: 1, BR: 1 };
+  var DYN_IDS = ['libSort', 'libUpcat', 'libMove', 'libCatMgr'];
+  function ensureBadge(el) {
+    if (VOID_TAGS[el.tagName]) return;
+    if (!el.querySelector(':scope > .qt-badge')) {
+      var b = document.createElement('i');
+      b.className = 'qt-badge'; b.textContent = '?';
+      el.appendChild(b);
+    }
+  }
+  function decorate(el) {
+    if (!el || !el.classList) return;
+    el.classList.add('qt-host');
+    ensureBadge(el);
+  }
+  function adoptTitles() {
+    DYN_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.hasAttribute('title') && !el.hasAttribute('data-tip')) {
+        el.setAttribute('data-tip', el.getAttribute('title'));
+        el.removeAttribute('title');
+      }
+    });
+  }
+  function scan() {
+    adoptTitles();
+    document.querySelectorAll('[data-tip]').forEach(decorate);
+  }
+  scan();
+  var moT = null;
+  new MutationObserver(function () {
+    clearTimeout(moT); moT = setTimeout(scan, 200);
+  }).observe(document.body, { childList: true, subtree: true });
+  var pop = null, cur = null;
+  function ensure() {
+    if (!pop) { pop = document.createElement('div'); pop.className = 'qt-pop'; document.body.appendChild(pop); }
+    return pop;
+  }
+  function place(host) {
+    var tip = host.getAttribute('data-tip'); if (!tip) return false;
+    var p = ensure(); p.textContent = tip;
+    var r = host.getBoundingClientRect();
+    var pw = p.offsetWidth, ph = p.offsetHeight;
+    var x = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 8);
+    var y = r.bottom + 7;
+    if (y + ph > window.innerHeight - 8) y = r.top - ph - 7;
+    p.style.left = x + 'px'; p.style.top = Math.max(8, y) + 'px';
+    return true;
+  }
+  function show(host) { if (place(host)) { ensure().classList.add('show'); cur = host; } }
+  function hide() { if (pop) pop.classList.remove('show'); cur = null; }
+  document.addEventListener('mouseover', function (e) {
+    var h = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (h !== cur) { h ? show(h) : hide(); }
+  });
+  document.addEventListener('click', hide);
+  window.addEventListener('scroll', function () {
+    if (cur && document.contains(cur) && cur.getBoundingClientRect().height > 0) place(cur);
+    else hide();
+  }, true);
+  window.addEventListener('resize', hide);
+})();
+</script>
+
+</body>
+</html>

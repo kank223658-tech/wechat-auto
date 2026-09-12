@@ -34,6 +34,7 @@ from urllib.parse import unquote
 import script_translator
 import script_generator
 import create_store as store
+import script_format
 
 # Pillow 可选依赖：用于把上传图片按真实字节归一化重编码，修复「上传后全黑」。
 # 缺失时自动回退到原逻辑（按 MIME 推断扩展名、原样保存），保证上传不失败。
@@ -55,6 +56,86 @@ VIDEO_DIR = os.path.join(ROOT, "videos")
 # 而任何一帧真实画面至少上万字节（本项目成品普遍 >1MB）。低于此阈值一律视为残缺，不再上报。
 MIN_VIDEO_BYTES = 32 * 1024
 LIVE_PORT = 8001  # 运行子进程的「实时手机画面」服务端口（编辑器通过 /api/live 转发）
+
+# ---- 实时预览渲染器（vue-WeChat dev server）-----------------------------
+# 编辑器左栏的「实时预览」直接同源嵌真实前端，不再手写复刻。
+# vue-WeChat/vue.config.js 里 publicPath: './'，所有资源都是相对路径，
+# 因此可以把 8080 整体挂到 /wxpv/ 前缀下（hash 路由 base 为 /vue-wechat/ 时
+# 也不会乱跳，已实测）。HTML 里注入 /enhance/_embed_boot.js，在浏览器内按
+# main.py::inject_overlays() 的同一顺序注入 enhance 层，得到与成片逐像素同源的画面。
+FRONTEND_PORT = 8080
+FRONTEND_DIR = os.path.join(ROOT, "vue-WeChat")
+BUNDLED_NODE_DIR = os.path.join(ROOT, "tools", "node-v20.19.4-win-x64")
+PV_PREFIX = "/wxpv/"
+PV_BOOT_TAG = '<script src="/enhance/_embed_boot.js"></script>'
+_frontend_proc = None
+_frontend_lock = threading.Lock()
+_frontend_conflict = False   # 8080 端口通、但不是本项目（被其他程序占用）时置 True
+
+
+def _frontend_ready(timeout=1.5):
+    """预览渲染器是否真的能出页面（仅端口开着不算：编译中会返回错误页）。
+
+    还不能只看「端口通 + 返回 HTML」：其他程序占了 8080 也满足这两条，
+    会让预览静默坏掉且无报错。这里额外校验 HTML 里有本项目特征（标题含
+    「仿微信」或 id="app" 容器）；端口通但不是本项目时置 _frontend_conflict，
+    供 /api/wxapp/status 明确报「端口被占用」。
+    """
+    global _frontend_conflict
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", FRONTEND_PORT, timeout=timeout)
+        conn.request("GET", "/", headers={"Accept-Encoding": "identity"})
+        resp = conn.getresponse()
+        body = resp.read().decode("utf-8", errors="replace")
+        is_html = resp.status == 200 and "text/html" in (resp.getheader("Content-Type") or "")
+        is_ours = is_html and ("仿微信" in body or 'id="app"' in body)
+        _frontend_conflict = bool(is_html) and not is_ours
+        return is_ours
+    except OSError:
+        _frontend_conflict = False
+        return False
+    except Exception:                            # noqa: BLE001
+        _frontend_conflict = False
+        return False
+
+
+def _start_frontend():
+    """启动 vue-WeChat dev server（后台，不阻塞请求）。返回 (ok, msg)。"""
+    global _frontend_proc
+    with _frontend_lock:
+        if _frontend_ready():
+            return False, "预览渲染器已在运行。"
+        if _frontend_proc and _frontend_proc.poll() is None:
+            return False, "预览渲染器正在启动中，请稍候……"
+        if not os.path.isdir(FRONTEND_DIR):
+            return False, "找不到前端项目目录：%s" % FRONTEND_DIR
+        node_dir = BUNDLED_NODE_DIR if os.path.isfile(
+            os.path.join(BUNDLED_NODE_DIR, "npm.cmd")) else None
+        env = os.environ.copy()
+        if node_dir:
+            env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
+            npm_cmd = os.path.join(node_dir, "npm.cmd")
+        else:
+            npm_cmd = ""
+            for d in env.get("PATH", "").split(os.pathsep):
+                cand = os.path.join(d, "npm.cmd")
+                if os.path.isfile(cand):
+                    npm_cmd = cand
+                    break
+            if not npm_cmd:
+                return False, "未找到可用的 npm / node，无法启动预览渲染器。"
+        env["NODE_OPTIONS"] = "--openssl-legacy-provider"
+        try:
+            log_fh = open(os.path.join(FRONTEND_DIR, "dev-server.log"), "a",
+                          encoding="utf-8", errors="replace")
+            _frontend_proc = subprocess.Popen(
+                [npm_cmd, "run", "dev"], cwd=FRONTEND_DIR, env=env,
+                stdout=log_fh, stderr=subprocess.STDOUT,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except OSError as exc:
+            return False, "启动失败：%s" % exc
+        return True, "正在启动预览渲染器（首次编译约 20~60 秒）……"
+
 SCENE_PATH = os.path.join(ROOT, "scene.json")  # 独立场景编辑器读写的数据文件
 PEER_PRESETS_PATH = os.path.join(ROOT, "peer_presets.json")  # 「对方主页」女性人设预设库
 ENHANCE_DIR = os.path.join(ROOT, "enhance")   # 前端增强层（对方主页样式等），供场景编辑器预览复用
@@ -96,6 +177,162 @@ for _c in GALLERY_CATEGORIES:
     for _f in _c["folders"]:
         _FOLDER_CATEGORY[_f] = _c["key"]
 
+# ============================================================
+# 分类可自定义：用户在界面上改的「显示名」和「新增的分类」存在
+# _gallery_meta.json 的 "__categories" 键下（与逐图命名共用同一个元数据文件）：
+#   {"labels": {"asset": "我的素材"}, "custom": [{"key":"cat1","label":"探店","folder":"cat1"}]}
+# 内置分类只改显示名，不动 folders（folder 决定文件实际落在哪个子目录）。
+# ============================================================
+_CAT_META_KEY = "__categories"
+
+
+def _gallery_cat_meta():
+    """读取分类自定义元数据（改过的显示名 / 新增分类）。"""
+    cm = (_load_gallery_meta() or {}).get(_CAT_META_KEY)
+    return cm if isinstance(cm, dict) else {}
+
+
+def _update_cat_meta(mutate):
+    """读出分类元数据 -> mutate(cm) -> 写回。返回是否写入成功。"""
+    meta = _load_gallery_meta()
+    cm = meta.get(_CAT_META_KEY)
+    if not isinstance(cm, dict):
+        cm = {}
+    mutate(cm)
+    meta[_CAT_META_KEY] = cm
+    return _save_gallery_meta(meta)
+
+
+def _gallery_categories():
+    """完整分类清单 = 内置分类（可被改名） + 用户新增分类。
+
+    每项 {key, label, folders, builtin}。前端只认 key/label，folders 供后端归类用。
+    """
+    cm = _gallery_cat_meta()
+    labels = cm.get("labels") if isinstance(cm.get("labels"), dict) else {}
+    out = []
+    for c in GALLERY_CATEGORIES:
+        out.append({"key": c["key"],
+                    "label": (labels.get(c["key"]) or c["label"]),
+                    "folders": list(c["folders"]),
+                    "builtin": True,
+                    "canUpload": c["key"] in _CATEGORY_DIRS})
+    seen = {c["key"] for c in out}
+    for c in (cm.get("custom") or []):
+        if not isinstance(c, dict):
+            continue
+        k = str(c.get("key") or "").strip()
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append({"key": k,
+                    "label": (labels.get(k) or c.get("label") or k),
+                    "folders": [c.get("folder") or k],
+                    "builtin": False,
+                    "canUpload": True})
+    return out
+
+
+def _category_dirs():
+    """可上传分类 -> 落盘子目录（public/images/<dir>/）。系统图标分类不允许上传。"""
+    d = dict(_CATEGORY_DIRS)
+    for c in _gallery_categories():
+        if c.get("builtin"):
+            continue
+        d[c["key"]] = (c.get("folders") or [c["key"]])[0]
+    return d
+
+
+def _folder_category_map():
+    """子目录 -> 分类 key。"""
+    m = {}
+    for c in _gallery_categories():
+        for f in (c.get("folders") or []):
+            m[f] = c["key"]
+    return m
+
+
+def _cat_label(key):
+    """分类 key -> 显示名（找不到时回落到 key）。"""
+    for c in _gallery_categories():
+        if c["key"] == key:
+            return c["label"]
+    return key
+
+
+def _new_cat_key(custom):
+    """给新增分类挑一个没被占用的 key（同时也是落盘子目录名）。"""
+    used = {c["key"] for c in _gallery_categories()}
+    used |= {c.get("folder") for c in custom if isinstance(c, dict)}
+    used |= {f for c in _gallery_categories() for f in (c.get("folders") or [])}
+    n = 1
+    while ("cat%d" % n) in used:
+        n += 1
+    return "cat%d" % n
+
+
+def _rename_gallery_category(key, label):
+    """改分类显示名（内置/自定义都可以）。返回 (新label, None) 或 (None, 错误)。"""
+    if not key:
+        return None, "缺少分类"
+    lab = re.sub(r"\s+", " ", (label or "")).strip()[:20]
+    if not lab:
+        return None, "分类名不能为空"
+    if not any(c["key"] == key for c in _gallery_categories()):
+        return None, "分类不存在"
+
+    def _mut(cm):
+        labels = cm.get("labels")
+        if not isinstance(labels, dict):
+            labels = {}
+        labels[key] = lab
+        cm["labels"] = labels
+    if not _update_cat_meta(_mut):
+        return None, "保存失败（无法写入元数据文件）"
+    return lab, None
+
+
+def _add_gallery_category(label):
+    """新增一个分类（同时建好对应图片子目录）。返回 (分类dict, None) 或 (None, 错误)。"""
+    lab = re.sub(r"\s+", " ", (label or "")).strip()[:20]
+    if not lab:
+        return None, "分类名不能为空"
+    created = {}
+
+    def _mut(cm):
+        custom = cm.get("custom")
+        if not isinstance(custom, list):
+            custom = []
+        key = _new_cat_key(custom)
+        custom.append({"key": key, "label": lab, "folder": key})
+        cm["custom"] = custom
+        created.update({"key": key, "label": lab, "folder": key})
+    if not _update_cat_meta(_mut):
+        return None, "保存失败（无法写入元数据文件）"
+    try:
+        os.makedirs(os.path.join(FRONTEND_PUBLIC, created["folder"]), exist_ok=True)
+    except OSError:
+        pass          # 目录建不出来也不影响：上传时会再建一次
+    return created, None
+
+
+def _delete_gallery_category(key):
+    """删掉一个「新增的分类」（只摘登记，不动已上传的图；内置分类不允许删）。"""
+    if not key:
+        return False, "缺少分类"
+    c = next((x for x in _gallery_categories() if x["key"] == key), None)
+    if not c:
+        return False, "分类不存在"
+    if c.get("builtin"):
+        return False, "内置分类不能删除（可以改名）"
+
+    def _mut(cm):
+        cm["custom"] = [x for x in (cm.get("custom") or [])
+                        if not (isinstance(x, dict) and x.get("key") == key)]
+    if not _update_cat_meta(_mut):
+        return False, "保存失败（无法写入元数据文件）"
+    return True, None
+
 # 兼容旧字段：type 仍按「icon/image」二分（系统图标 vs 其它）
 ICON_FOLDERS = {"", "/", "wxic", "chatbar", "wxpanel", "sendpreview"}
 _GALLERY_TYPE_ICON = "icon"   # 图标
@@ -111,262 +348,39 @@ _edit_proc = None
 EDIT_LOG = os.path.join(ROOT, "editor_edit.log")
 
 # ============================================================
-# 动作清单（与 main.py 的 execute_step 一一对应）
+# 动作清单（唯一来源 action_registry，与 main.py 的 execute_step 一一对应）
+# ------------------------------------------------------------
+# 旧版在这里手写 60 条，与 script_translator.ACTION_SCHEMA(47) / ACTION_PARAMS(56)
+# 三份口径不一致，新动作永远进不了生成链路。现在统一由 action_registry 派生。
 # ============================================================
-ACTIONS = [
-    {"action": "打开聊天", "category": "聊天", "icon": "💬",
-     "desc": "从聊天列表点击进入指定会话",
-     "params": [{"key": "联系人", "label": "联系人名称", "type": "text",
-                 "placeholder": "如：孙权", "default": ""}]},
-    {"action": "我方打字", "category": "聊天", "icon": "⌨️",
-     "desc": "手机键盘动画打字 + 回车发送",
-     "params": [{"key": "内容", "label": "要输入的内容", "type": "textarea", "default": ""}]},
-    {"action": "打字不发", "category": "聊天", "icon": "✍️",
-     "desc": "打出文字但不发送（停留展示，可配合删除）",
-     "params": [{"key": "内容", "label": "要输入的内容", "type": "textarea", "default": ""},
-                {"key": "停留", "label": "停留秒数", "type": "number", "default": "1.5"}]},
-    {"action": "删除文字", "category": "聊天", "icon": "⌫",
-     "desc": "按退格键删除输入框字符（-1 = 清空）",
-     "params": [{"key": "数量", "label": "删除字符数（-1 清空）", "type": "text", "default": "-1"}]},
-    {"action": "对方正在输入", "category": "聊天", "icon": "⏳",
-     "desc": "聊天头部显示「对方正在输入...」",
-     "params": [{"key": "秒数", "label": "显示秒数", "type": "number", "default": "1.2"}]},
-    {"action": "对方发消息", "category": "聊天", "icon": "📨",
-     "desc": "对方逐字打字（含打错退回）后以左侧白气泡上屏，不再是瞬间复制",
-     "params": [{"key": "内容", "label": "消息内容", "type": "textarea", "default": ""},
-                {"key": "头像", "label": "对方头像（可空）", "type": "text",
-                 "placeholder": "如：/images/header/yehua.jpg", "default": ""}]},
-    {"action": "对方后台发消息", "category": "聊天", "icon": "📩",
-     "desc": "给当前不在看的会话投递对方消息，画面不变，仅刷新该会话在主页的预览+未读角标（返回主页可看到）；内容以 [图片] 开头时变成图片气泡",
-     "params": [{"key": "联系人", "label": "目标会话联系人", "type": "text", "default": ""},
-                {"key": "内容", "label": "消息内容（[图片] 开头=图片消息）", "type": "textarea", "default": ""},
-                {"key": "图片", "label": "配图路径（图片消息用，可空）", "type": "text", "default": ""},
-                {"key": "头像", "label": "对方头像（可空）", "type": "text", "default": ""},
-                {"key": "发送者", "label": "群聊发送者名（可空）", "type": "text", "default": ""},
-                {"key": "置顶", "label": "来消息置顶", "type": "select",
-                 "options": ["是", "否"], "default": "是"}]},
-    {"action": "后台消息队列", "category": "聊天", "icon": "📬",
-     "desc": "装载一批后台消息并立刻在后台发出去：执行到这一行时，队列里每条消息马上投递给对应会话，刷新主页预览+未读角标，之后打开该会话即可看到（不再按秒/步延迟）",
-     "params": [{"key": "数据", "label": "JSON 数组，形如 [{联系,内容,头像,置顶}]", "type": "textarea",
-                 "placeholder": '[{"联系":"陆香儿","内容":"图片怎么发您"}]', "default": ""}]},
-    {"action": "查看图片", "category": "聊天", "icon": "🔍",
-     "desc": "点开一张图片放大查看：全屏放大动画 + 手抖停留 + 自动关闭",
-     "params": [{"key": "图片", "label": "图片路径", "type": "text",
-                 "placeholder": "如：/images/header/yehua.jpg", "default": ""},
-                {"key": "停留", "label": "停留秒数（可空）", "type": "number", "default": "0.3"},
-                {"key": "焦点", "label": "放大位置 x,y（可空）", "type": "text",
-                 "placeholder": "如 0.35,0.4", "default": ""}]},
-    {"action": "返回主页", "category": "导航", "icon": "🏠",
-     "desc": "切回聊天列表主页（转场动画结束后默认再停留 0.3s）",
-     "params": [{"key": "停留", "label": "转场后主页等待秒数（默认可空）", "type": "number", "default": "0.3"}]},
-    {"action": "切换Tab", "category": "导航", "icon": "🧭",
-     "desc": "点击底部 Tab",
-     "params": [{"key": "Tab", "label": "Tab 名称", "type": "select",
-                 "options": ["微信", "通讯录", "发现", "我"], "default": "微信"}]},
-    {"action": "隐藏键盘", "category": "导航", "icon": "🙈",
-     "desc": "收起手机键盘", "params": []},
-    {"action": "进入朋友圈", "category": "朋友圈", "icon": "📖",
-     "desc": "从发现页进入朋友圈", "params": []},
-    {"action": "打开对方主页", "category": "个人主页", "icon": "👤",
-     "desc": "点对方消息头像 → 推入「对方个人资料页」（头像/昵称/微信号/地区/朋友资料/朋友圈缩略图/视频号/发消息）",
-     "params": [{"key": "对方", "label": "人设名（可空，留空用场景里配置的对方）", "type": "text",
-                 "placeholder": "如：餐车老板娘·吴遂卿", "default": ""}]},
-    {"action": "进入对方朋友圈", "category": "个人主页", "icon": "🌅",
-     "desc": "点资料页「朋友圈」行 → 右滑推入对方朋友圈（全屏封面 + 昵称头像签名 + 动态列表）",
-     "params": []},
-    {"action": "打开对方设置", "category": "个人主页", "icon": "⚙️",
-     "desc": "点资料页右上角「…」推入联系人设置页（编辑备注/设置权限/推荐给朋友/星标/加入黑名单/投诉/删除联系人，深色样式复刻参考视频）",
-     "params": [{"key": "对方", "label": "人设名（可空，留空用场景里配置的对方）", "type": "text",
-                 "placeholder": "如：餐车老板娘·吴遂卿", "default": ""}]},
-    {"action": "加入黑名单", "category": "个人主页", "icon": "🚫",
-     "desc": "拉黑全过程动画：拨「加入黑名单」开关变绿 → 底部弹起确认弹窗（确定/取消）→ 点确定弹窗收起 → 中央「正在加载」加载动画，复刻参考视频全过程",
-     "params": [{"key": "确认", "label": "弹窗点哪个按钮", "type": "select",
-                 "options": ["确定", "取消"], "default": "确定"},
-                {"key": "加载秒", "label": "「正在加载」显示秒数", "type": "number", "default": "1.4"},
-                {"key": "停留", "label": "结束停留秒数", "type": "number", "default": "0.8"}]},
-    {"action": "移出黑名单", "category": "个人主页", "icon": "✅",
-     "desc": "把已拉黑的联系人移出黑名单：开关关掉 → 确认弹窗（文案为移出版本）→ 确定 → 「正在加载」加载动画",
-     "params": [{"key": "确认", "label": "弹窗点哪个按钮", "type": "select",
-                 "options": ["确定", "取消"], "default": "确定"},
-                {"key": "加载秒", "label": "「正在加载」显示秒数", "type": "number", "default": "1.4"},
-                {"key": "停留", "label": "结束停留秒数", "type": "number", "default": "0.8"}]},
-    {"action": "返回上一页", "category": "个人主页", "icon": "↩️",
-     "desc": "对方朋友圈 → 对方资料页 → 聊天页（iOS 推出转场）",
-     "params": []},
-    {"action": "闪回聊天", "category": "个人主页", "icon": "⚡",
-     "desc": "硬切回聊天界面：瞬间隐藏「我的朋友圈」或「对方主页/朋友圈」（不做滑出转场），观感等同视频剪辑的一次切镜，随后可继续录制；「回到」填联系人时，闪回后直接进该会话",
-     "params": [{"key": "停留", "label": "切完后停留秒数（可空，默认 0.12）", "type": "number", "default": "0.12"},
-                {"key": "回到", "label": "闪回后进入的会话（可空=只回聊天列表）", "type": "text", "default": ""},
-                {"key": "闪白", "label": "切镜时闪一帧白（剪辑感更强）", "type": "select",
-                 "options": ["否", "是"], "default": "否"}]},
-    {"action": "编辑对方资料", "category": "个人主页", "icon": "🧩",
-     "desc": "整体替换「对方」的资料与朋友圈（昵称/微信号/地区/头像/封面/签名/朋友圈缩略图/视频号/动态全部可配）；动态里加 video 即为视频动态（朋友圈里显示播放角标，可点开全屏播放）",
-     "params": [{"key": "数据", "label": "预设名 / JSON 对象 / .json 路径", "type": "textarea",
-                 "placeholder": '{"name":"吴遂卿","wxid":"LSDH-WSQ","area":"广东 佛山","gender":0,'
-                                '"avatar":"/images/peer/peer_avatar.jpg","signature":"随心随性",'
-                                '"cover":"/images/peer/peer_cover.jpg","posts":[{"date":"10 6月",'
-                                '"images":["/images/peer/peer_p1.jpg"],"text":"偶尔玩下 蛮好"},'
-                                '{"date":"08 6月","video":"/videos/demo.mp4",'
-                                '"cover":"/images/peer/peer_v1.jpg","text":"随手拍的海"}]}',
-                 "default": ""}]},
-    {"action": "向下滚动", "category": "朋友圈", "icon": "⬇️",
-     "desc": "自然滚动指定像素（我的朋友圈 / 对方朋友圈均可）",
-     "params": [{"key": "像素", "label": "像素", "type": "number", "default": "300"}]},
-    {"action": "向上滚动", "category": "朋友圈", "icon": "⬆️",
-     "desc": "向上滚动指定像素（我的朋友圈 / 对方朋友圈均可）",
-     "params": [{"key": "像素", "label": "像素", "type": "number", "default": "300"}]},
-    {"action": "滚动到", "category": "朋友圈", "icon": "↕️",
-     "desc": "把朋友圈滚到顶部或底部（对方朋友圈优先，没开时用我的朋友圈）",
-     "params": [{"key": "位置", "label": "位置", "type": "select",
-                 "options": ["底部", "顶部"], "default": "底部"}]},
-    {"action": "点开图片", "category": "朋友圈", "icon": "🔍",
-     "desc": "点开朋友圈动态里的配图全屏查看（对方朋友圈优先，没开时用我的朋友圈）；序号写「2」=第2条第1张，写「2,3」=第2条第3张",
-     "params": [{"key": "序号", "label": "第几条动态,第几张图（可空，默认 1,1）", "type": "text",
-                 "placeholder": "如：2,3", "default": "1"},
-                {"key": "停留", "label": "停留秒数（可空=默认）", "type": "number", "default": ""}]},
-    {"action": "播放视频", "category": "朋友圈", "icon": "▶️",
-     "desc": "点开朋友圈视频全屏播放（停留后自动关闭）；留空「视频」则点开当前打开的朋友圈里第 N 个视频动态（对方朋友圈优先，没开时用我的朋友圈）",
-     "params": [{"key": "视频", "label": "视频地址（可空，留空=点开朋友圈里的视频）", "type": "text",
-                 "placeholder": "如：/videos/demo.mp4", "default": ""},
-                {"key": "序号", "label": "第几个视频动态（留空视频时生效）", "type": "number", "default": "1"},
-                {"key": "停留", "label": "播放停留秒数（可空=按视频时长）", "type": "number", "default": ""}]},
-    {"action": "点赞", "category": "朋友圈", "icon": "👍",
-     "desc": "复刻真机点赞：弹出「···」两格菜单（♥赞/💬评论）→ 点「赞」→ 菜单收起 + 点赞条弹出；「序号」留空 = 最后一条动态",
-     "params": [{"key": "序号", "label": "第几条动态（留空=最后一条）", "type": "number", "default": ""}]},
-    {"action": "评论", "category": "朋友圈", "icon": "💬",
-     "desc": "复刻真机评论：弹出「···」菜单点「评论」→ 输入条随键盘滑入 → 键盘动画打字 → 点「发送」后评论弹进点赞/评论条",
-     "params": [{"key": "内容", "label": "评论内容", "type": "textarea", "default": ""},
-                {"key": "序号", "label": "第几条动态（留空=最后一条）", "type": "number", "default": ""}]},
-    {"action": "发朋友圈", "category": "朋友圈", "icon": "✏️",
-     "desc": "发表文字朋友圈（键盘打字 + 发表上屏）",
-     "params": [{"key": "内容", "label": "朋友圈文案", "type": "textarea", "default": ""},
-                {"key": "图片", "label": "配图路径（可空）", "type": "text", "default": ""}]},
-    {"action": "编辑朋友圈", "category": "朋友圈", "icon": "🖼️",
-     "desc": "重建「我的朋友圈」动态（作者/文案/配图/视频/点赞/评论全可配）；也支持对象形式 {me:{...}, posts:[...]} 一次同时改主页资料",
-     "params": [{"key": "数据", "label": "JSON 数组、{me,posts} 对象或 .json 文件路径", "type": "textarea",
-                 "placeholder": '[{"author":"陆香儿","text":"...","images":["/images/peer/peer_p1.jpg"],"likes":["陆香儿"]},'
-                                '{"author":"陆香儿","text":"随手拍的海","video":"/videos/demo.mp4","cover":"/images/peer/peer_v1.jpg"}]',
-                 "default": ""}]},
-    {"action": "编辑我的资料", "category": "个人资料", "icon": "🧑",
-     "desc": "编辑「我」的主页资料：昵称 / 头像 / 朋友圈封面 / 个性签名（主页列表、通讯录、朋友圈同步更新）",
-     "params": [{"key": "数据", "label": "JSON 对象或 .json 文件路径", "type": "textarea",
-                 "placeholder": '{"name":"阿荡","avatar":"/images/avatar/2_20260831_184618_874.jpg",'
-                                '"bg":"/images/peer/peer_cover.jpg","signature":"填坑小能手"}',
-                 "default": ""}]},
-    {"action": "设置头像", "category": "个人资料", "icon": "🪪",
-     "desc": "修改头像（所有位置即时更新）",
-     "params": [{"key": "图片", "label": "头像图片路径", "type": "text",
-                 "placeholder": "如：/images/header/header02.jpg", "default": ""}]},
-    {"action": "设置背景", "category": "个人资料", "icon": "🖼️",
-     "desc": "修改朋友圈封面背景",
-     "params": [{"key": "图片", "label": "背景图片路径", "type": "text",
-                 "placeholder": "如：/images/bg/bg02.jpg", "default": ""}]},
-    {"action": "修改昵称", "category": "个人资料", "icon": "🏷️",
-     "desc": "修改我的昵称（主页列表、通讯录、朋友圈同步更新）",
-     "params": [{"key": "昵称", "label": "新昵称", "type": "text", "default": ""}]},
-    {"action": "修改签名", "category": "个人资料", "icon": "✒️",
-     "desc": "修改我的个性签名（同步到通讯录 / 我的资料）",
-     "params": [{"key": "签名", "label": "个性签名", "type": "text", "default": ""}]},
-    {"action": "编辑主页", "category": "主页", "icon": "🏠",
-     "desc": "按数据重建聊天列表主页：支持私聊/群聊/未读/免打扰，可一次配多个会话，之后用「打开聊天」逐个进入",
-     "params": [{"key": "数据", "label": "JSON 数组或 .json 文件路径", "type": "textarea",
-                 "placeholder": '[{"name":"孙权","text":"容我三思","avatar":"/images/header/sunquan.jpg"},{"group":"收购万达讨论群","text":"今晚八点开会","members":["阿荡","夜华"],"newMsgCount":2}]',
-                 "default": ""}]},
-    {"action": "发送图片", "category": "聊天", "icon": "🖼️",
-     "desc": "我方在聊天里发送一张图片（真实气泡）；「打开」为是则发送后自动点开放大查看再关闭",
-     "params": [{"key": "图片", "label": "图片路径", "type": "text",
-                 "placeholder": "如：/images/header/yehua.jpg", "default": ""},
-                {"key": "打开", "label": "是否点开查看", "type": "select",
-                 "options": ["否", "是"], "default": "否"},
-                {"key": "停留", "label": "查看停留秒数（可空）", "type": "number", "default": "0.3"},
-                {"key": "焦点", "label": "放大位置 x,y（可空）", "type": "text",
-                 "placeholder": "如 0.35,0.4", "default": ""}]},
-    {"action": "对方发图片", "category": "聊天", "icon": "🖼️",
-     "desc": "对方发送一张图片；「打开」为是则上屏后自动点开放大查看再关闭",
-     "params": [{"key": "图片", "label": "图片路径", "type": "text",
-                 "placeholder": "如：/images/header/sunquan.jpg", "default": ""},
-                {"key": "打开", "label": "是否点开查看", "type": "select",
-                 "options": ["否", "是"], "default": "否"},
-                {"key": "停留", "label": "查看停留秒数（可空）", "type": "number", "default": "0.3"},
-                {"key": "焦点", "label": "放大位置 x,y（可空）", "type": "text",
-                 "placeholder": "如 0.35,0.4", "default": ""}]},
-    {"action": "发送表情", "category": "聊天", "icon": "🖼️",
-     "desc": "我方发表情贴纸（小尺寸贴纸气泡）；配图选哪张就发哪张",
-     "params": [{"key": "表情", "label": "表情图片路径", "type": "text",
-                 "placeholder": "如：/images/myemoji/xxx.png", "default": ""}]},
-    {"action": "对方表情", "category": "聊天", "icon": "🖼️",
-     "desc": "对方发来表情贴纸；配图选哪张就上屏哪张",
-     "params": [{"key": "表情", "label": "表情图片路径", "type": "text",
-                 "placeholder": "如：/images/myemoji/xxx.png", "default": ""}]},
-    {"action": "对方后台发表情", "category": "聊天", "icon": "🖼️",
-     "desc": "给未打开的会话投递对方表情，刷新主页预览/角标",
-     "params": [{"key": "联系人", "label": "目标会话联系人", "type": "text", "default": ""},
-                {"key": "表情", "label": "表情图片路径", "type": "text",
-                 "placeholder": "如：/images/myemoji/xxx.png", "default": ""}]},
-    {"action": "发送语音", "category": "聊天", "icon": "🎙️",
-     "desc": "我方发送语音消息（时长决定波形长短）",
-     "params": [{"key": "秒数", "label": "语音秒数", "type": "number", "default": "3"}]},
-    {"action": "对方语音", "category": "聊天", "icon": "🎙️",
-     "desc": "对方发送语音消息",
-     "params": [{"key": "秒数", "label": "语音秒数", "type": "number", "default": "3"}]},
-    {"action": "撤回我的消息", "category": "聊天", "icon": "↩️",
-     "desc": "撤回我方最后一条消息，显示系统提示", "params": []},
-    {"action": "对方撤回消息", "category": "聊天", "icon": "↩️",
-     "desc": "对方撤回一条消息，显示系统提示", "params": []},
-    {"action": "转发消息", "category": "聊天", "icon": "🔁",
-     "desc": "我方转发一条消息（转发：内容）",
-     "params": [{"key": "内容", "label": "转发内容", "type": "textarea", "default": ""}]},
-    {"action": "打开转账面板", "category": "聊天", "icon": "➕",
-     "desc": "点聊天输入栏「+」弹出功能面板（照片/转账/红包等，对齐参考图1）",
-     "params": []},
-    {"action": "转账金额", "category": "聊天", "icon": "💰",
-     "desc": "真实转账流程：功能面板→金额页输金额/说明→转账→6位密码→橙色转账卡片",
-     "params": [{"key": "接收人", "label": "接收人（聊天对象名）", "type": "text", "default": ""},
-                {"key": "金额", "label": "转账金额", "type": "text", "default": "50.00"},
-                {"key": "备注", "label": "备注（可空）", "type": "text", "default": ""},
-                {"key": "密码", "label": "支付密码（6位数字）", "type": "text", "default": "123456"}]},
-    {"action": "转账", "category": "聊天", "icon": "💰",
-     "desc": "我方发送一笔转账（绿色转账卡片：谁 + 金额 + 备注）",
-     "params": [{"key": "接收人", "label": "接收人（聊天对象名）", "type": "text", "default": ""},
-                {"key": "金额", "label": "转账金额", "type": "text", "default": "50.00"},
-                {"key": "备注", "label": "备注（可空）", "type": "text", "default": ""}]},
-    {"action": "对方转账", "category": "聊天", "icon": "💰",
-     "desc": "对方发来一笔转账（左侧转账卡片）",
-     "params": [{"key": "接收人", "label": "接收人", "type": "text", "default": ""},
-                {"key": "金额", "label": "转账金额", "type": "text", "default": "50.00"},
-                {"key": "备注", "label": "备注（可空）", "type": "text", "default": ""}]},
-    {"action": "打开转账详情", "category": "聊天", "icon": "🧾",
-     "desc": "点击对方转账卡片，打开转账详情页（右滑推入，深色页面）",
-     "params": []},
-    {"action": "接收转账", "category": "聊天", "icon": "✅",
-     "desc": "在转账详情页点「接收」：瞬时切换为已收款（绿色对勾+已存入零钱）",
-     "params": []},
-    {"action": "关闭转账详情", "category": "聊天", "icon": "↩️",
-     "desc": "点返回箭头，转账详情页右滑退出回聊天页",
-     "params": []},
-    {"action": "手机状态栏", "category": "聊天", "icon": "📱",
-     "desc": "切换状态栏场景：转账=参考视频状态栏（03:14+灵动岛微信绿标+录屏红点），默认=恢复 18:36",
-     "params": [{"key": "模式", "label": "模式", "type": "select",
-                 "options": ["转账", "默认"], "default": "转账"}]},
-    {"action": "@成员", "category": "聊天", "icon": "👥",
-     "desc": "在输入框 @ 成员（弹出键盘，内容保留在输入框）",
-     "params": [{"key": "昵称", "label": "成员昵称", "type": "text",
-                 "placeholder": "如：夜华", "default": ""}]},
-    {"action": "等待", "category": "系统", "icon": "⏱️",
-     "desc": "自然等待指定秒数",
-     "params": [{"key": "秒数", "label": "等待秒数", "type": "number", "default": "1"}]},
-]
+
+from action_registry import editor_actions as _editor_actions
+
+ACTIONS = _editor_actions()
 
 # action -> 动作定义 索引
 ACTIONS_BY_NAME = {a["action"]: a for a in ACTIONS}
 
 def _json_reply(handler, code: int, data):
     body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-    handler.send_response(code)
-    handler.send_header("Content-Type", "application/json; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
+    try:
+        handler.send_response(code)
+        handler.send_header("Content-Type", "application/json; charset=utf-8")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, TimeoutError):
+        # 客户端中途断开（如浏览器取消请求/刷新页面）：丢弃本次响应即可，
+        # 绝不能让单个请求把整个编辑器服务带崩（2026-09-12 实测崩溃根因）。
+        pass
+
+
+def _safe_wfile_write(handler, data):
+    """写响应体的统一防护：客户端断开只丢弃本次响应，不让异常冒泡杀掉请求线程。"""
+    try:
+        handler.wfile.write(data)
+    except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, TimeoutError):
+        pass
 
 def _read_workflow():
     if not os.path.isfile(WORKFLOW_PATH):
@@ -782,9 +796,10 @@ def _list_chat_bgs():
             out.append("/images/bg/" + fn)
     return out
 
-def _category_of(folder):
-    """按子目录返回分类 key（avatar/sticker/emoji/bg/asset/icon），未知目录归入 asset。"""
-    return _FOLDER_CATEGORY.get(folder, "asset")
+def _category_of(folder, catmap=None):
+    """按子目录返回分类 key（avatar/sticker/emoji/bg/asset/icon/自定义），未知目录归入 asset。"""
+    m = catmap if catmap is not None else _folder_category_map()
+    return m.get(folder, "asset")
 
 def _image_type(folder):
     """按目录判断一张图属于「图标」还是「图像」。
@@ -835,6 +850,7 @@ def _list_image_files():
     out = []
     base = FRONTEND_PUBLIC
     meta = _load_gallery_meta()
+    catmap = _folder_category_map()      # 只算一次，避免逐文件重算分类表
     for dirpath, _dirnames, filenames in os.walk(base):
         for fn in filenames:
             if not fn.lower().endswith(IMG_EXTS):
@@ -857,30 +873,102 @@ def _list_image_files():
                 "mtime": mtime,
                 "ctime": ctime,
                 "type": _image_type(folder),
-                "category": _category_of(folder),
+                "category": _category_of(folder, catmap),
                 "label": _label_of(rel, meta),
             })
     # 按创建时间降序（最新在前）；同秒创建时再用文件名固定顺序
     out.sort(key=lambda d: (-d["ctime"], d["name"]))
     return out
 
-def _gallery_payload():
-    """返回图片库数据：{images, files, folders, categories, videos, root}。
+_gallery_cache = {"ts": 0.0, "data": None}
+_GALLERY_CACHE_TTL = 2.5    # 秒；写操作的响应里传 fresh=True 强制重扫，绕过缓存
+
+
+def _gallery_payload(fresh: bool = False):
+    """返回图片库数据：{images, files, folders, categories, counts, videos, root}。
 
     images 保持旧字段（纯路径列表），供现有图片选择器直接用；files/folders 供图片库管理界面用；
-    categories 是分类清单（key/label/folders），videos 是 public/videos 下的视频素材列表。
+    categories 是分类清单（key/label/folders/canUpload，可由用户在界面上改名/新增）；
+    counts 是「分类 key -> 图片张数」（另有 "video" 表示源视频数），前端直接显示在分类按钮上。
+    videos 是 public/videos 下的视频素材列表。
+
+    带 2.5 秒 TTL 缓存：_list_image_files 每次全盘遍历 public/images，图库越大请求越慢；
+    上传/移动/删除/改名等写操作的响应传 fresh=True 立即重扫，其余读取复用缓存。
     """
+    now = time.time()
+    if (not fresh and _gallery_cache["data"] is not None
+            and now - _gallery_cache["ts"] < _GALLERY_CACHE_TTL):
+        return _gallery_cache["data"]
     files = _list_image_files()
     folders = sorted({f["folder"] for f in files})
     videos = [{"path": p, "name": os.path.splitext(os.path.basename(p))[0]}
               for p in _list_source_videos()]
-    return {
+    counts = {}
+    for f in files:
+        counts[f["category"]] = counts.get(f["category"], 0) + 1
+    counts["__all"] = len(files)
+    counts["video"] = len(videos)
+    payload = {
         "images": [f["path"] for f in files],
         "files": files,
         "folders": folders,
-        "categories": GALLERY_CATEGORIES,
+        "categories": _gallery_categories(),
+        "counts": counts,
         "videos": videos,
     }
+    _gallery_cache["ts"] = now
+    _gallery_cache["data"] = payload
+    return payload
+
+# sticker（表情包）分类「展示标签 -> /images/ 路径」映射缓存（60s，避免每次请求读盘）
+_sticker_label_cache = {"map": None, "ts": 0.0}
+
+
+def _lookup_sticker_by_label(name: str) -> str:
+    """按图库「展示标签」在 sticker（表情包）分类里找一张图，返回 /images/... 或 ''。
+
+    供脚本模式表情槽自动填充：剧本里写「猫咪翻白眼」「喵星人01」这类名字时，
+    确认框 / 配图清单能直接显示对应真图，而不是一直「未配图」。
+    只搜 sticker 分类，不碰 emoji/wxemoji——微信小黄脸名（微笑等）走运行时
+    语义匹配，不能在这里被错误钉到静态文件。
+    匹配顺序：标签精确 -> 去空格精确 -> 互相包含（取最短标签，最具体）。
+    """
+    key = str(name or "").strip().lower()
+    if len(key) < 2:
+        return ""
+    now = time.time()
+    labels = _sticker_label_cache["map"]
+    if labels is None or now - _sticker_label_cache["ts"] > 60.0:
+        labels = {}
+        try:
+            meta = _load_gallery_meta() or {}
+        except Exception:                                   # noqa: BLE001
+            meta = {}
+        for rel, lab in meta.items():
+            rel = str(rel)
+            if not rel.startswith("sticker/"):
+                continue
+            lab = str(lab or "").strip().lower()
+            if not lab:
+                continue
+            url = "/images/" + rel
+            labels.setdefault(lab, url)
+            labels.setdefault(lab.replace(" ", ""), url)
+        _sticker_label_cache["map"] = labels
+        _sticker_label_cache["ts"] = now
+    hit = labels.get(key) or labels.get(key.replace(" ", ""))
+    if not hit and len(key) >= 2:
+        best_lab, best_url = "", ""
+        for lab, url in labels.items():
+            if key in lab or lab in key:
+                if not best_lab or len(lab) < len(best_lab):
+                    best_lab, best_url = lab, url
+        hit = best_url
+    if not hit:
+        return ""
+    fp = os.path.join(FRONTEND_PUBLIC, hit[len("/images/"):].replace("/", os.sep))
+    return hit if os.path.isfile(fp) else ""
+
 
 def _safe_image_fp(rel):
     """把 /images/ 之后的相对路径解析为 public/images 下的绝对路径。
@@ -951,6 +1039,7 @@ def _save_upload_image(data_url, name="", folder=AVATAR_DIR_NAME):
     fp = os.path.join(subdir, fname)
     with open(fp, "wb") as fh:
         fh.write(data)
+    _gallery_cache["ts"] = 0.0     # 新图落盘，让下一次 /api/gallery 立即重扫
     return f"/images/{folder}/{fname}", None
 
 def _mime_ext(mime):
@@ -1015,6 +1104,7 @@ def _save_upload_video(raw, name="", mime=""):
     os.makedirs(SOURCE_VIDEO_DIR, exist_ok=True)
     with open(os.path.join(SOURCE_VIDEO_DIR, fname), "wb") as fh:
         fh.write(raw)
+    _gallery_cache["ts"] = 0.0     # 新视频落盘，让下一次 /api/gallery 立即重扫
     return "/videos/" + fname, None
 
 def _normalize_image(data):
@@ -1118,7 +1208,7 @@ def _move_image(path, category):
     """
     if not (path or "").startswith("/images/"):
         return None, [], "路径必须以 /images/ 开头"
-    target_dir = _CATEGORY_DIRS.get(category or "")
+    target_dir = _category_dirs().get(category or "")
     if not target_dir:
         return None, [], "不支持移动到该分类"
     old_fp = _safe_image_fp(unquote(path[len("/images/"):]))
@@ -1170,6 +1260,35 @@ def _delete_image(path):
         del meta[rel]
         _save_gallery_meta(meta)
     return True, None
+
+def _batch_gallery(op, paths, category=""):
+    """批量操作图片：op='delete' 一次删多张；op='move' 把多张一起搬到同一分类。
+
+    单张失败不影响其余（结果逐条返回）。返回 (结果列表, 被更新的引用文件列表, 错误消息)。
+    """
+    paths = [p for p in (paths or []) if isinstance(p, str) and p.startswith("/images/")]
+    if not paths:
+        return [], [], "没有选中图片"
+    results = []
+    changed = set()
+    if op == "delete":
+        for p in paths:
+            ok, err = _delete_image(p)
+            results.append({"path": p, "ok": bool(ok), "msg": err or ""})
+    elif op == "move":
+        if not category:
+            return [], [], "缺少目标分类"
+        for p in paths:
+            new_path, ch, err = _move_image(p, category)
+            if err:
+                results.append({"path": p, "ok": False, "msg": err})
+            else:
+                results.append({"path": p, "ok": True, "newPath": new_path or ""})
+                changed.update(ch or [])
+    else:
+        return [], [], "不支持的操作"
+    return results, sorted(changed), None
+
 
 def _set_gallery_label(path, label):
     """为一张图设置「自定义命名」（只写展示名元数据，不改磁盘文件）。返回 (True, None)/(False, err)。"""
@@ -1276,6 +1395,17 @@ def _start_edit():
                 return False, "有流程正在运行，请先停止再进入编辑模式。"
         cmd = [sys.executable, os.path.join(ROOT, "main.py"),
                "--editmode", "--headless", "--liveport", str(LIVE_PORT)]
+        # 真机画面默认套用「场景编辑器」当前保存的场景，
+        # 让编辑器左边看到的画面就是最终视频里的画面（我的资料/会话/朋友圈）。
+        try:
+            _sc_edit = _read_scene()
+        except Exception:                           # noqa: BLE001
+            _sc_edit = None
+        if _sc_edit and (_sc_edit.get("home") or _sc_edit.get("me")
+                         or _sc_edit.get("moments") or _sc_edit.get("peer")):
+            if os.path.isfile(SCENE_PATH):
+                cmd += ["--scene", SCENE_PATH]
+                print(f"[编辑模式] 将套用场景：{SCENE_PATH}", flush=True)
         log_fh = open(EDIT_LOG, "w", encoding="utf-8", errors="replace")
         _edit_proc = subprocess.Popen(
             cmd, cwd=ROOT, stdout=log_fh, stderr=subprocess.STDOUT,
@@ -1487,14 +1617,146 @@ def _call_generate_deepseek(api_key, system_prompt, user_msg, model, base_url):
     return None, last_exc
 
 
+# ============================================================
+# 创作生成：JSON 进、[指令] 出
+# ------------------------------------------------------------
+# 老范式是「让模型直接写 [指令] 文本」，实测 39 条历史里有 2 条出现
+# `[为我方打字]`、`[返回主页`（缺右括号）这类写法被解析器静默丢弃，
+# 剧本凭空空几行 -> 触发「对白不够」-> 被迫重写。
+# 新范式把「结构」交给 JSON：模型只填字段，渲染成 [指令] 由本地完成。
+# ============================================================
+
+_AUTO_REF_MAX = 12          # 自动沉淀的参考剧本上限（防止参考库被生成结果撑爆）
+
+
+def _coerce_model_output(raw: str):
+    """把模型输出归一成 ([指令] 文本, 产出形态)。
+
+    产出形态：'json'（模型按新范式给了 JSON）/ 'text'（模型仍给了 [指令] 文本）。
+    两种都接受：老模型/低温度偶发只给文本时，不至于整轮失败。
+    """
+    text, src = script_format.coerce(raw)
+    if (text or "").strip():
+        return text, src
+    # JSON 里没有可用 steps（或压根不是 JSON）：把原文当剧本兜底，
+    # 交给后面的 check_completeness 去判「它到底像不像剧本」。
+    return (raw or "").strip(), "text"
+
+
+def _apply_critique_output(raw: str, current_text: str):
+    """把纠错轮的模型输出落到当前剧本上，返回 (新文本, 方式) 或 (None, 'none')。
+
+    优先用 patches / append_steps 定向打补丁；模型若直接给了整篇 JSON 或
+    整篇 [指令] 文本，则退化为全量替换。补丁一条都没打上且没有可用的
+    整篇结果时返回 None，让调用方保留上一版（绝不把剧本改没）。
+    """
+    obj = script_format.extract_json(raw)
+    if isinstance(obj, dict):
+        has_patch = bool(obj.get("patches"))
+        has_append = bool(obj.get("append_steps"))
+        if has_patch or has_append:
+            text, ok, fail = script_format.apply_patches(current_text, obj.get("patches") or [])
+            if has_append:
+                text = script_format.apply_append_steps(text, obj.get("append_steps") or [])
+            if ok or has_append:
+                return text, "patch"
+            # find 全部对不上（行号/全角空格差异）：退化为整篇替换
+        whole, src = script_format.coerce(obj)
+        if (whole or "").strip():
+            return whole, src
+    text, src = _coerce_model_output(raw)
+    if (text or "").strip() and text.strip() != (current_text or "").strip():
+        return text, src
+    return None, "none"
+
+
+def _sink_reference(text: str, brief: str, category: str):
+    """把一次「零问题通过」的生成结果自动收进参考库。
+
+    体检发现：好结果只进 generate_history，要用户手动「存为参考」才入库，
+    于是参考库永远只有最初那 3 条 —— 这恰恰是「越写越好」最该转起来的飞轮。
+    自动沉淀的条目会带 note 前缀「自动沉淀」，用户可在参考库里随时删/停用。
+    超过 _AUTO_REF_MAX 条时，淘汰自动沉淀里评分最低、最旧的一条。
+    """
+    body = (text or "").strip()
+    if not body:
+        return None
+    refs = store.list_references()
+    for r in refs:
+        if str(r.get("text") or "").strip() == body:
+            return None                      # 完全重复，不重复入库
+    auto = [r for r in refs if str(r.get("note") or "").startswith("自动沉淀")]
+    if len(auto) >= _AUTO_REF_MAX:
+        auto.sort(key=lambda r: (float(r.get("score") or 0), float(r.get("created_at") or 0)))
+        try:
+            store.delete_reference(auto[0]["id"])
+        except Exception:                    # noqa: BLE001
+            pass
+    title = "自动沉淀 · %s" % (str(brief or category or "生成结果").strip()[:24])
+    return store.add_reference(
+        title=title, text=body, category=category or "",
+        summary="", kind="full",
+        note="自动沉淀（本次生成零问题通过，来自创作主题：%s）" % (str(brief or "")[:40]))
+
+
+def _find_auto_sunk_ref(text: str):
+    """该文本是否已在参考库里（用于回填 history 的 reference_id）。"""
+    body = (text or "").strip()
+    if not body:
+        return None
+    for r in store.list_references():
+        if str(r.get("text") or "").strip() == body:
+            return r
+    return None
+
+
+def _generate_outline(payload: dict):
+    """两段式·第一段：主题 -> 剧情大纲（纯文本 markdown，用户可改）。
+
+    返回 (result_dict, error_msg)；失败时 error_msg 非 None。
+    """
+    brief = str(payload.get("brief") or "").strip()
+    if not brief:
+        return None, "请输入创作主题。"
+    settings = script_translator.load_settings()
+    api_key = (settings.get("deepseek_api_key") or "").strip()
+    if not api_key or api_key.upper().startswith("REPLACE"):
+        return None, "生成大纲需要先配置大模型 API Key（顶部「配置大模型」填入 DeepSeek Key）。"
+    model = settings.get("deepseek_model") or script_translator.DEFAULT_MODEL
+    base_url = settings.get("deepseek_base_url") or script_translator.DEFAULT_BASE_URL
+
+    ref_ids = payload.get("reference_ids") or []
+    category = str(payload.get("category") or "").strip()
+    try:
+        refs = script_generator.get_reference_scripts_by_ids(ref_ids)
+    except Exception:  # noqa: BLE001
+        refs = []
+    ref_titles = [str(r.get("title")) for r in refs if r.get("title")]
+    people_block = script_translator._library_prompt_block()
+    system_prompt = script_generator.build_outline_prompt(
+        brief, category=category, people_block=people_block, ref_titles=ref_titles)
+    raw, gen_err = _call_generate_deepseek(api_key, system_prompt,
+                                           f"创作主题：{brief}", model, base_url)
+    if gen_err is not None:
+        return None, f"大纲生成调用大模型失败：{gen_err}"
+    outline = script_generator.strip_code_fences(raw or "").strip()
+    if not outline:
+        return None, "大纲生成为空，请重试或换一个主题描述。"
+    return {"ok": True, "outline": outline}, None
+
+
 def _generate_script(payload: dict):
-    """执行一次"创作生成"：主题 + 参考剧本 -> 完整 [指令] 文本 + 归一步骤 + 校验报告。
+    """执行一次「创作生成」：主题 + 参考剧本 -> 完整 [指令] 文本 + 归一步骤 + 校验报告。
 
     返回 (result_dict, error_msg)：
       result_dict = {"ok": True, "text": ..., "steps": [...], "warnings": [...],
                      "report": {"issues": [...], "attempts": int, "passed": bool}, "source": "generate"}
-    流程：AI 输出 [指令] 文本 -> 完整性检查 -> 离线归一(parse_script_to_steps offline)
-          -> 结构化校验 -> 有问题则 critique 重写（最多 2 轮），全程记录问题清单。
+
+    流程（新范式）：
+      首轮  模型输出 JSON(history+steps) -> 本地渲染 [指令] -> 完整性 + 结构化校验
+      纠错  只让模型给 patches/append_steps -> 本地定向打补丁 -> 重新校验（最多 max_rounds-1 轮）
+      收尾  采用「评分最高的一轮」（评分含严重度权重，不再只看问题条数）
+            零问题通过 -> 自动沉淀进参考库
     """
     brief = str(payload.get("brief") or "").strip()
     if not brief:
@@ -1508,6 +1770,7 @@ def _generate_script(payload: dict):
 
     ref_ids = payload.get("reference_ids") or []
     category = str(payload.get("category") or "").strip()
+    outline = str(payload.get("outline") or "").strip()
     max_rounds = int(payload.get("max_rounds") or script_generator.MAX_CRITIQUE_ROUNDS)
     max_rounds = max(1, min(max_rounds, 5))
 
@@ -1540,12 +1803,14 @@ def _generate_script(payload: dict):
     current_text = ""
     attempts = 0
     passed = False
-    best = None  # (评分, 文本, 问题清单, 是否通过)：防止「越改越差」
+    best = None          # (评分, 文本, 问题清单, 是否通过)：防止「越改越差」
+    produce_mode = ""    # 记录最终采用的产出形态（json / text / patch）
+    patch_ok = 0
 
     for attempt in range(max_rounds):
         attempts = attempt + 1
         if attempt == 0:
-            user_msg = script_generator._gen_user_message(brief, category, ref_titles)
+            user_msg = script_generator._gen_user_message(brief, category, ref_titles, outline)
             sys_prompt = system_prompt
         else:
             sys_prompt = script_generator.build_critique_prompt(
@@ -1563,20 +1828,31 @@ def _generate_script(payload: dict):
         if not raw.strip() and attempt > 0:
             # 纠错轮模型未产出内容：保留上一版有效结果，避免用空内容覆盖后二次空转。
             break
-        if attempt > 0 and current_text and len(raw) < len(current_text) * 0.5:
+
+        if attempt == 0:
+            text, mode = _coerce_model_output(raw)
+        else:
+            text, mode = _apply_critique_output(raw, current_text)
+            if text is None:
+                # 连补丁都产不出来：保留上一版，不覆盖
+                break
+            patch_ok += 1 if mode == "patch" else 0
+
+        if attempt > 0 and current_text and len(text) < len(current_text) * 0.5:
             # 纠错轮把剧本砍掉一半以上：这是「越改越差」，直接保留上一版。
             break
-        current_text = raw
+        current_text = text
+        produce_mode = mode
 
-        completeness = script_generator.check_completeness(raw)
+        completeness = script_generator.check_completeness(text)
         # 离线归一（生成结果已是标准 [指令]，避免二次调用大模型）
-        steps, warnings, _src = _parse_script_to_steps(raw, offline=True)
-        structural, violated_skills = script_generator.validate_generated_steps(steps, skills, raw)
+        steps, warnings, _src = _parse_script_to_steps(text, offline=True)
+        structural, violated_skills = script_generator.validate_generated_steps(steps, skills, text)
         all_issues = completeness + structural
-        # 记录本轮的「好坏」：问题越少越好，同分时文本更完整者优先。
-        _score = (len(all_issues), -len(raw))
+        # 评分：致命问题比措辞问题重得多，同分时文本更完整者优先。
+        _score = script_generator.issues_score(all_issues) + (-len(text),)
         if best is None or _score < best[0]:
-            best = (_score, raw, list(all_issues), not all_issues)
+            best = (_score, text, list(all_issues), not all_issues)
         # 命中规则 -> 累加命中次数，让用户在规则面板里看到「它真的在起作用」
         try:
             store.bump_skill_hits(violated_skills)
@@ -1587,9 +1863,11 @@ def _generate_script(payload: dict):
         try:
             os.makedirs(_GEN_DEBUG_DIR, exist_ok=True)
             with open(os.path.join(_GEN_DEBUG_DIR, f"round{attempt}.txt"), "w", encoding="utf-8") as fh:
-                fh.write("===== system_prompt =====\n" + sys_prompt +
+                fh.write("===== mode =====\n" + str(mode) +
+                         "\n\n===== system_prompt =====\n" + sys_prompt +
                          "\n\n===== user_msg =====\n" + user_msg +
                          "\n\n===== raw_output =====\n" + (raw or "") +
+                         "\n\n===== rendered_text =====\n" + (text or "") +
                          "\n\n===== parsed_steps =====\n" + json.dumps(steps, ensure_ascii=False, indent=2) +
                          "\n\n===== issues =====\n" + "\n".join(all_issues))
         except OSError:
@@ -1598,7 +1876,7 @@ def _generate_script(payload: dict):
             passed = True
             break
 
-    # 采用「问题最少的那一轮」，而不是无脑用最后一轮：
+    # 采用「评分最高的一轮」，而不是无脑用最后一轮：
     # 纠错轮偶尔会把剧本改得更短更差，必须回退到最好的一版。
     if best is not None and str(best[1] or "").strip():
         current_text = best[1]
@@ -1618,11 +1896,26 @@ def _generate_script(payload: dict):
             "attempts": attempts,
             "passed": passed,
             "rules": len(skills),
+            "produce_mode": produce_mode or "json",
+            "patch_rounds": patch_ok,
         },
         "ref_titles": ref_titles,
         "auto_refs": auto_refs,
         "source": "generate",
     }
+
+    # 零问题通过 -> 自动沉淀进参考库（「越写越好」的飞轮）
+    sunk = None
+    if passed and len(steps) >= 40:
+        try:
+            sunk = _sink_reference(current_text, brief, category)
+        except Exception:  # noqa: BLE001
+            sunk = None
+    result["auto_sunk_reference"] = bool(sunk)
+    result["report"]["auto_sunk"] = bool(sunk)
+    if sunk:
+        result["reference_id"] = sunk.get("id")
+
     # 落一条生成历史（供「历史生成」面板回看/复用）；存档失败不影响本次返回。
     try:
         entry = script_generator.add_generation_history({
@@ -1635,6 +1928,7 @@ def _generate_script(payload: dict):
             "warnings": warnings,
             "report": result["report"],
             "model": model,
+            "reference_id": (sunk or {}).get("id"),
         })
         result["history_id"] = entry.get("id")
     except Exception:  # noqa: BLE001
@@ -2015,7 +2309,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        _safe_wfile_write(self, data)
 
     def do_GET(self):  # noqa: N802
         if self.path.startswith("/images/"):
@@ -2040,7 +2334,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(body)
+                _safe_wfile_write(self, body)
                 return
             return _json_reply(self, 404, {"ok": False, "msg": "scene.html 不存在"})
         if self.path in ("/concurrent", "/concurrent/"):
@@ -2053,7 +2347,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(body)
+                _safe_wfile_write(self, body)
                 return
             return _json_reply(self, 404, {"ok": False, "msg": "concurrent.html 不存在"})
         if self.path == "/api/scene":
@@ -2068,12 +2362,27 @@ class Handler(SimpleHTTPRequestHandler):
                 self._send_file(fp)
                 return
             return _json_reply(self, 404, {"ok": False, "msg": "文件不存在"})
+        if self.path.startswith("/fonts/"):
+            # 鸿蒙字体：预览嵌入层的 enhance/harmony_font.css 用绝对路径 @import("/fonts/harmony/...")，
+            # dev server(8080) 有 public/fonts，但 editor server 根目录没有 → 这里补一条静态路由
+            rel = unquote(self.path.split("?", 1)[0][len("/fonts/"):])
+            fonts_root = os.path.join(FRONTEND_DIR, "public", "fonts")
+            fp = os.path.normpath(os.path.join(fonts_root, rel))
+            if fp.startswith(fonts_root + os.sep) and os.path.isfile(fp):
+                self._send_file(fp)
+                return
+            return _json_reply(self, 404, {"ok": False, "msg": "文件不存在"})
         if self.path == "/api/people":
             return _json_reply(self, 200, _read_people())
         if self.path == "/api/gallery":
             return _json_reply(self, 200, _gallery_payload())
         if self.path == "/api/chat-bgs":
             return _json_reply(self, 200, {"images": _list_chat_bgs(), "dir": "/images/bg/"})
+        if self.path.startswith("/api/emoji_lookup"):
+            from urllib.parse import parse_qs, urlparse  # unquote 已在模块顶部导入，局部再导入会遮蔽成局部变量导致 do_GET 前段 UnboundLocalError
+            _q = parse_qs(urlparse(self.path).query)
+            _name = unquote((_q.get("name") or [""])[0])
+            return _json_reply(self, 200, {"ok": True, "path": _lookup_sticker_by_label(_name)})
         if self.path == "/api/actions":
             return _json_reply(self, 200, ACTIONS)
         if self.path == "/api/reference-scripts":
@@ -2107,10 +2416,18 @@ class Handler(SimpleHTTPRequestHandler):
             return _json_reply(self, 200, _read_workflow())
         if self.path == "/api/status":
             running = bool(_run_proc) and _run_proc.poll() is None
+            exit_code = None
+            if _run_proc is not None and not running:
+                exit_code = _run_proc.poll()
+            edit_active = bool(_edit_proc) and _edit_proc.poll() is None
             return _json_reply(self, 200, {
                 "running": running,
                 "video": _latest_video(),
                 "workflow": os.path.basename(WORKFLOW_PATH),
+                "exit_code": exit_code,
+                # 崩溃 = 进程已退出且退出码非 0（前端据此弹提示，而不是假装「就绪」）
+                "crashed": exit_code is not None and exit_code != 0,
+                "editActive": edit_active,
             })
         if self.path == "/api/llm/config":
             # 不回显密钥，只告诉前端是否已配置 + 当前模型
@@ -2121,7 +2438,12 @@ class Handler(SimpleHTTPRequestHandler):
                 "base_url": settings.get("deepseek_base_url") or script_translator.DEFAULT_BASE_URL,
             })
         if self.path.startswith("/api/runlog"):
-            offset = int(self.path.split("?", 1)[1].split("=")[1]) if "=" in self.path else 0
+            # 参数解析改用 parse_qs：写错参数名或带额外参数不再抛 IndexError 500
+            _qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            try:
+                offset = int((_qs.get("offset") or ["0"])[0])
+            except (TypeError, ValueError):
+                offset = 0
             return _json_reply(self, 200, _run_log_tail(offset))
         if self.path == "/api/videos":
             files = sorted(os.listdir(VIDEO_DIR), reverse=True) if os.path.isdir(VIDEO_DIR) else []
@@ -2147,12 +2469,23 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("Content-Type", "image/png")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
-                self.wfile.write(data)
+                _safe_wfile_write(self, data)
                 return
             return _json_reply(self, 404, {"ok": False, "msg": "文件不存在"})
         if self.path.startswith("/api/live"):
             # 转发到运行子进程/编辑模式的实时画面服务
             return self._proxy_live()
+        if self.path.startswith(PV_PREFIX):
+            # 实时预览：同源反代真实前端并注入 enhance 引导层
+            return self._proxy_frontend()
+        if self.path == "/api/wxapp/status":
+            up = _frontend_ready()
+            return _json_reply(self, 200, {
+                "ok": True,
+                "up": up,
+                "starting": bool(_frontend_proc and _frontend_proc.poll() is None),
+                # 端口 8080 有响应但不是本项目（被其他程序占用）→ 前端给出明确提示
+                "conflict": bool(_frontend_conflict)})
         if self.path.startswith("/api/editstatus"):
             running = bool(_edit_proc) and _edit_proc.poll() is None
             return _json_reply(self, 200, {"ok": True, "running": running})
@@ -2196,6 +2529,47 @@ class Handler(SimpleHTTPRequestHandler):
         # 其余按静态文件处理
         return super().do_GET()
 
+    def _proxy_frontend(self):
+        """把 /wxpv/* 反代到 vue-WeChat dev server，并在 HTML 里注入 enhance 引导层。
+
+        真实前端的资源都是相对路径，因此整体挂到 /wxpv/ 前缀下即可正常工作；
+        注入 _embed_boot.js 后，页面上呈现的就是与成片同一套 UI（逐像素同源）。
+        """
+        raw = self.path.split("?", 1)
+        rel = unquote(raw[0][len(PV_PREFIX):])
+        upstream = "/" + rel + (("?" + raw[1]) if len(raw) > 1 else "")
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", FRONTEND_PORT, timeout=25)
+            conn.request("GET", upstream, headers={"Accept-Encoding": "identity",
+                                                   "User-Agent": "editor-preview"})
+            resp = conn.getresponse()
+            status = resp.status
+            ctype = resp.getheader("Content-Type", "") or ""
+            cache = resp.getheader("Cache-Control", "")
+            data = resp.read()
+        except Exception as exc:                 # noqa: BLE001
+            return _json_reply(self, 503, {"ok": False,
+                                           "msg": "预览渲染器未运行：%s" % exc})
+        if status == 200 and "text/html" in ctype:
+            html = data.decode("utf-8", "replace")
+            if "_embed_boot.js" not in html:
+                if "</body>" in html:
+                    html = html.replace("</body>", PV_BOOT_TAG + "</body>", 1)
+                else:
+                    html += PV_BOOT_TAG
+            data = html.encode("utf-8")
+            ctype = "text/html; charset=utf-8"
+        self.send_response(status)
+        self.send_header("Content-Type", ctype or "application/octet-stream")
+        self.send_header("Content-Length", str(len(data)))
+        if cache:
+            self.send_header("Cache-Control", cache)
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionAbortedError):
+            pass
+
     def _proxy_live(self, body: bytes = b""):
         """把实时画面相关请求转发给 127.0.0.1:LIVE_PORT。
 
@@ -2218,7 +2592,7 @@ class Handler(SimpleHTTPRequestHandler):
                     self.send_header("Content-Length", str(len(data)))
                     self.send_header("Cache-Control", "no-store")
                     self.end_headers()
-                    self.wfile.write(data)
+                    _safe_wfile_write(self, data)
                     return
             except Exception:                       # noqa: BLE001
                 pass
@@ -2246,6 +2620,9 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length) if length else b""
+        if self.path == "/api/wxapp/start":
+            ok, msg = _start_frontend()
+            return _json_reply(self, 200, {"ok": ok, "msg": msg, "up": _frontend_ready()})
         if self.path == "/api/workflow":
             try:
                 data = json.loads(body.decode("utf-8"))
@@ -2260,6 +2637,24 @@ class Handler(SimpleHTTPRequestHandler):
                 return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
             _write_scene(data)
             return _json_reply(self, 200, {"ok": True, "msg": "场景已保存"})
+        if self.path == "/api/me":
+            # 「我的」页个人信息：只合并 me 字段到 scene.json，不动其他场景数据。
+            # 脚本每次运行都从 scene.json 的 me 读取（name/avatar/signature/bg 等），
+            # 这里保存后即完成「编辑 → 同步到脚本」闭环。
+            try:
+                data = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            patch = data.get("me") if isinstance(data.get("me"), dict) else data
+            # 只接受字符串字段，防止塞入临时对象/函数之类的东西
+            clean = {k: str(v) for k, v in patch.items()
+                     if isinstance(v, (str, int, float)) and k != "peerAvatar"}
+            scene = _read_scene()
+            me = scene.get("me") or {}
+            me.update(clean)
+            scene["me"] = me
+            _write_scene(scene)
+            return _json_reply(self, 200, {"ok": True, "msg": "个人信息已保存", "me": me})
         if self.path == "/api/peer-presets":
             try:
                 data = json.loads(body.decode("utf-8") or "{}")
@@ -2350,7 +2745,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
             # category：上传分类（avatar/sticker/emoji/bg/asset），决定落盘子目录；
             # 未指定时保持旧行为（进头像目录），兼容旧前端。
-            folder = _CATEGORY_DIRS.get(data.get("category") or "", AVATAR_DIR_NAME)
+            folder = _category_dirs().get(data.get("category") or "", AVATAR_DIR_NAME)
             path, err = _save_upload_image(data.get("data"), data.get("name"), folder=folder)
             if err:
                 return _json_reply(self, 400, {"ok": False, "msg": err})
@@ -2413,7 +2808,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return _json_reply(self, 400, {"ok": False, "msg": err})
             return _json_reply(self, 200, {"ok": True, "path": new_path,
                                            "changed": changed,
-                                           "gallery": _gallery_payload()})
+                                           "gallery": _gallery_payload(fresh=True)})
         if self.path == "/api/gallery/rename":
             try:
                 data = json.loads(body.decode("utf-8") or "{}")
@@ -2423,7 +2818,7 @@ class Handler(SimpleHTTPRequestHandler):
             if err:
                 return _json_reply(self, 400, {"ok": False, "msg": err})
             return _json_reply(self, 200, {"ok": True, "path": new_path,
-                                           "gallery": _gallery_payload()})
+                                           "gallery": _gallery_payload(fresh=True)})
         if self.path == "/api/gallery/delete":
             try:
                 data = json.loads(body.decode("utf-8") or "{}")
@@ -2432,7 +2827,7 @@ class Handler(SimpleHTTPRequestHandler):
             ok, err = _delete_image(data.get("path") or "")
             if not ok:
                 return _json_reply(self, 400, {"ok": False, "msg": err})
-            return _json_reply(self, 200, {"ok": True, "gallery": _gallery_payload()})
+            return _json_reply(self, 200, {"ok": True, "gallery": _gallery_payload(fresh=True)})
         if self.path == "/api/gallery/label":
             try:
                 data = json.loads(body.decode("utf-8") or "{}")
@@ -2441,7 +2836,43 @@ class Handler(SimpleHTTPRequestHandler):
             ok, err = _set_gallery_label(data.get("path") or "", data.get("label") or "")
             if not ok:
                 return _json_reply(self, 400, {"ok": False, "msg": err})
-            return _json_reply(self, 200, {"ok": True, "gallery": _gallery_payload()})
+            return _json_reply(self, 200, {"ok": True, "gallery": _gallery_payload(fresh=True)})
+        if self.path == "/api/gallery/batch":
+            # 批量删除 / 批量移动分类
+            try:
+                data = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            results, changed, err = _batch_gallery(data.get("op") or "",
+                                                   data.get("paths") or [],
+                                                   data.get("category") or "")
+            if err:
+                return _json_reply(self, 400, {"ok": False, "msg": err})
+            okn = sum(1 for r in results if r.get("ok"))
+            return _json_reply(self, 200, {"ok": True, "results": results,
+                                           "done": okn, "failed": len(results) - okn,
+                                           "changed": changed,
+                                           "gallery": _gallery_payload(fresh=True)})
+        if self.path == "/api/gallery/category":
+            # 分类管理：op=rename 改显示名 / op=add 新增分类 / op=remove 删掉自定义分类
+            try:
+                data = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            op = data.get("op") or ""
+            if op == "rename":
+                lab, err = _rename_gallery_category(data.get("key") or "", data.get("label") or "")
+            elif op == "add":
+                lab, err = _add_gallery_category(data.get("label") or "")
+            elif op == "remove":
+                lab, err = None, None
+                ok, err = _delete_gallery_category(data.get("key") or "")
+            else:
+                lab, err = None, "不支持的操作"
+            if err:
+                return _json_reply(self, 400, {"ok": False, "msg": err})
+            return _json_reply(self, 200, {"ok": True, "category": lab,
+                                           "gallery": _gallery_payload(fresh=True)})
         if self.path == "/api/run":
             try:
                 payload = json.loads(body.decode("utf-8")) if body else {}
@@ -2487,7 +2918,10 @@ class Handler(SimpleHTTPRequestHandler):
             if not text.strip():
                 return _json_reply(self, 400, {"ok": False, "msg": "剧本内容为空"})
             # 与并发跑批的任务解析共用同一套逻辑（含历史会话块剥离 / AI 转译 / 离线解析 / 人物归一）
-            steps, warnings, source = _parse_script_to_steps(text, bool(payload.get("offline")))
+            try:
+                steps, warnings, source = _parse_script_to_steps(text, bool(payload.get("offline")))
+            except Exception as exc:                    # noqa: BLE001
+                return _json_reply(self, 500, {"ok": False, "msg": f"解析失败：{exc}"})
             return _json_reply(self, 200, {
                 "ok": True,
                 "steps": steps,
@@ -2519,6 +2953,15 @@ class Handler(SimpleHTTPRequestHandler):
                 "warnings": warnings,
                 "source": source,
             })
+        if self.path == "/api/generate/outline":
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            result, err = _generate_outline(payload)
+            if err:
+                return _json_reply(self, 400, {"ok": False, "msg": err})
+            return _json_reply(self, 200, result)
         if self.path == "/api/generate":
             try:
                 payload = json.loads(body.decode("utf-8") or "{}")

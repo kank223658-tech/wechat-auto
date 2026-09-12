@@ -22,6 +22,8 @@ import json
 import os
 import re
 
+import action_registry as ar
+import script_format as script_format_mod
 import create_store as store
 import script_translator as st
 
@@ -102,33 +104,54 @@ def get_reference_scripts_by_ids(ids) -> list:
 
 
 def format_references(references: list, category: str = "") -> str:
-    """把选中的参考剧本拼成提示词里的 few-shot 文本块。
+    """把选中的参考剧本拼成提示词里的 few-shot 文本块（分层）。
 
-    每条参考带上它的标签与结构摘要，让模型知道"该学什么"；
-    并明确声明参考里的人名只是占位，必须替换为人物库里的名字。
+    体检结论：库里只有 3 条整篇参考，其中一条是「对方 0 条」的纯单边剧本，
+    另一条我方 62 / 对方 6 —— 整篇堆多了只会教出「自言自语」；
+    而新功能在整篇参考里一处都没演过，模型从参考这条路也学不到。
+
+    所以分两层：
+      - 【风格模板】整篇参考最多 2 条，学「每句话背后带什么策略、节奏怎么排」；
+      - 【片段示例】短片段（kind=snippet，含系统内置的新功能片段），
+        每条标注「演的是什么」，直接示范某个动作怎么用。
     """
     if not references:
         return "（本次未提供参考剧本，请依你掌握的聊天教学套路直接创作）"
+    fulls = [r for r in references if (r.get("kind") or "full") == "full"][:2]
+    snips = [r for r in references if (r.get("kind") or "full") == "snippet"][:6]
+
     parts = []
-    for i, r in enumerate(references, start=1):
-        title = str(r.get("title", "未命名"))
-        txt = str(r.get("text", ""))
-        tags = "、".join(r.get("tags") or []) or "无"
-        summary = str(r.get("summary") or "")
-        head = f"参考剧本{i}《{title}》\n手法标签：{tags}\n结构摘要：{summary}"
-        parts.append(head + "\n" + txt)
-    return (
-        "【重要】以下参考剧本里的人名、头像只是占位示例，"
-        "你必须在成稿里全部替换为【人物库】里的人物，不得照抄参考里的人名。\n"
-        "参考剧本里 `[打字不发]` 的正文都是「写给观众看的技巧说明」，这正是要学的写法："
-        "你的成稿里**每一处** `[打字不发]` 的正文都要写这种打法说明"
-        "（「这一步在做什么、为什么这样聊有效」），"
-        "绝不能写成马上要发出去的聊天话术，也不能写成对方的心理活动。\n"
-        "参考剧本的 [历史会话] 是最好的学习对象：像微信列表预览，绝大多数会话只留对方最后 1~2 条、"
-        "每条都带钩子、时间标注错落，整块里只让 1 个会话带「我：」的回复；"
-        "要避免让同一个人在历史会话里连发一大堆。\n\n"
-        + "\n\n".join(parts)
-    )
+    if fulls:
+        blocks = []
+        for i, r in enumerate(fulls, start=1):
+            tags = "、".join(r.get("tags") or []) or "无"
+            summary = str(r.get("summary") or "")
+            head = "参考剧本%d《%s》\n手法标签：%s\n结构摘要：%s" % (
+                i, str(r.get("title", "未命名")), tags, summary)
+            blocks.append(head + "\n" + str(r.get("text", "")))
+        parts.append(
+            "【风格模板】以下整篇参考用来学「每句话背后带什么策略、如何编排节奏」，"
+            "重点模仿结构与打法，而不是照抄句子；人物名一律换成【人物库】里的。\n"
+            "参考剧本里 `[打字不发]` 的正文都是「写给观众看的技巧说明」，"
+            "你的成稿里**每一处** `[打字不发]` 都要写这种打法说明"
+            "（「这一步在做什么、为什么这样聊有效」），"
+            "绝不能写成马上要发出去的聊天话术，也不能写成对方的心理活动。\n"
+            "参考剧本的 [历史会话] 是最好的学习对象：像微信列表预览，绝大多数会话只留对方最后 1~2 条、"
+            "每条都带钩子、时间标注错落，整块里只让 1 个会话带「我：」的回复。\n\n"
+            + "\n\n".join(blocks))
+    if snips:
+        lines = []
+        for r in snips:
+            note = str(r.get("note") or r.get("summary") or "").strip()
+            lines.append("· %s%s\n%s" % (
+                str(r.get("title", "片段")),
+                ("（%s）" % note) if note else "",
+                str(r.get("text", ""))))
+        parts.append("【片段示例】这些是「某个动作该怎么演」的短示范，"
+                     "成稿里用到对应动作时照着写。\n" + "\n".join(lines))
+    if not parts:
+        return "（本次未提供参考剧本，请依你掌握的聊天教学套路直接创作）"
+    return "\n\n".join(parts)
 
 
 # ============================================================
@@ -268,10 +291,14 @@ _rules_repaired = False
 
 
 def _valid_action_names() -> set:
-    names = set()
-    for a in getattr(st, "ACTION_SCHEMA", []) or []:
-        if isinstance(a, dict) and a.get("action"):
-            names.add(str(a["action"]))
+    """合法动作名 = action_registry 的 64 个动作（唯一来源）+ 别名。
+
+    旧版只读 script_translator.ACTION_SCHEMA（47 条），而它比前端动作表少 15 条，
+    于是「发送emoji / 切换底部面板 / 转账 / 手机状态栏」等新动作被判非法动作名，
+    用户在评价里写「以后多用表情」沉淀出的 required_action=发送表情 会被静默降级成
+    style，永远不生效。现在三份表已经合并，这里也就不再丢新动作。
+    """
+    names = set(ar.names())
     names.update(str(k) for k in (getattr(st, "ACTION_ALIASES", {}) or {}))
     return names
 
@@ -315,12 +342,23 @@ def _normalize_candidate(c: dict) -> dict:
     if kind in ("min_sessions", "min_history_messages", "min_realtime_lines",
                 "max_message_chars", "max_people", "max_annotations",
                 "max_history_streak", "min_interjections", "min_typing_hold",
-                "max_script_steps"):
+                "max_script_steps", "max_history_two_sided", "max_same_emoji",
+                "max_emoji_total", "max_time_marks", "min_burst"):
         try:
             num = int(float(value))
         except (TypeError, ValueError):
             return _as_style()
         if num <= 0:
+            return _as_style()
+        return {**c, "type": "rule", "kind": kind, "value": num}
+
+    if kind == "max_wait_ratio":
+        # 占比上限是小数（0.6 这类），不能像其它数值规则那样取整
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return _as_style()
+        if not (0 < num <= 1):
             return _as_style()
         return {**c, "type": "rule", "kind": kind, "value": num}
 
@@ -372,15 +410,40 @@ def _repair_invalid_action_rules_once():
 # 否则旧规则文案会把模型带偏。
 _CANONICAL_HINTS = {
     "min_typing_hold": (
-        "整份剧本至少 {value} 处 [打字不发]：正文一律写「给观众看的技巧说明」"
-        "（为什么这样聊有效，如「以退为进」「故意否定 引起注意」），"
-        "停留写在 `| 0.5`；插话是可选的第三段。"
+        "整份剧本至少 {value} 处 [打字不发]：第 1 段一律写「键盘上打给观众看的技巧字幕/博弈内容」"
+        "（为什么这样聊有效，如「以退为进」「故意否定 引起注意」，这是整条视频最精彩的卖点，"
+        "观众看的就是这段字被打出来再删掉的过程），停留写在 `| 0.5`；"
+        "插话是可选的第三段（对方边看你打字边发的消息，不支持对字幕内容做心理描写）。"
         "展开的会话里要密集出现（连打好几次、删掉再打）"
     ),
     "min_interjections": (
         "整份剧本至少 {value} 处带「插话」，每个展开的会话至少 3 处；"
         "插话必须是对方真发出来的一句口语，只能回应我已经发出去的上一条消息，"
-        "不能写成对 [打字不发] 未发送内容的反应，更不能写成对方的心理活动"
+        "不能写成对 [打字不发] 未发送内容的反应，更不能写成对方的心理活动；"
+        "插话支持全部消息格式（行首标记路由，写在插话段里而非独立动作行）："
+        "文字直接写（文字里的 [微笑] 按内嵌 emoji 渲染）；`[对方表情] 素材短名`=贴纸；"
+        "`[对方图片] 素材短名`=图片；`[对方链接] 标题 | 封面 | 来源`=链接卡；"
+        "`[对方emoji] 微笑`=3D黄脸（名称/编号/随机）；`[对方语音] 秒数`=语音条；"
+        "`[对方转账] 金额 | 备注`=转账卡。素材短名必须是【可用素材】清单里真实存在的"
+    ),
+    # 「篇幅」两条规则在库里长期互相打架（130 条对白 ⟂ 200 步），
+    # 校验时已按参考比例收敛（见 _apply_budget），提示词里也必须给同一个口径，
+    # 否则提示词要 130 条、校验器只认 140 条，模型照样会被打回。
+    "min_realtime_lines": (
+        "实时对白（历史会话块以外的 [我方打字]/[对方发消息]/[打字不发]）不少于 {value} 条；"
+        "整份剧本的实时指令不超过配套的步数上限，两条要一起满足"
+    ),
+    "max_script_steps": (
+        "整份剧本的实时指令（[历史会话] 块以外所有 [动作] 行）控制在 {value} 步以内；"
+        "节奏靠「打字不发 → 删除 → 再打字」，不要靠多开来回、堆 [对方正在输入]/[等待] 拉长"
+    ),
+    "max_emoji_total": (
+        "整份剧本发出的表情（贴纸表情包 + 3D emoji）合计不超过 {value} 个，"
+        "表情是调味料，不要在整段里一直发表情"
+    ),
+    "max_time_marks": (
+        "时间分隔条（`内容 | 18:22`）整份不超过 {value} 处，只钉在关键节点（换天、隔了很久），"
+        "不要每条消息都挂一个时间"
     ),
 }
 
@@ -994,6 +1057,39 @@ def _asset_ref_resolvable(ref: str) -> bool:
     return bool(main._lookup_emoji_file(ref))
 
 
+def _nearest_asset_name(ref: str, kind: str = "") -> str:
+    """在可用素材清单里找与 `ref` 最接近的合法名字（给报错文案用）。
+
+    为什么需要：历史里「猫咪捂脸」被编出来 10 次，而清单里其实是「害羞猫咪」。
+    只说「请改成清单里的名字」，模型下一轮很可能再编一个近义词；
+    直接把「最接近的是『害羞猫咪』」写进报错，它才会真的照抄。
+    判据是「公共字 + 字面包含」——中文关键词短，字级重合度比编辑距离好用。
+    """
+    ref = (ref or "").strip()
+    if not ref or kind not in ("emoji", "image", ""):
+        return ""
+    try:
+        sticker, sexy, teach = _asset_whitelist()
+    except Exception:                                       # noqa: BLE001
+        return ""
+    pool = sticker if kind == "emoji" else (list(sexy) + list(teach))
+    if not pool:
+        return ""
+    best, best_score = "", 0.0
+    ref_chars = set(ref)
+    for name in pool:
+        if name in ref or ref in name:
+            score = 2.0 + len(set(name) & ref_chars) / max(len(name), 1)
+        else:
+            common = len(set(name) & ref_chars)
+            if common == 0:
+                continue
+            score = common / max(len(set(name)), 1) + common / max(len(ref_chars), 1)
+        if score > best_score:
+            best, best_score = name, score
+    return best if best_score >= 0.5 else ""
+
+
 def _emoji_repeat_stats(steps: list):
     """返回 (不同表情数, 最高重复次数, 重复最多的表情名)。"""
     refs = [ref for _act, ref, kind in _realtime_asset_refs(steps) if kind == "emoji"]
@@ -1004,6 +1100,60 @@ def _emoji_repeat_stats(steps: list):
         counter[r] = counter.get(r, 0) + 1
     name = max(counter, key=lambda k: counter[k])
     return len(counter), counter[name], name
+
+
+def _count_emoji_total(steps: list) -> int:
+    """整份剧本发出的表情总数（贴纸表情包 + 3D emoji；`发送emoji 3,5,8` 算 3 个）。
+
+    文本内嵌的 [微笑] 等标记也按个数计入：内嵌与单独一行是同一种「发表情」行为，
+    不统计的话「表情是调味料、合计不超过 N 个」这条规则会被内嵌写法绕过。
+    """
+    total = 0
+    for s in steps or []:
+        if not isinstance(s, dict):
+            continue
+        act = _norm_action(s.get("action"))
+        if act in ("发送表情", "对方表情", "对方后台发表情",
+                   "发送emoji", "对方emoji"):
+            ref = str((s.get("params") or {}).get("表情") or (s.get("params") or {}).get("图片") or "").strip()
+            if not ref:
+                continue
+            parts = [x for x in re.split(r"[，,、\s]+", ref) if x]
+            total += max(1, len(parts))
+        elif act in ("我方打字", "打字不发", "对方发消息", "对方后台发消息"):
+            # 文本内嵌 emoji：数 内容 + 插话 里的 [名称] 标记个数
+            for key in ("内容", "text", "插话"):
+                v = (s.get("params") or {}).get(key)
+                if isinstance(v, str) and v:
+                    total += len(re.findall(r"[\[【]([^\[\]】【]{1,8})[\]】]", v))
+    return total
+
+
+def _count_time_marks(text: str) -> int:
+    """统计**实时对白**里的时间分隔条处数（`内容 | 18:22`）。
+
+    不计历史会话块：历史列表本来就靠时间戳撑真实感（参考剧本 10~19 处），
+    把它算进「时间标注要少」的上限会让规则永远过不去。这条规则管的是实时对白，
+    也就是用户说的「不要每条消息都挂一个时间点」。
+    """
+    n = 0
+    in_hist = False
+    for ln in (text or "").splitlines():
+        s = ln.strip()
+        if not s:
+            continue
+        if re.match(r"^[\[\【]\s*历史会话\s*[\]\】]", s):
+            in_hist = True
+            continue
+        if re.match(r"^[\[\【]\s*历史会话结束\s*[\]\】]", s):
+            in_hist = False
+            continue
+        if in_hist:
+            continue
+        if re.search(r"\|\s*(?:\d{1,2}:\d{2}|昨天\s*\d{1,2}:\d{2}|"
+                     r"(?:星期|周)[一二三四五六日天]|\d+\s*(?:分钟|小时|天)前)\s*$", s):
+            n += 1
+    return n
 
 
 def _wait_beat_ratio(steps: list):
@@ -1066,6 +1216,9 @@ def _rule_issues(steps: list, skills: list, text: str):
     messages = _collect_messages(steps)
     sessions = len(re.findall(r"\[会话\]", text or ""))
     hist_lines, real_lines = _count_history_and_realtime(text)
+    # 篇幅预算：min_realtime_lines 与 max_script_steps 一起收敛过，
+    # 校验时也必须用同一套数字，否则「提示词说 110、校验器按 130 打回」。
+    nums = rule_numbers(skills)
 
     def _need_int(value, default=0):
         try:
@@ -1099,15 +1252,18 @@ def _rule_issues(steps: list, skills: list, text: str):
             if hist_lines < need:
                 hit_msgs.append("历史会话消息只有 %d 条，少于要求的 %d" % (hist_lines, need))
         elif kind == "min_realtime_lines":
-            need = _need_int(val)
+            # 用「篇幅预算」收敛后的值：与 max_script_steps 一并看，
+            # 避免出现「对白要 130 条、整份又不能超 200 步」这种永远过不去的组合。
+            need = int(nums.get("min_realtime_lines") or _need_int(val))
             if real_lines < need:
                 hit_msgs.append("实时对白只有 %d 条，少于要求的 %d" % (real_lines, need))
         elif kind == "max_message_chars":
             need = _need_int(val)
             for act, content in messages:
-                # 只约束我方发出的话术；对方/历史消息长短不影响「我方言简意赅」的诉求，
-                # 否则会把自然的对方消息也打回重写，造成无谓的反复迭代。
-                if act not in ("我方打字", "打字不发"):
+                # 只约束我方真正会发出去的话术；对方/历史消息长短不影响「我方言简意赅」的诉求。
+                # [打字不发] 的正文是给观众看的技巧说明（天然比话术长），把它算进来会恒判不通过
+                # ——旧版就是这样把 15 处技巧说明全打回重写的。
+                if act != "我方打字":
                     continue
                 if len(content) > need:
                     hit_msgs.append("【%s】内容过长（%d 字，上限 %d）：%s…" % (act, len(content), need, content[:18]))
@@ -1162,13 +1318,20 @@ def _rule_issues(steps: list, skills: list, text: str):
                 hit_msgs.append("历史会话里「%s」连续发了 %d 条，超过上限 %d"
                                 "（历史要有来有回，不要一个人刷屏）" % (who, streak, need))
         elif kind == "min_interjections":
+            # 口径统一：插话数按**本剧本实际的** [打字不发] 处数收敛（参考剧本约 1:3）。
+            # 旧版规则库写死 10 处、书写规范块却劝「配太多会显得对方一直在抢话」，
+            # 模型只能二选一 —— 现在两边都取同一个数。
+            holds = _count_typing_hold(steps)
             need = _need_int(val, 2)
+            if holds:
+                need = min(need, max(2, int(round(holds / _TYPING_PER_INTERJECTION))))
             got = _count_interjections(steps)
             if got < need:
                 hit_msgs.append("带「插话」的动作只有 %d 处，少于要求的 %d"
-                                "（格式：[打字不发] 技巧说明 | 停留 | 对方插话；"
+                                "（本剧本有 %d 处 [打字不发]，按约 1:3 配插话即可；"
+                                "格式：[打字不发] 技巧说明 | 停留 | 对方插话，"
                                 "插话只能是对方真发出来、回应我已发出消息的一句口语）"
-                                % (got, need))
+                                % (got, need, holds))
         elif kind == "min_typing_hold":
             need = _need_int(val, 2)
             got = _count_typing_hold(steps)
@@ -1189,9 +1352,13 @@ def _rule_issues(steps: list, skills: list, text: str):
         elif kind == "asset_ref_exists":
             for act, ref, _k in _realtime_asset_refs(steps):
                 if not _asset_ref_resolvable(ref):
-                    hit_msgs.append("【%s】引用的素材在图片库里找不到：%s…"
-                                    "（运行时会破图或回落成同一张默认表情；"
-                                    "请改成【可用素材】清单里的名字）" % (act, ref[:26]))
+                    near = _nearest_asset_name(ref, _k)
+                    hit_msgs.append(
+                        "【%s】引用的素材名「%s」在图片库里不存在"
+                        "（运行时会破图或回落成同一张默认表情）%s。"
+                        "请从【可用素材】清单里逐字挑一个，不要自己描述画面。"
+                        % (act, ref[:26],
+                           ("；清单里最接近的是「%s」" % near) if near else ""))
                     break
         elif kind == "max_same_emoji":
             need = _need_int(val, 2)
@@ -1355,6 +1522,54 @@ def validate_generated_steps(steps: list, skills=None, text: str = ""):
 
 
 # ============================================================
+# 问题严重度：让「回退到最好一版」的比较不再只看条数
+# ------------------------------------------------------------
+# 旧版评分是 (问题条数, -文本长度)：1 个「没有 [打开聊天]」和 1 个「措辞不够口语」
+# 完全同权，于是纠错轮把剧本砍半、却把致命问题留在里面时，反而会被判成「更好」。
+# ============================================================
+
+# 严重度分档的关键词。
+#   fatal(3) = 剧本根本跑不起来，或被解析器静默丢了内容（不是"写得不够好"，是"缺东西"）
+#   rule (2) = 违反了用户沉淀下来的硬规则（会被打回重写）
+#   其余      = 风格建议（改了更好，不改也能用）
+# 为什么必须分档：旧评分是「有几个问题」，于是 1 个致命问题和 1 个措辞问题同权，
+# 模型宁可去改措辞也不去补 [打开聊天]，critique 轮次全浪费在无谓的地方。
+_SEV_FATAL = (
+    "没有 [打开聊天]", "缺少 [打开聊天]", "生成结果没有可执行步骤", "没有可执行",
+    "省略/占位", "占位符", "疑似占位", "内容为空", "正文为空",
+    "缺少联系人", "未知指令", "无法识别", "已跳过", "静默丢弃", "被丢弃",
+    "解析不出", "格式无法识别",
+)
+_SEV_RULE = (
+    "（规则：", "超过上限", "少于要求", "少于要求", "不允许", "禁用动作", "被禁止",
+    "互斥", "缺少必需动作", "必需动作",
+)
+
+
+def issue_severity(issue: str) -> int:
+    """给一条问题打严重度：3=致命（跑不起来/内容被丢）/ 2=硬规则（会被打回）/ 1=风格。"""
+    t = str(issue or "")
+    if any(k in t for k in _SEV_FATAL):
+        return 3
+    if any(k in t for k in _SEV_RULE):
+        return 2
+    return 1
+
+
+def issues_score(issues) -> tuple:
+    """把问题清单压成一个可比较的分数：越小越好。
+
+    (致命×3 + 硬规则×2 + 风格×1, 问题条数)
+    —— 第一条是主序（严重度加权），第二条只在完全同分时用来打破平局。
+    调用方还会在后面追加 `-len(text)`，用于「同分时更完整的优先」。
+    """
+    sev = 0
+    for x in issues or []:
+        sev += issue_severity(x)
+    return (sev, len(issues or []))
+
+
+# ============================================================
 # 规则数值 -> 写作规范块
 # ------------------------------------------------------------
 # 用户反馈的两个硬伤（历史会话写法、插话格式从没出现），根因是：
@@ -1366,25 +1581,74 @@ def validate_generated_steps(steps: list, skills=None, text: str = ""):
 # ============================================================
 
 _RULE_NUM_DEFAULTS = {
+    # ---- 篇幅预算（数值实测自 3 份参考剧本：实时对白 112~125 条 / 解析步数 189~194 步）----
+    "max_script_steps": 200,      # 实时指令步数上限（0=不限制）
+    "min_realtime_lines": 110,    # 实时对白条数下限
+    "min_typing_hold": 15,        # 至少几处「打字不发」（参考剧本 44~50 处）
+    "min_interjections": 8,       # 至少几处插话（与「打字不发」配比约 1:3）
+    # ---- 历史会话 ----
     "max_history_streak": 2,      # 历史会话里同一人最多连续几条
     "max_history_two_sided": 2,   # 历史会话里最多几个会话带「我：」的回复
-    "min_interjections": 2,       # 至少几处插话
-    "min_typing_hold": 2,         # 至少几处「打字不发」
-    "max_script_steps": 200,      # 实时指令步数上限（0=不限制）
-    "max_annotations": 2,         # 策略注释最多几处
+    # ---- 其它 ----
+    "max_annotations": 2,         # 策略注释最多几处（只用于兜住 [我方打字] 里的解说）
     "max_same_emoji": 2,          # 同一个表情最多重复几次
+    "max_emoji_total": 0,         # 整份表情总数上限（0=不限制；用户rule「表情不超过3个」用这个）
+    "max_time_marks": 0,          # 时间分隔条处数上限（0=不限制）
     "max_wait_ratio": 0.6,        # 紧跟 [等待] 的我方消息占比上限
     "min_burst": 2,               # 至少有一方连发几条
 }
+
+# 参考剧本实测：实时对白 / 解析步数 ≈ 0.60~0.64，取 0.70 作上限比例，
+# 保证「对白下限」与「步数上限」永远能同时满足。
+_REALTIME_PER_STEP = 0.70
+# 参考剧本实测：44~50 处「打字不发」配 15~18 处插话 ≈ 1:3。
+_TYPING_PER_INTERJECTION = 3
 
 # 这几个 kind 的值是小数，不能像其它规则那样取整。
 _RULE_FLOAT_KINDS = {"max_wait_ratio"}
 
 
+def _apply_budget(nums: dict):
+    """把「篇幅」相关的几条规则收敛成一个自洽的预算（就地修改 nums）。
+
+    为什么必须收敛：旧库里 `min_realtime_lines=130` 与 `max_script_steps=200` 是两条独立规则，
+    而 130 条对白 + 每个 [打字不发] 配一条 [删除文字] 已经逼近 200 步
+    （实测最好的一条正是 194/200），模型被夹在「对白不够」与「步数超」之间
+    （19 条卡前者、7 条卡后者）。参考剧本的真实比例是 对白/步数 ≈ 0.6，
+    所以按比例收敛后，两条规则永远能同时满足。
+
+    插话同理：参考剧本 44~50 处「打字不发」只配 15~18 处插话（约 1:3）。
+    """
+    notes = []
+    cap = int(nums.get("max_script_steps") or 0)
+    floor = int(nums.get("min_realtime_lines") or 0)
+    if cap > 0:
+        allowed = max(20, int(cap * _REALTIME_PER_STEP))
+        if floor > allowed:
+            notes.append("实时对白下限 %d 条 ⟂ 步数上限 %d 步：已按参考比例收敛为 %d 条"
+                         % (floor, cap, allowed))
+            floor = allowed
+    nums["min_realtime_lines"] = floor
+    nums["realtime_allowed"] = floor
+
+    hold = int(nums.get("min_typing_hold") or 0)
+    ij_allowed = max(2, int(round(hold / _TYPING_PER_INTERJECTION))) if hold else 0
+    ij = int(nums.get("min_interjections") or 0)
+    if ij_allowed and ij > ij_allowed:
+        notes.append("插话下限 %d 处 ⟂ 打字不发下限 %d 处（参考比例约 1:3）：已收敛为 %d 处"
+                     % (ij, hold, ij_allowed))
+        ij = ij_allowed
+    nums["min_interjections"] = ij
+    nums["interjection_allowed"] = ij_allowed
+    nums["budget_notes"] = notes
+    return nums
+
+
 def rule_numbers(skills=None) -> dict:
-    """从规则库读出这几项的数值；没配规则就用默认值。"""
+    """从规则库读出这几项的数值；没配规则就用默认值，最后按预算收敛。"""
     out = dict(_RULE_NUM_DEFAULTS)
     out["history_two_sided"] = True
+    out["budget_notes"] = []
     for s in skills or []:
         if not isinstance(s, dict) or (s.get("type") or "rule") != "rule":
             continue
@@ -1398,7 +1662,7 @@ def rule_numbers(skills=None) -> dict:
                 out[kind] = num if kind in _RULE_FLOAT_KINDS else int(num)
         elif kind == "history_two_sided":
             out["history_two_sided"] = bool(s.get("value"))
-    return out
+    return _apply_budget(out)
 
 
 # ============================================================
@@ -1419,13 +1683,40 @@ _ASSET_TS_RE = re.compile(r"_\d{8}[_-]\d{6}(?:_\d{3})?$")
 _ASSET_SKIP_HINTS = ("来自小红书", "微信", "wechat", "img_", "image_", "view1", "comfyui",
                      "cartoon", "qrcode", "url-", "welcome", "launchimage", "聊天记录",
                      "截图", "封面", "头像")
-_ASSET_STICKER_HINTS = ("表情包", "猫咪", "柴犬", "狗", "牛", "仓鼠", "吃惊", "没眼看",
-                        "毁灭吧", "歪头", "木鱼", "鸟都不鸟你", "赵本山", "抱拳", "捂脸", "泪")
+_ASSET_STICKER_HINTS = ("表情包", "猫咪", "喵星人", "柴犬", "狗", "牛", "仓鼠", "吃惊", "没眼看",
+                        "毁灭吧", "歪头", "木鱼", "鸟都不鸟你", "赵本山", "抱拳", "捂脸", "泪",
+                        "嘟嘴", "翻白眼", "害羞", "晚安", "溜了", "呆滞", "预定", "认可")
 _ASSET_SEXY_HINTS = ("自拍", "美腿", "连衣裙", "性感", "御", "高跟鞋", "沙发", "健身",
                      "喝酒", "穿", "腿", "背影", "相抱")
 _ASSET_TEACH_HINTS = ("教学", "教程", "素材", "技巧", "案例", "脱单")
 
 _ASSET_CACHE = {"at": 0.0, "data": None}
+
+
+def _emoji_tags_block():
+    """3D emoji 全量标签清单（名称+别名），读 names.json 单一数据源。
+
+    创作模式提示词必须给出完整标签表：只给「微笑/捂脸/大笑」几个示例时，
+    模型会自创标签名（历史头号堵点=素材名编造），运行时解析不到就被打回。
+    """
+    try:
+        import main                                     # noqa: PLC0415
+        lib = [e for e in main._load_wxemoji3d() if e.get("name")]
+    except Exception:                                   # noqa: BLE001
+        return ""
+    if not lib:
+        return ""
+    cells = []
+    for e in lib:
+        aliases = [str(a) for a in (e.get("aliases") or []) if str(a)]
+        cells.append("%d %s%s" % (int(e["idx"]), e["name"],
+                                  "（%s）" % "、".join(aliases) if aliases else ""))
+    lines = []
+    for i in range(0, len(cells), 5):
+        lines.append("｜".join(cells[i:i + 5]))
+    return ("【3D emoji 标签清单】（共 %d 个；内嵌 [标签]、[发送emoji]、[对方emoji] "
+            "只能用下面的名称或括号里的别名，一字不差、不要自创）\n%s"
+            % (len(lib), "\n".join(lines)))
 
 
 def _asset_whitelist():
@@ -1483,6 +1774,32 @@ def _asset_whitelist():
                     continue
                 if any(c == s or c in s or s in c for s in stems):
                     cands.append(c)
+            # 标签拆词直接放行：展示名与文件名对不上的素材（sticker/ 表情包等）
+            # 由 main._lookup_emoji_file 的标签解析兜底命中，不能再要求文件名互相包含。
+            # 另外把「去掉空格的整标签」（如 喵星人01）也作为关键词放行——
+            # 同系列多张图（喵星人 01~40）靠编号区分；此时裸系列名（喵星人）不进清单，
+            # 强制模型带编号挑具体那张，避免永远命中第一张。
+            if lab:
+                base = str(lab)
+                nos = base.replace(" ", "")
+                toks = set()
+                for c in base.split():
+                    c = c.strip()
+                    if not (2 <= len(c) <= 14) or c == "表情包":
+                        continue
+                    if not re.fullmatch(r"[\u4e00-\u9fff0-9]+", c):
+                        continue
+                    if not re.search(r"[\u4e00-\u9fff]", c):
+                        continue          # 纯数字编号不算关键词
+                    if any(h in c.lower() for h in _ASSET_SKIP_HINTS):
+                        continue
+                    toks.add(c)
+                numbered = nos != base and re.search(r"\d", nos)
+                if numbered:
+                    toks = {t for t in toks
+                            if not (nos.startswith(t) and t != nos)}
+                    toks.add(nos)
+                cands.extend(toks)
     names = set(cands)
     # 复核一遍：确认每个名字真的能被运行时解析到（与 main._lookup_emoji_file 完全一致）
     names = {n for n in names if main._lookup_emoji_file(n)}
@@ -1499,22 +1816,111 @@ def _asset_whitelist():
     return result
 
 
+_USAGE_CACHE = {"at": 0.0, "data": None}
+
+
+def _gallery_usage():
+    """读图片库用法说明 _gallery_usage.json：{图片相对路径 -> 一句用法}。
+
+    给创作模式提示词用：只报名字模型容易用错场景（把「生闷气」发给开心场景），
+    名字后面必须带上「什么时候发」的说明，模型才会挑对。
+    """
+    import time
+    now = time.time()
+    if _USAGE_CACHE["data"] is not None and now - _USAGE_CACHE["at"] < 60:
+        return _USAGE_CACHE["data"]
+    data = {}
+    try:
+        import main                                     # noqa: PLC0415
+        p = os.path.join(main.FRONTEND_DIR, "public", "images", "_gallery_usage.json")
+        with open(p, "r", encoding="utf-8") as fh:
+            data = json.load(fh) or {}
+    except Exception:                                   # noqa: BLE001
+        data = {}
+    _USAGE_CACHE.update(at=now, data=data)
+    return data
+
+
+def _sticker_usage_pairs(sticker_names):
+    """给表情包关键词配上用法说明，返回 [(关键词, 用法或 '')]。
+
+    关键词 -> 图片路径的映射复用 _gallery_meta.json 标签（含无空格别名），
+    与 main._lookup_emoji_file 的解析规则完全一致，保证「清单里写的」运行时必命中。
+    """
+    usage = _gallery_usage()
+    if not usage:
+        return [(n, "") for n in sticker_names]
+    labels = {}
+    try:
+        import main                                     # noqa: PLC0415
+        with open(os.path.join(main.FRONTEND_DIR, "public", "images", "_gallery_meta.json"),
+                  "r", encoding="utf-8") as fh:
+            labels = json.load(fh) or {}
+    except Exception:                                   # noqa: BLE001
+        labels = {}
+    kw2rel = {}
+    for rel, lab in labels.items():
+        lab = str(lab or "").strip()
+        if not lab:
+            continue
+        kw2rel.setdefault(lab.replace(" ", ""), rel)
+        kw2rel.setdefault(lab, rel)
+    pairs = []
+    for n in sticker_names:
+        rel = kw2rel.get(n) or kw2rel.get(n.replace(" ", ""))
+        u = str(usage.get(rel, "") or "") if rel else ""
+        if not u:
+            # 模糊回退：文件名派生的短词（如「毁灭吧」）对到包含它的标签用法上
+            for krel, lab in labels.items():
+                lab = str(lab or "").strip()
+                if lab and (n in lab or lab in n) and usage.get(krel):
+                    u = str(usage[krel])
+                    break
+        pairs.append((n, u))
+    return pairs
+
+
 def _asset_block() -> str:
-    """把可用素材白名单拼成提示词块；清单为空时退回一句通用要求。"""
+    """把可用素材白名单拼成提示词块；清单为空时退回一句通用要求。
+
+    为什么要写成「编号 + 反面例子」：体检 41 条历史，**34 次**被判定
+    「引用的素材在图片库里找不到」，被编出来的名字集中在「猫咪捂脸」(10 次)、
+    「柴犬敲木鱼」(3 次)、「洱海的日落」这类**生动但不存在**的描述上 ——
+    模型把「图片关键词」当成了「画面描述」。清单本身在提示词里，
+    但写成一行长文本，模型注意力压不住；编号 + 明写「这些都算错」效果好得多。
+    """
     sticker, sexy, teach = _asset_whitelist()
     if not (sticker or sexy or teach):
         return ("【可用素材】写图片/表情时只能引用图片库里真实存在的图：先在「📚 图片库」里"
                 "确认有对应文件，再照它的文件名/关键词写，不要自创描述。")
-    lines = ["【可用素材 —— 写图片 / 表情只能从下面这些名字里挑】",
-             "（这些是图片库里「写进剧本就能命中真图」的关键词；写清单外的名字，运行时会破图"
-             "或变成同一张默认表情，配图面板也找不到对应图）"]
+
+    def _numbered(names):
+        return " ".join("%d.%s" % (i, n) for i, n in enumerate(names, start=1))
+
+    lines = [
+        "【可用素材 —— 图片 / 表情只能从下面这些名字里挑，别的名字一律不许写】",
+        "  ⚠️ 这里列的是「图片文件名里的关键词」，不是让你描述画面。"
+        "像「猫咪捂脸」「柴犬敲木鱼」「洱海的日落」这种听起来很自然的说法，"
+        "图库里根本没有 → 运行时会破图、配图面板也找不到图，剧本会被打回重写。",
+        "  ⚠️ 只能**逐字**从下面挑一个；不要组合、不要加修饰词、不要翻译成别的说法。",
+    ]
     if sticker:
-        lines.append("- 表情包（[发送表情] / [对方表情] 用）：" + "、".join(sticker))
+        pairs = _sticker_usage_pairs(sticker)
+        lines.append("")
+        lines.append("① 表情包 —— [发送表情] / [对方表情] 只能用这 %d 个，"
+                     "括号里是它的画面和适用场景，按场景挑、不要混用：" % len(pairs))
+        for i, (n, u) in enumerate(pairs, start=1):
+            lines.append("   %d.%s%s" % (i, n, ("（%s）" % u) if u else ""))
     if sexy:
-        lines.append("- 对方女生发的图（[图片] / [对方发图片] 用，一律选这类性感/身材/穿搭图）："
-                     + "、".join(sexy))
+        lines.append("")
+        lines.append("② 对方女生发的图 —— [图片] / [对方发图片] 只能用这 %d 个（一律选身材/穿搭类）："
+                     % len(sexy))
+        lines.append("   " + _numbered(sexy))
     if teach:
-        lines.append("- 我方发图（只有给「学员/粉丝」类会话才发图，用教学类图）：" + "、".join(teach))
+        lines.append("")
+        lines.append("③ 我方发图 —— [发送图片] 只能用这 %d 个（只给「学员/粉丝」类会话发）："
+                     % len(teach))
+        lines.append("   " + _numbered(teach))
     return "\n".join(lines)
 
 
@@ -1534,8 +1940,9 @@ def writing_spec_block(skills=None) -> str:
     interjections = nums["min_interjections"]
     typing_holds = nums["min_typing_hold"]
     max_steps = nums["max_script_steps"]
+    realtime_floor = nums["min_realtime_lines"]
     return f"""A. 一行一条指令，格式 `[动作名] 参数`；参数里的多段用「|」分隔（停留 / 插话 / 时间）。
-   【篇幅】整份剧本的实时指令（历史块以外）控制在 {max_steps} 步以内，含 [打字不发]/[删除文字]/[对方正在输入] 等所有指令行；节奏要密但不要靠无限拉长来堆，宁可用同一句话拆成几次打字/删改，也不要多开一个来回。
+   【篇幅预算】四个数字一起满足、不要只把某一条拉满：整份实时指令（历史块以外，含 [打字不发]/[删除文字]/[对方正在输入] 等所有指令行）≤ {max_steps} 步、实时对白 ≥ {realtime_floor} 条、[打字不发] ≥ {typing_holds} 处、插话 ≈ [打字不发] 的 1/3。节奏要密，但靠「同一句话拆成几次打字/删改」，不要靠多开来回、堆空转指令把剧本拉长。
 B. 【历史会话块】只放「已经发生过」的消息，用来把聊天列表铺满。目标是「微信列表预览」的样子（注意说话人冒号）：
    ```
    [历史会话]
@@ -1586,8 +1993,10 @@ C. 【打字不发 / 插话】—— 这是全片最真实的地方：我还在�
    - `[打字不发] 内容 | 停留`：内容停在输入框不发送，再用 `[删除文字] -1` 清空，
      最后用 `[我方打字]` 发真实话术。插话是**可选的第三段**，只在要制造
      「我还在打字、对方就抢话」时才加：`[打字不发] 内容 | 停留 | 对方插话一句`。
-   - **不是每个 [打字不发] 都要配插话**：参考剧本里 44~50 处打字不发只有 15~18 处插话；
-     整份剧本插话 {interjections} 处左右就够，配太多会显得对方一直在抢话，反而不真实。
+   - **不是每个 [打字不发] 都要配插话**：参考剧本里 44~50 处打字不发只配 15~18 处插话，
+     也就是大约每 3 处打字不发配 1 处插话。整份剧本至少 {interjections} 处带插话；
+     你打字不发写得越密，插话按 1/3 跟着加即可，但不要每个都配，那样显得对方一直在抢话。
+     （规则库与校验器用的是同一个数，不会出现「一边要求 N 处、一边劝你少配」的矛盾。）
    - `[我方打字] 正在打的这句 | 对方抢白一句`：边打字边被插话，随后把这句话发出去。
    - 多条插话用「；」分隔：`[打字不发] 先调动好奇心 | 0.6 | 你这人什么意思？！；就你会说`
    - 【打字不发写什么 —— 最重要的一条】`[打字不发]` 的正文**每一处**都要是
@@ -1629,138 +2038,133 @@ G. 【节奏 —— 别用 `[等待]` 打节拍】参考剧本里 `[等待]` 只
    （整份 7~12 处）；**不要每发一条消息就 `[等待] 0.3`**，那会变成节拍器，也被校验器拦。
    被 `[等待]` 紧跟着的我方消息不要超过六成。更真实的做法是**一方连发 2~3 条**
    （连着几条 `[我方打字]`，或连着几条 `[对方发消息]`），不要每条都严格「我一条 → 对方一条」；
-   参考剧本的最长连发是 6~15 条、交替率只有 0.19~0.56，整份对白不要写成朗读稿。"""
+   参考剧本的最长连发是 6~15 条、交替率只有 0.19~0.56，整份对白不要写成朗读稿。
+H. 【新功能要用起来】下面的【能力卡】列了几个新动作的「何时用 + 片段示例」——
+   整份剧本至少用上其中 1~2 个（切换底部面板 / 发送emoji / 朋友圈 / 手机状态栏），
+   不要通篇只有 [我方打字] 和 [对方发消息]：真机聊天里人本来就会切面板、发表情、打错再删。"""
 
 
 # ============================================================
 # 生成提示词
 # ============================================================
 
-def _format_action_table_compact(actions) -> str:
-    """把动作表格式化成提示词里的简表（动作名 + 参数名 + 说明）。"""
-    table = actions or st.ACTION_SCHEMA
+def _format_action_table_compact(actions=None) -> str:
+    """把「可进 AI 剧本的动作」格式化成提示词简表：动作名 + 参数名 + 何时用。
+
+    旧版直接把 editor_server.ACTIONS（60 条，含编辑主页/应用场景这类数据驱动动作）
+    整份塞进提示词，既长又杂，而且每个动作只有一句 desc、没有「什么时候该用」——
+    新动作（发送emoji / 切换底部面板 / 点赞…）名字躺在表里，模型永远不会主动用。
+
+    现在从 action_registry.script_actions() 取（32 条），并带上 when。
+    `actions` 参数仅为兼容旧调用保留（调用方传的 editor ACTIONS 会漏掉
+    「我方发链接/对方发链接」这些 editor=False 的动作，所以不再采用）。
+    """
+    table = ar.script_actions()
     lines = []
     for i, a in enumerate(table, start=1):
-        action = a["action"]
-        desc = a.get("desc", "")
-        params = a.get("params", []) or []
-        if params:
-            bits = []
-            for p in params:
-                key = p.get("key")
-                if key in ("内容", "文案"):
-                    bits.append("内容")
-                elif key in ("联系人", "会话"):
-                    bits.append("联系人")
-                elif key in ("数据", "data"):
-                    bits.append("数据JSON")
-                else:
-                    bits.append(key)
-            lines.append(f"{i}. [{action}] {'、'.join(bits)} —— {desc}")
-        else:
-            lines.append(f"{i}. [{action}] —— {desc}")
+        name = a["action"]
+        bits = [p.get("key") for p in (a.get("params") or [])
+                if p.get("key") not in ("数据", "data")]
+        when = a.get("when") or a.get("desc") or ""
+        pstr = ("（" + "、".join(bits) + "）") if bits else ""
+        lines.append("%2d. [%s]%s —— %s" % (i, name, pstr, when))
+    return "\n".join(lines)
+
+
+def capability_block() -> str:
+    """能力卡：新功能「什么时候用 + 长什么样」。
+
+    体检结论：`切换底部面板 / 面板切换序列 / 发送emoji / 点赞 / 手机状态栏 / 闪回聊天`
+    这些动作在 script_generator 里出现 0 次 —— 只有一行动作表里的名字，
+    没有「什么时机用」的说明、参考剧本里也从没演过，等于新功能根本没接入生成链路。
+    一张能力卡 = 何时用 + 3~6 行片段示例。
+    """
+    cards = ar.capability_cards()
+    if not cards:
+        return ""
+    lines = ["【能力卡 —— 新功能「什么时候用 + 长什么样」，想用就照片段写】"]
+    for c in cards:
+        lines.append("- [%s] %s" % (c["action"], c["when"]))
+        for snip in (c.get("snippet") or [])[:3]:
+            lines.append("    " + snip)
     return "\n".join(lines)
 
 
 def build_generation_prompt(actions=None, people_block: str = "", preferences: str = "",
                             reference_text: str = "", category: str = "",
                             skills=None) -> str:
-    """构造"创作"系统提示词：角色 + 动作表 + 人物库 + 偏好 + 参考剧本 + 书写规范 + 硬性要求。
+    """构造「创作」系统提示词。
 
-    skills：本次生效的规则库条目。用来把「历史会话最多几个带我方回复 / 同一人最多连发几条 /
-    至少几处插话 / 策略注释最多几处」这些数值直接写进规范块，做到「提示词要求的」
-    与「生成后校验的」是同一套数字 —— 旧版提示词要求「每个会话都一问一答」，
-    模型照抄后生成 10 个会话全部双方来回，不像微信列表。
+    与旧版的四处区别（全部由体检数据推动）：
+      1) 输出改成 JSON（script_format.JSON_SPEC）：旧版让模型直接写 [指令] 文本，
+         实测 2/39 条出现 `[为我方打字]`、`[返回主页`（括号缺失）这类行被
+         main.parse_script_text 静默丢弃 → 剧本凭空变短 → 触发「对白不够」→ 重写死循环。
+         改成「模型填 JSON、本地渲染成 [指令]」后，格式类失败一次性消失。
+      2) 动作表只列可进剧本的 32 个动作，每个带「何时用」，并附【能力卡】给新功能配片段示例
+         （旧版只有一行动作名，模型永远想不起来用「切换底部面板 / 发送emoji」）。
+      3) 参考剧本分两层：整篇当风格模板（≤2 条）+ 片段示例（演的是什么）。
+      4) 所有数字都来自 rule_numbers()，与校验器完全同一套；篇幅按预算配套给
+         （步数上限 + 对白下限 + 打字不发 + 插话比例），不再出现把模型夹死的组合。
     """
-    # 用「人物库」里可选的类别做对象提示
     cat_note = ""
     if category in CATEGORIES:
         cat_note = (f"\n- 本剧本的角色以「{category}」类别为主，从【人物库】挑该类别人物；"
                     f"若类别里有多人，优先挑本剧本还没用过的那几个，避免同一张脸反复出现。")
-
+    nums = rule_numbers(skills)
     action_text = _format_action_table_compact(actions)
     people_block = people_block or "（人物库为空，请用常见中文名）"
     pref_block = preferences or "（暂无历史沉淀）"
     ref_block = reference_text or "（暂无参考剧本，但请依聊天教学套路创作）"
     spec_block = writing_spec_block(skills)
     asset_block = _asset_block()
-    nums = rule_numbers(skills)
+    emoji_tags_block = _emoji_tags_block()
+    cap_block = capability_block()
+    budget_note = ""
+    if nums.get("budget_notes"):
+        budget_note = "\n【篇幅预算已自动收敛（你只要按下面的数字写即可）】" + "；".join(nums["budget_notes"]) + "\n"
 
-    return f"""你是「微信聊天视频仿真剧本」创作助手，专注【男生追女生 / 聊天教学】类剧本。用户给你一个创作主题和若干参考剧本，你要产出一整套【可直接运行】的标准 [指令] 剧本，内容是真实的男生追女生聊天教学片断。
+    head = f"""你是「微信聊天视频仿真剧本」创作助手，专注【男生追女生 / 聊天教学】类剧本。用户给你一个创作主题和若干参考剧本，你要产出一整套【可直接运行】的聊天教学剧本。
 
-【动作表】（只能使用下列动作，写作标准格式：`[动作名] 参数`，一行一条指令）
-{action_text}
+【动作表】（只能使用下列动作；参数名就是 JSON 里 params 的键）
+{action_text}"""
 
-{people_block}
-{cat_note}
+    hard = f"""【硬性要求 —— 必须全部遵守】
+1. 输出只能是【输出格式】里那种 JSON 对象（history + steps 两个键）；不要任何解释文字、不要 markdown 围栏、不要写 [指令] 文本。steps 里每个 action 必须来自【动作表】，params 的键必须是该动作自己的参数名。
+2. 主题：围绕用户给的创作主题，编排一段「男生追女生」的完整聊天教学：先 history 铺底（历史会话）→ 打开聊天 → 我方打字 → 对方插话/后台消息 → 逐步引导（共情/调动情绪/探知三观/拉高格局）→ 情绪到位后铺垫邀约或收尾。
+3. 【历史会话像微信列表预览，不是一问一答】绝大多数会话只留对方最后 1~2 条消息、不写 who=me；整块里只有 1 个（最多 {nums['max_history_two_sided']} 个）会话出现 who=me，且夹在对方消息中间。会话按最后一条消息时间从新到旧排列、会话内部时间递增；同一人最多连续 {nums['max_history_streak']} 条。**同一会话内部相邻消息的时间间隔要错落**（同一条分钟内、差 2~3 分钟、偶尔隔十几分钟混着来），不要每条都整齐地 +1 分钟；但也不要密集到「一分钟一个时间点」。
+4. 【打字不发 + 插话必须用够】整份剧本至少 {nums['min_typing_hold']} 处 `[打字不发]`、至少 {nums['min_interjections']} 处带「插话」。「打字不发」要密集（一个展开的会话里连打四五次很正常），**但插话不是每个 [打字不发] 都配**：参考剧本 44~50 处打字不发只配 15~18 处插话，约每 3 处配 1 处，配太多会显得对方一直在抢话。三条硬性约束：① `[打字不发]` 的正文（params.内容）必须是**写给观众看的技巧说明**（「这一步在做什么、为什么这样聊有效」，如「以退为进」「故意否定 引起注意」），**不能是马上要发出去的聊天话术草稿，也不能是对方的心理活动**；其后的 `[我方打字]` 内容必须与它不同；② 插话（params.插话）只能回应我已经发出去的上一条消息或对方自己起的新话题，**不能回应 [打字不发] 里还没发出去的内容**（对方看不到输入框）；③ 插话说过的话，不要再用一条 `[对方发消息]` 重复一遍。
+5. 【绝不偷工减料】禁止出现：……、[省略]、【省略】、省略、此处省略、以下省略、内容自拟、自行发挥、待补充、xxx、等等、同上、余下类似 等任何占位/缩略。每一步都要写出真实、完整、具体的中文内容。
+6. 【`[我方打字]` / `[打字不发]` 分工】`[我方打字]` 一律是自然、口语化的真实聊天话术，禁止把方法论/步骤/心理活动写进去；给观众看的技巧说明一律写在 `[打字不发]` 的 params.内容 里，而且**每个 `[打字不发]` 都要写技巧说明**。
+7. 【保留节奏】`[打字不发]` 的 params.停留 写 0.3~0.8 之间的数字；写出的时长要保留，不要一律用默认值。
+8. 【人物】只从【人物库】里挑人名，同一剧本里同一个对象不要换名字；历史会话（history）可以有 9 个左右联系人把列表铺满，但真正 `[打开聊天]` 展开对白的最多 3 个人（历史列表里出现过的名字不算出场人物）。
+9. 【画面丰富】适当穿插 [发送表情]、[发送emoji]、[对方后台发消息]、[我方发链接]、[手机状态栏]，让画面真实有层次；图片/表情一律只写【可用素材】清单里的短名（如 `好显身材的连衣裙`、`害羞猫咪`），禁止写文件路径、扩展名、时间戳或来源后缀，也不要自创图库里没有的描述。同一个表情整份最多用 {nums['max_same_emoji']} 次。3D 黄脸 emoji 优先用【内嵌写法】：把 [名称] 直接写进消息文本里（如 内容: "太开心了[大笑]"、"是嘛[捂脸]"），随文字一起上屏，不必为它单独输出一条步骤；单独的 [发送emoji]/[对方emoji] 留给「只发表情不打字」的时刻。内嵌名称必须是 names.json 里的名称或别名（微笑/捂脸/大笑/爱心/害羞/调皮…），不要写 emoji 字符、编号或图库里没有的词。
+10. 【新功能至少用 1~2 个】从【能力卡】里挑 1~2 个新动作真的用进剧本（切换底部面板 / 发送emoji / 朋友圈 / 手机状态栏），不要通篇只有打字和发消息。
+11. 【篇幅预算】整份剧本的实时指令（steps 的条数）控制在 {nums['max_script_steps']} 条以内、实时对白不少于 {nums['min_realtime_lines']} 条，两条一起满足；不要靠多开来回、堆 [对方正在输入]/[等待] 把剧本拉到 300 步。{budget_note}
+12. 结尾可以再来一条 [返回主页] + 一条 [等待] 收束，保持整段像一个完整教学短视频。"""
 
-【必须遵守的规则 / 创作偏好】（由你过去的评价沉淀而来；其中硬性规则会在生成后被逐条校验，违反会被打回重写）
-{pref_block}
-
-【剧本书写规范 —— 这套软件只认这一种写法，必须严格遵守】
-{spec_block}
-
-{asset_block}
-
-【参考剧本】（作为风格与结构模板，重点模仿"每句话背后带什么策略、如何编排节奏"；人物名一律换成【人物库】里的，不要照抄参考里的人名）
-{ref_block}
-
-【必选结构骨架 —— 照此编排】
-```
-[历史会话]
-[会话] 人物A
-人物A：对方最后一句 | 23:21
-人物A：对方又追一条
-我：我回过去的一句
-人物A：[图片] 伸腿自拍照
-[会话] 人物B（暧昧期）
-人物B：对方一句带钩子的话 | 19:19
-[会话] 人物C
-人物C：[对方发链接] 标题 | 封面图 | 来源 | 19:18
-[会话] 人物D
-人物D：对方一句带钩子的话 | 19:15
-[会话] 人物E
-人物E：对方一句带钩子的话 | 19:10
-…（会话数按规则来，没有规则时 9 个；按最后一条消息时间从新到旧往下排；
-  整块里只有 1 个人物带「我：」的回复，其余只留对方最后 1~2 条；
-  同一人最多连续 {nums['max_history_streak']} 条）
-[历史会话结束]              ← 历史块到此为止，只做"已发生"铺垫
-[打开聊天] 人物A            ← 必须是历史块之外独立的一条指令
-[我方打字] 第一句实时对白（自然口语，≤15 字）
-[打字不发] 给观众看的技巧说明（为什么这样聊有效） | 0.5 | 对方插话一句   ← 插话是参数，不是单独一行
-[删除文字] -1
-[我方打字] 真实要发的话术（必须和上面 [打字不发] 的内容不同）
-[对方发消息] 对方回的一句话
-[返回主页]
-[等待] 1
-```
-
-【硬性要求 —— 必须全部遵守】
-1. 输出只能是标准 [指令] 文本（一行一条，如 [打开聊天] 陆香儿 / [我方打字] …）；不要任何解释、不要 markdown 代码块、不要三点号开头。
-2. 主题：围绕用户给的创作主题，编排一段"男生追女生"的完整聊天教学：先 [历史会话] 铺底 + 打开聊天 → 我方打字 → 对方插话/后台消息 → 逐步引导（共情/调动情绪/探知三观/拉高格局）→ 情绪到位后铺垫邀约或收尾。
-3. 【历史会话像微信列表预览，不是一问一答】绝大多数 [会话] 只留对方最后 1~2 条消息、不写「我：」；整块里只有 1 个（最多 {nums['max_history_two_sided']} 个）会话出现「我：」的回复，且夹在对方消息中间。会话按最后一条消息时间从新到旧排列，会话内部时间从上到下递增；同一人最多连续 {nums['max_history_streak']} 条。**同一会话内部相邻消息的时间间隔要错落**（同一条分钟内、差 2~3 分钟、偶尔隔十几分钟混着来），不要每条都整齐地 +1 分钟。每个会话都写成「对方说 → 我回 → 对方再说」是不合格的，会被打回重写。
-4. 【打字不发 + 插话必须用够】整份剧本至少 {nums['min_typing_hold']} 处 `[打字不发]`、至少 {nums['min_interjections']} 处带「插话」；「打字不发」要密集，一个展开的会话里连打四五次很正常。**但插话不是每个 [打字不发] 都配**（参考剧本 44~50 处打字不发只有 15~18 处插话），配太多会显得对方一直在抢话。插话写法：`[打字不发] 技巧说明 | 0.5 | 对方插话一句` 或 `[我方打字] 内容 | 对方插话一句`，多条插话用「；」分隔。不要写成 `[对方插话] 内容`，也不要用「[对方正在输入] + [对方发消息]」代替插话（那样没有重叠感）。三条硬性约束：① `[打字不发]` 的正文必须是**写给观众看的技巧说明**（「这一步在做什么、为什么这样聊有效」，如「以退为进」「故意否定 引起注意」「把选择权丢给她」），**不能是马上要发出去的聊天话术草稿，也不能是对方的心理活动**；其后的 `[我方打字]` 内容必须与它不同；② 插话只能回应我已经发出去的上一条消息或对方自己起的新话题，**不能回应 [打字不发] 里还没发出去的内容**（对方看不到输入框）；③ 插话说过的话，不要再用一条独立的 `[对方发消息]` 重复一遍。
-5. 【绝不偷工减料】绝对禁止出现：……、[省略]、【省略】、省略、此处省略、以下省略、内容自拟、自行发挥、待补充、xxx、等等、同上、余下类似 等任何占位/缩略。每一句都要写出真实、完整、具体的中文聊天话术；绝不允许只写"说了句调侃"这类概述。
-6. 【`[我方打字]` / `[打字不发]` 分工】`[我方打字]` 一律是自然、口语化的真实聊天话术，禁止把方法论/步骤/心理活动写进消息正文；给观众看的技巧说明（「为什么这样聊有效」）一律写在 `[打字不发]` 的正文里，而且**每个 `[打字不发]` 都要写技巧说明**，不要写成聊天话术草稿。
-7. 【保留节奏】每个 [打字不发] 用 `| 0.5` 标注停留；时长/停顿写成数字（0.3~0.8 之间更自然）。写出的时长务必保留，不得归一成默认值。
-8. 【人物】只从【人物库】里挑人名，同一剧本里同一个对象不要换名字；[会话] 数量按规则（没有规则时至少 9 个），但只挑其中 2~3 个真正 [打开聊天] 展开对白，其余只留在历史块里把屏幕铺满。
-9. 【画面丰富】适当穿插 [发送表情]、[对方后台发消息]、[我方发链接]，让画面真实有层次；图片/表情一律只写【可用素材】清单里的短名（如 `[图片] 好显身材的连衣裙`、`[表情] 害羞猫咪`），禁止写文件路径、扩展名、时间戳或来源后缀，也不要自创图库里没有的描述。不要使用 [转账]、[语音] 等当前未启用的动作（除非上面的硬性规则明确要求）。
-10. 结尾可以再来一条 [返回主页] + 一条 [等待] 收束，或继续下一会话，保持整段像一个完整教学短视频。
-11. 【篇幅上限】整份剧本的实时指令（[历史会话] 块以外的所有 [动作] 行）控制在 {nums['max_script_steps']} 步以内。打字不发要够密，但不要靠多开来回、堆 [对方正在输入]/[等待] 把剧本拉到 300 步——同一个来回里用「打字不发 → 删除 → 再打字」制造节奏即可。"""
+    return "\n\n".join([
+        head,
+        people_block + cat_note,
+        "【必须遵守的规则 / 创作偏好】（由你过去的评价沉淀而来；其中硬性规则会在生成后被逐条校验，违反会被打回重写）\n" + pref_block,
+        "【剧本书写规范 —— 这套软件只认这一种写法，必须严格遵守】\n" + spec_block,
+        asset_block,
+        emoji_tags_block,
+        cap_block,
+        "【参考剧本】（整篇只当风格与结构模板；片段示例告诉你某个动作怎么演。人物名一律换成【人物库】里的，不要照抄参考里的人名）\n" + ref_block,
+        script_format_mod.JSON_SPEC,
+        hard,
+    ])
 
 
 def build_critique_prompt(issues: list, actions=None, people_block: str = "",
                           reference_text: str = "", preferences: str = "",
                           category: str = "", violations=None, skills=None) -> str:
-    """构造"纠错重写"系统提示词：问题清单 + 动作表 + 人物库 + 偏好 + 参考剧本。
+    """构造「纠错」系统提示词：问题清单 + 完整上下文 + 定向补丁格式。
 
-    与初次生成保持一致，确保模型重写时仍能看到【动作表】与【人物库】；
-    否则模型会因"只见问题、未见工具/人物"而拒绝按标准格式输出（如直接回一段
-    解释文字而非 [指令] 剧本）。
-
-    violations：被违反的硬性规则说明（来自规则库），用于定向修复。
-    skills：本次生效的规则库，用来把书写规范（历史会话像微信列表预览 / 插话格式）一并注入，
-            避免重写时又把历史会话改回「每个会话都一问一答」。
+    为什么改成补丁而不是整篇重写：
+      - 整篇重写每轮都要重新生成 200 行，token 贵，而且模型经常「改好一处、弄坏两处」；
+      - 补丁只动问题清单点到的地方，其余原样保留，本地还能逐条校验是否真的改到
+        （find 找不到 / 命中多处就丢弃那条补丁，不会把剧本改坏）。
     """
     if not issues:
         return "请重新生成一版更完整、更符合要求的剧本。"
@@ -1770,77 +2174,121 @@ def build_critique_prompt(issues: list, actions=None, people_block: str = "",
     if violations:
         v_lines = "\n".join(f"- {x}" for x in list(violations)[:10])
         violation_block = (
-            "\n【你上一版违反的硬性规则 —— 必须逐条改掉，这是本次重写的重点】\n" + v_lines + "\n")
+            "\n【你上一版违反的硬性规则 —— 必须逐条改掉，这是本次修改的重点】\n" + v_lines + "\n")
 
-    # 与 build_generation_prompt 相同的上下文，保证重写时信息不缺失。
-    action_text = _format_action_table_compact(actions)
-    people_block = people_block or "（人物库为空，请用常见中文名）"
     cat_note = ""
     if category in CATEGORIES:
         cat_note = (f"\n- 本剧本的角色以「{category}」类别为主，从【人物库】挑该类别人物；"
-                    f"若类别里有多人，优先挑本剧本还没用过的那几个，避免同一张脸反复出现。")
+                    f"若类别里有多人，优先挑本剧本还没用过的那几个。")
+    action_text = _format_action_table_compact(actions)
+    people_block = people_block or "（人物库为空，请用常见中文名）"
     pref_block = preferences or "（暂无历史沉淀）"
     ref_block = reference_text or "（暂无参考剧本，但请依聊天教学套路创作）"
     spec_block = writing_spec_block(skills)
     asset_block = _asset_block()
 
-    return f"""你是同一套「微信聊天视频仿真剧本」的纠错助手。用户上一步生成的剧本存在下面这些问题，请你修复并重写。
+    repair = f"""【修复要求】
+- **只改问题清单点到的地方，其余行一字不动**；不要整篇重写，也不要顺手「优化」没被点名的地方。
+- 每条问题都要有对应的一条补丁（patches 里的一对 find/with）；找不到原文的补丁会被本地丢弃，等于白改 —— 所以 find 必须从《当前剧本》里一字不差地抄。
+- 需要新增对白/动作就写进 append_steps（结构化写法，见【动作表】）。
+- 【打字不发 + 插话】按书写规范 C 补足：整份至少 {nums['min_typing_hold']} 处 `[打字不发]`、至少 {nums['min_interjections']} 处带插话。**重点改 `[打字不发]` 的正文**：必须是给观众看的技巧说明（「为什么这样聊有效」），
+  不是聊天话术草稿、不是对方心理活动 —— 凡是像「那我陪你聊到天亮」「她其实在等你先低头」这类，全部改写成打法说明。同时检查：`[打字不发]` 的内容有没有在随后的 `[我方打字]` 里原样又发一遍；插话有没有在回答没发出去的内容；插话有没有被下一条 `[对方发消息]` 重复。
+- 【历史会话】要像微信列表预览：绝大多数会话只留对方最后 1~2 条、不写 who=me；整块里最多 {nums['max_history_two_sided']} 个会话带 who=me；同一会话内部时间间隔错落（同一条分钟内、差 2~3 分钟、偶尔十几分钟），不要每条都 +1 分钟。
+- 【篇幅】steps 条数控制在 {nums['max_script_steps']} 以内、实时对白不少于 {nums['min_realtime_lines']} 条；超长时优先砍重复的来回、多余的 [对方正在输入]/[等待]、同一句话的多次删改，不要为了压长度把话术删成摘要或省略。
+- 【素材引用】图片/表情只写【可用素材】清单里的短名，禁止文件路径/扩展名/时间戳/来源后缀；同一个表情最多 {nums['max_same_emoji']} 次。
+- 【节奏】多余的 [等待] 删掉，只保留真正要停一下的地方；至少有一段「一方连发 2~3 条」，不要严格一问一答。
+- 输出仍是 JSON：只需要 patches + append_steps，不要输出整篇剧本。"""
 
-【上一步的问题】
-{issue_lines}
-{violation_block}
-【动作表】（只能使用下列动作，写作标准格式：`[动作名] 参数`，一行一条指令）
-{action_text}
-
-{people_block}
-{cat_note}
-
-【必须遵守的规则 / 创作偏好】（由你过去的评价沉淀而来；其中硬性规则会在生成后被逐条校验，违反会被打回重写）
-{pref_block}
-
-【剧本书写规范 —— 这套软件只认这一种写法，必须严格遵守】
-{spec_block}
-
-{asset_block}
-
-【参考剧本】（作为风格与结构模板；人物名一律换成【人物库】里的，不要照抄参考里的人名）
-{ref_block}
-
-【修复要求】
-- 保留上一版里可用、正确、完整的部分（好的话术、节奏、结构可原样保留）。
-- 针对上面每条问题，逐一改到位：省略/占位 → 补全真实话术；缺联系人 → 补上；空内容 → 写具体内容；过短 → 按参考剧本扩充。
-- 输出仍只能是标准 [指令] 文本，一行一条；不许省略、不许用 …、[省略]、内容自拟 等占位；不要把原有正确内容删成摘要。
-- 严格只用【动作表】里的动作；人物只从【人物库】选，保持同一对象人名一致；开场可用 [历史会话] 铺垫，再 [打开聊天] + 对白推进。
-- 【结构硬性要求】至少 1 条 [打开聊天]，且它必须是【[历史会话] 块之外】的独立指令行、后面紧跟至少 2 条实时对白；[历史会话] 块只放"已发生"消息做铺垫，绝不把实时对白写进历史块；若上一步缺 [打开聊天]，请按此结构【补全】而不要只改文字。
-- 【历史会话重写要求】历史块要像微信列表预览：绝大多数 [会话] 只留对方最后 1~2 条、不写「我：」；整块里只有 1 个（最多 {nums['max_history_two_sided']} 个）会话出现「我：」的回复；会话按最后一条消息时间从新到旧排列；同一会话内部相邻消息的时间间隔要错落（同一条分钟内、差 2~3 分钟、偶尔十几分钟），不要每条都 +1 分钟。若上一版几乎每个会话都写了「我：」，必须删到只剩 1 个会话带我方回复，其余只留对方最后 1~2 条。
-- 【篇幅重写要求】整份剧本的实时指令控制在 {nums['max_script_steps']} 步以内。超长时优先砍：重复的来回、多余的 [对方正在输入]/[等待]、同一句话的多次删改；不要为了压长度把话术删成摘要或省略。
-- 【素材引用重写要求】图片/表情一律只写【可用素材】清单里的短名，禁止写文件路径、扩展名、时间戳或「来自小红书/网页版」来源后缀；同一个表情整份最多用 2 次，换着用。清单里没有的名字不要写。
-- 【节奏重写要求】把多余的 `[等待]` 删掉——只保留真正要停一下的地方（整份 7~12 处），不要每条消息后面都跟 `[等待] 0.3`；同时让至少一段出现「一方连发 2~3 条」，不要严格一问一答。
-- 【打字不发 + 插话重写要求】按书写规范 C 补足 `[打字不发]` 与带插话的动作：整份剧本至少 {nums['min_typing_hold']} 处 `[打字不发]`、至少 {nums['min_interjections']} 处带插话，插话是参数（`| 停留 | 插话内容`），不是单独一行。**重点改 `[打字不发]` 的正文**：它必须是给观众看的技巧说明（「为什么这样聊有效」，如「以退为进」「故意否定 引起注意」），不是聊天话术草稿、不是对方心理活动——凡是像"那我陪你聊到天亮""她其实在等你先低头"这类，全部改写成打法说明。同时逐条检查：`[打字不发]` 的内容有没有在随后的 `[我方打字]` 里原样又发一遍（有就改成技巧说明或不同的话术）；插话有没有在回答 `[打字不发]` 里没发出去的内容（有就改成回应上一条已发出的消息）；插话有没有被下一条 `[对方发消息]` 重复（有就删掉重复的那条）。"""
+    return "\n\n".join([
+        "你是同一套「微信聊天视频仿真剧本」的纠错助手。下面这一版剧本存在问题，请**只做定向修补**。",
+        "【上一步的问题】\n" + issue_lines + violation_block,
+        "【动作表】\n" + action_text,
+        people_block + cat_note,
+        "【必须遵守的规则 / 创作偏好】\n" + pref_block,
+        "【剧本书写规范】\n" + spec_block,
+        asset_block,
+        "【参考剧本】\n" + ref_block,
+        script_format_mod.PATCH_SPEC,
+        repair,
+    ])
 
 
-def _gen_user_message(brief: str, category: str, ref_titles: list) -> str:
-    """构造首次生成时的 user 消息。"""
+def build_outline_prompt(brief: str, category: str = "",
+                         people_block: str = "", ref_titles=None) -> str:
+    """两段式·第一段：只出「剧情大纲」不出剧本。
+
+    为什么单拆一段：一段式生成里「编剧情」和「写 200 行逐行指令」挤在一次调用里，
+    模型的注意力全被格式/规则占住，剧情永远写得平。先出一份 300~600 字的大纲
+    给用户把关（人物、钩子、递进、转折、收尾、画面运用规划），确认后第二段
+    才按大纲展开成逐行剧本 —— 剧情质量卡在用户这一关。
+    """
+    cat_note = ""
+    if category in CATEGORIES:
+        cat_note = (f"\n- 人物从【人物库】里挑「{category}」类别的，人名直接用库里真名（第二段生成会照用）。")
+    refs = f"（参考风格：{'、'.join(ref_titles)}）" if ref_titles else ""
+    people = people_block or "（人物库为空，用常见中文名）"
+
+    return f"""你是「微信聊天教学视频」的剧情策划。用户给你一个创作主题，你只负责设计剧情大纲，**不写任何聊天内容、不写任何 [指令]**。
+
+{people}{cat_note}{refs}
+
+【输出格式】纯文本 markdown，按下面五个小节写（总长 300~600 字，不要展开对白）：
+
+## 一、人物与关系
+主线对象（1 人）+ 副线点缀（1~2 人，只出现在历史会话列表），各一句话人设。
+
+## 二、主线剧情
+按顺序写 4~6 个剧情节点：开场钩子（为什么这条视频有人看）→ 递进 1~2 步（共情/调动情绪/探三观/拉格局，写清每步的策略意图）→ 转折或反转（全片最精彩的一下，具体写发生了什么）→ 收尾（邀约 / 引流话术方向）。
+
+## 三、副线安排
+副线人物在历史列表里留什么消息、有没有串线（后台消息插入主线）。
+
+## 四、画面运用规划
+列 4~8 个「画面时刻」，每条一行：`动作（朋友圈 / 对方主页 / 图片查看器 / 转账 / 后台消息 / 表情包插话 / 语音 / 链接卡） + 出现在哪个节点 + 为什么这里值得切画面`。纯聊天打字不算画面时刻；同一类画面全片最多重复 2 次。
+
+## 五、给观众的技巧点
+列 3~6 条「[打字不发] 字幕」的技巧说明短句（每条 ≤14 字，如「以退为进」「故意否定 引起注意」），这是打在键盘上给观众看的教学卖点。
+
+只输出大纲正文，不要解释、不要 markdown 围栏。"""
+
+
+def _gen_user_message(brief: str, category: str, ref_titles: list, outline: str = "") -> str:
+    """构造首次生成时的 user 消息；带「已确认大纲」时强制按大纲展开。"""
     desc = str(brief or "").strip()
     cat = f"（人物类别：{category}）" if category in CATEGORIES else ""
     refs = f"参考剧本：{ '、'.join(ref_titles) }" if ref_titles else "无参考剧本"
-    return f"创作主题：{desc}\n{cat}\n{refs}\n\n请直接产出整套标准 [指令] 剧本。"
+    body = f"创作主题：{desc}\n{cat}\n{refs}\n\n"
+    outline = str(outline or "").strip()
+    if outline:
+        body += ("【剧情大纲 —— 用户已确认，必须严格遵循】\n"
+                 "人物、剧情节点、转折、收尾不得偏离大纲；【画面运用规划】要逐条落实成真实步骤；"
+                 "【技巧点】要全部用进 [打字不发] 的正文。\n"
+                 "===== 剧情大纲 开始 =====\n" + outline + "\n===== 剧情大纲 结束 =====\n\n")
+    body += "请按【输出格式】直接产出 JSON（history + steps），不要写 [指令] 文本、不要任何解释。"
+    return body
 
 
 def _critique_user_message(current_text: str) -> str:
-    """构造纠错轮次的 user 消息：把上一版剧本原文交给模型修复。"""
+    """构造纠错轮次的 user 消息：把上一版剧本**带行号**交给模型，便于它精确引用。"""
     body = (current_text or "").strip()
     if not body:
-        return ("请针对上面的问题，根据【动作表】和【人物库】重新输出一版完整剧本，"
-                "仍然输出标准 [指令] 文本，不许省略。")
-    return ("请针对上面的问题，修复并重写下面这份《上一版待修复剧本》"
-            "（保留可用部分，按问题清单逐条改到位，仍然输出完整 [指令] 文本，不许省略）：\n\n"
-            "===== 上一版待修复剧本 开始 =====\n" + body +
-            "\n===== 上一版待修复剧本 结束 =====")
+        return ("请针对上面的问题，按【输出格式】给出一组 patches（find/with）来修复，"
+                "不要输出整篇剧本。")
+    return ("《当前剧本》如下（左侧是行号，只用来帮你定位，不要写进 find/with）：\n\n"
+            "===== 当前剧本 开始 =====\n" + script_format_mod.number_lines(body) +
+            "\n===== 当前剧本 结束 =====\n\n"
+            "请针对上面的问题，输出 patches（要改的那几行）与 append_steps（要补的内容）。"
+            "不要重写整篇。")
 
 
 # ============================================================
-# 评价 -> 规则候选（这就是「评价如何变成 skill」的那一步）
+# 评价 -> 候选规则（「越写越好」飞轮的沉淀入口）
+# ------------------------------------------------------------
+# ⚠️ 这组函数曾随旧版被整体裁掉，导致 editor_server 的评价接口调用
+# extract_skill_candidates / save_skill_candidates 时 AttributeError 被
+# try/except 吞掉 —— 用户写了评价、规则库却永远收不到新规则（静默失效）。
+# 现从 _bak2_script_generator.py 恢复，并把新增的数值类 kind 补进
+# _normalize_candidate 的数值分支（否则会被误降级成 style）。
 # ============================================================
 
 _CANDIDATE_SYSTEM = """你是「微信聊天剧本创作规则抽取器」。
@@ -1882,6 +2330,10 @@ kind 只能取以下之一（value 必须与 kind 匹配）：
   （用户说"节奏很机械""每条后面都跟一个等待""像节拍器"就填这条）
 - min_burst：实时对白里至少有一方连发几条，value 写整数（一般 2 或 3）
   （用户说"太像一问一答了""没有连发""像朗读稿"就填这条）
+- max_emoji_total：整份剧本发出的表情（贴纸+3D emoji）总数上限，value 写整数
+  （用户说"表情太多了""别一直发表情"就填这条）
+- max_time_marks：时间分隔条（`内容 | 18:22`）处数上限，value 写整数
+  （用户说"不要每条消息都挂时间"就填这条）
 
 要求：
 - 一条留言尽量拆成 1~6 条独立规则；留言里有具体数值就填进 value。
@@ -2060,3 +2512,4 @@ def save_skill_candidates(candidates, source_feedback=None, enabled=True, source
             source_note=source_note,
         ))
     return saved
+
