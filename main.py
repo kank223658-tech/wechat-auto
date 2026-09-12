@@ -564,6 +564,7 @@ FRAME_OUT_W = 1080              # 0=不高清放大，直接输出采集分辨�
 # 混合帧只替换本帧停留份额，后续帧的绝对输出位置不变 —— 与 _mux_audio 的量化
 # 时间轴完全一致，音画不错位；混合只发生在差异明显的长间隔，静止等待不受影响。
 GAP_BLEND_MIN_FRAMES = 12       # 间隔 >= 12 帧（约 0.2s）才考虑过渡
+GAP_BLEND_MAX_SEC = 0.6         # 间隔超过此时长视为「静止等待」而非转场断帧：整段静帧保持，不混合
 GAP_BLEND_HOLD_FRAC = 0.30      # 过渡中「前一帧完整停留」占该间隔的比例（其余为混合帧）
 GAP_BLEND_DIFF_EPS = 0.018      # 下采样灰度归一化差异阈值：低于它视为静止等待（不混合）
 
@@ -2850,7 +2851,8 @@ class WeChatAuto:
                 # 与 _mux_audio 的量化时间轴保持一致（音画不错位）。
                 hold = n
                 blend = 0
-                if (n >= GAP_BLEND_MIN_FRAMES and i + 1 < len(keep)
+                if (n >= GAP_BLEND_MIN_FRAMES and dur <= GAP_BLEND_MAX_SEC
+                        and i + 1 < len(keep)
                         and _PIL is not None
                         and not any(a <= ts <= b for a, b in (hard_cut_spans or ()))):
                     _d = _visual_diff(jpeg, keep[i + 1][1])
@@ -3262,6 +3264,15 @@ class WeChatAuto:
             off = float(getattr(self, "_audio_offset", 0.0) or 0.0)
             self._det_spans.append({"t0": t0_wall + off, "t1": t1_wall + off,
                                     "frames": det})
+            # 窗口边界登记为无混合区：重采把动画定格在「触发瞬间态」，而页面异步
+            # 内容（如转账详情的加载遮罩→转账时间）在窗口结束后才完成切换；若把
+            # 这段边界间隔交给 GAP_BLEND 交叉混合，会呈现 ~0.5s 的假淡入淡出
+            # （成片上表现为「收款页淡入淡出」的烂片）。真机行为是瞬时硬切，
+            # 故连同前后余量一并豁免混合。
+            _spans = getattr(self, "_hard_cut_spans", None)
+            if _spans is None:
+                _spans = self._hard_cut_spans = []
+            _spans.append((t0_wall + off - 0.3, t1_wall + off + 1.2))
             print(f"[转场] {label}: 确定性重采 {len(det)} 帧"
                   f"（{len(det) / FRAME_CAPTURE_FPS:.2f}s）替换实时段。")
             return True
