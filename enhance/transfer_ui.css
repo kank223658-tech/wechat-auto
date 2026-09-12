@@ -20,7 +20,7 @@
     background: rgba(0, 0, 0, .55);
     opacity: 0;
     visibility: hidden;
-    transition: opacity .22s ease, visibility .22s ease;
+    transition: opacity .16s ease, visibility .16s ease;
 }
 .wx-transfer-mask.open { opacity: 1; visibility: visible; }
 
@@ -38,9 +38,15 @@
     border-radius: 0;
     padding: 39px 0 0;
     transform: translateY(100%);
-    transition: transform .33s cubic-bezier(.45, .05, .55, .95);  /* 实测 333ms 先慢后快再慢 */
+    transition: transform .26s cubic-bezier(.22, 1, .36, 1),  /* 提速：260ms 先快后缓（原 333ms 对称缓动，观感偏匀速） */
+                visibility .16s ease;
     box-sizing: border-box;
     box-shadow: none;
+    /* ★ 面板本体必须全程不透明：本体复用了 .wx-transfer-mask 的 opacity 显隐，
+       打开时 opacity 0→1 渐变会让上滑中的面板半透明——表情→更多切换时
+       下滑中的旧表情面板内容直接透出来（穿模）。显隐交给 transform+visibility，
+       id 选择器 (1,0,0) 必胜 .wx-transfer-mask 的 opacity/过渡。 */
+    opacity: 1;
 }
 #wxTransferPanel.open { transform: translateY(0); }
 
@@ -52,7 +58,7 @@ body.wx-chat.wxp-open .dialogue-footer {
     transform: translateY(-376px) !important;
     background: #1a1a1a !important;
     border-top-color: transparent !important;
-    transition: transform .33s cubic-bezier(.45, .05, .55, .95) !important;
+    transition: transform .26s cubic-bezier(.22, 1, .36, 1) !important;
 }
 
 #wxTransferPanel .tp-grid {
@@ -126,11 +132,12 @@ body.wx-chat.wxp-open .dialogue-footer {
     background: #111111;       /* 真机：页面上半 #111，下半是 #181818 圆角卡片 */
     display: flex;
     flex-direction: column;
-    color: #fff;
+    /* 参考帧 b_012 实测：正文主色 ≈ #d4d4d4，不是纯白（原 #fff 整体偏亮） */
+    color: #d4d4d4;
     visibility: hidden;
     pointer-events: none;
     transform: translateX(100%);
-    transition: transform .26s cubic-bezier(.32, .72, .35, 1), visibility .26s;
+    transition: transform .18s cubic-bezier(.22, 1, .36, 1), visibility .18s;
 }
 #wxTransferAmount.open {
     visibility: visible;
@@ -174,6 +181,8 @@ body.wx-chat.wxp-open .dialogue-footer {
     font-size: 26px;
     font-weight: 400;
     line-height: 34px;
+    /* 参考 b_012 实测「转账给 …」#dddddd（比正文亮一档，原继承 #fff） */
+    color: #dddddd;
 }
 #wxTransferAmount .ta-recipient .ta-info .ta-wxid {
     font-size: 21px;
@@ -189,7 +198,7 @@ body.wx-chat.wxp-open .dialogue-footer {
     background: #2c2c2e;
 }
 
-/* 金额输入区（卡片内容）：转账金额 20px #828282 + 真机裁切 ¥ 贴图(41×53，顶对齐数字) */
+/* 金额输入区（卡片内容）：转账金额 20px #cecece + 真机裁切 ¥ 贴图(41×53，顶对齐数字) */
 #wxTransferAmount .ta-amount-box {
     position: relative; z-index: 1;
     margin: 78px 0 0;
@@ -198,7 +207,8 @@ body.wx-chat.wxp-open .dialogue-footer {
 #wxTransferAmount .ta-amount-label {
     font-size: 20px;
     line-height: 20px;
-    color: #828282;
+    /* 参考 b_012 定格窗口实测「转账金额」#dcdcdc（原 #cecece 偏暗 14 级） */
+    color: #dcdcdc;
 }
 #wxTransferAmount .ta-amount-row {
     display: flex;
@@ -226,7 +236,8 @@ body.wx-chat.wxp-open .dialogue-footer {
     line-height: 80px;
     height: 80px;
     font-weight: 400;
-    color: #fff;
+    /* 参考 b_012 实测金额数字 #d1d1d1（原 #fff 过白） */
+    color: #d1d1d1;
     caret-color: #07c160;
     padding: 0;
     white-space: nowrap;
@@ -243,7 +254,8 @@ body.wx-chat.wxp-open .dialogue-footer {
 /* 转账说明输入行（真机 20px 灰字，分隔线下 15px） */
 #wxTransferAmount .ta-note {
     position: relative; z-index: 1;
-    margin: 10px 50px 0;
+    /* 参考 b_012 实测说明行墨迹 y523-541；原 10px 时落在 y497-515（偏高 26px） */
+    margin: 36px 50px 0;
     font-size: 20px;
     line-height: 28px;
 }
@@ -255,7 +267,12 @@ body.wx-chat.wxp-open .dialogue-footer {
     color: #fff;
     font-size: 20px;
 }
-#wxTransferAmount .ta-note input::placeholder { color: #5c5c5c; }
+/* 注意：wechat_modern.css 有 `input::placeholder { color:#9a9aa2 !important }`，
+   不用 !important 会被它顶掉（实测渲染成 rgb(154,154,162)）。 */
+#wxTransferAmount .ta-note input::placeholder {
+    /* 参考 b_012 实测「添加转账说明」#828c9b（偏蓝的次要色，非 #5c5c5c 深灰） */
+    color: #828ea8 !important;
+}
 
 /* 占位弹性空间 */
 #wxTransferAmount .ta-spacer { flex: 1; position: relative; z-index: 1; }
@@ -269,12 +286,12 @@ body.wx-chat.wxp-open .dialogue-footer {
 #taKeyboard.kb-up {
     transform: translateY(0);
     visibility: visible;
-    transition: transform .3s cubic-bezier(.25, .46, .45, .94), visibility .3s;
+    transition: transform .22s cubic-bezier(.2, 1, .32, 1), visibility .22s;
 }
 #taKeyboard.kb-down {
     transform: translateY(102%);
     visibility: hidden;
-    transition: transform .28s cubic-bezier(.32, .72, .35, 1), visibility .28s;
+    transition: transform .18s cubic-bezier(.5, 0, .78, .35), visibility .18s;
 }
 
 /* ============================================================
@@ -291,7 +308,7 @@ body.wx-chat.wxp-open .dialogue-footer {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity .2s ease, visibility .2s ease;
+    transition: opacity .14s ease, visibility .14s ease;
 }
 #wxPayToast.show { opacity: 1; visibility: visible; }
 #wxPayToast .pay-toast-card {
@@ -302,8 +319,8 @@ body.wx-chat.wxp-open .dialogue-footer {
     display: flex;
     flex-direction: column;
     align-items: center;
-    transform: scale(.92);
-    transition: transform .2s ease;
+    transform: scale(.86);
+    transition: transform .22s cubic-bezier(.18, 1.5, .4, 1);
 }
 #wxPayToast.show .pay-toast-card { transform: scale(1); }
 #wxPayToast .pay-toast-icon {
@@ -328,10 +345,10 @@ body.wx-chat.wxp-open .dialogue-footer {
     height: 7px;
     border-radius: 50%;
     background: #8e8e93;
-    animation: wxPayDot 1.2s ease-in-out infinite;
+    animation: wxPayDot .92s ease-in-out infinite;
 }
-.pay-toast-dots i:nth-child(2) { animation-delay: .2s; }
-.pay-toast-dots i:nth-child(3) { animation-delay: .4s; }
+.pay-toast-dots i:nth-child(2) { animation-delay: .15s; }
+.pay-toast-dots i:nth-child(3) { animation-delay: .3s; }
 @keyframes wxPayDot {
     0%, 60%, 100% { background: #8e8e93; }
     30% { background: #f2f2f2; }
@@ -351,18 +368,18 @@ body.wx-chat.wxp-open .dialogue-footer {
 #wxPaySheet .pay-sheet-mask {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, .5);
+    background: rgba(0, 0, 0, .8);
     opacity: 0;
-    transition: opacity .28s ease;
+    transition: opacity .18s ease;
 }
 #wxPaySheet.open .pay-sheet-mask { opacity: 1; }
 #wxPaySheet .pay-sheet {
     position: absolute;
     left: 0; right: 0; bottom: 0;
-    background: #1f1f21;
+    background: #181818;
     border-radius: 14px 14px 0 0;
     transform: translateY(100%);
-    transition: transform .3s cubic-bezier(.32, .72, .35, 1);
+    transition: transform .24s cubic-bezier(.22, 1, .36, 1);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -373,106 +390,123 @@ body.wx-chat.wxp-open .dialogue-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 18px 0;
+    padding: 33px 18px 0;
 }
 #wxPaySheet .pay-close {
-    font-size: 26px;
-    line-height: 1;
-    color: #d0d0d2;
+    font-size: 34px;            /* 参考 × 墨迹高 20（原 26px 只有 15） */
+    line-height: 24px;
+    /* 参考 b_021 定格窗口实测 × #e4e4e4（原 #d0d0d2 偏暗 22 级） */
+    color: #e4e4e4;
     cursor: pointer;
     padding: 2px 6px;
 }
 #wxPaySheet .pay-faceid {
-    font-size: 15px;
-    color: #6f6f75;
+    font-size: 20px;
+    line-height: 24px;
+    /* 参考 b_021 实测「使用面容」#7e8898（偏蓝灰，原 #6f6f75 过暗且偏紫） */
+    color: #7e8898;
     cursor: pointer;
 }
 #wxPaySheet .pay-sheet-title {
     text-align: center;
-    font-size: 18px;
-    color: #fff;
-    margin-top: 10px;
+    /* 参考 b_018「向…转账」墨迹高 24（原 18px 只有 17） */
+    font-size: 26px;
+    line-height: 26px;
+    /* 参考 b_018 实测「向…转账」#dadada（原 #fff 过白） */
+    color: #dadada;
+    margin-top: 49px;
 }
 #wxPaySheet .pay-sheet-amount {
     text-align: center;
-    font-size: 46px;
-    font-weight: 700;
-    color: #fff;
-    margin-top: 6px;
+    font-size: 60px;            /* 参考墨迹高 45（原 46px 只有 35） */
+    line-height: 60px;
+    /* 参考 b_018 实测 ¥1.00 #d3d3d3、笔画 7px/字高45 → Medium(500)；
+       原 font-weight:700 明显过粗、颜色过白。 */
+    font-weight: 500;
+    color: #d3d3d3;
+    margin-top: 18px;
     letter-spacing: .5px;
 }
 #wxPaySheet .pay-sheet-divider {
     height: .5px;
-    background: #333335;
-    margin: 18px 0 0;
+    background: transparent;   /* 参考帧此处无分割线 */
+    margin: 26px 0 0;
 }
 /* 付款方式 + 零钱行 + 密码格（加载态整体隐藏） */
 #wxPaySheet .pay-mid {
-    transition: opacity .2s ease, visibility .2s ease;
+    transition: opacity .14s ease, visibility .14s ease;
 }
 #wxPaySheet.loading .pay-mid { opacity: 0; visibility: hidden; }
 #wxPaySheet .pay-way-label {
     display: flex;
     justify-content: space-between;
-    padding: 14px 16px 10px;
-    font-size: 13px;
-    color: #8e8e93;
+    padding: 44px 16px 14px;
+    /* 参考「付款方式」墨迹高 19（原 13px 只有 12） */
+    font-size: 21px;
+    line-height: 21px;
+    /* 参考 b_021 定格窗口实测「付款方式」#858585（原 #7c7c7c 偏暗 10 级） */
+    color: #858585;
 }
-#wxPaySheet .pay-change { color: #8e8e93; cursor: pointer; }
+#wxPaySheet .pay-change { color: #838383; cursor: pointer; }
 #wxPaySheet .pay-change i { font-style: normal; font-size: 11px; }
 #wxPaySheet .pay-wallet-row {
     display: flex;
     align-items: center;
-    margin: 0 12px;
-    padding: 14px 14px;
-    background: #2a281f;
+    margin: 0 38px;
+    padding: 27px 25px;
+    background: #242116;
     border-radius: 6px;
     cursor: pointer;
 }
 #wxPaySheet .pay-coin {
-    width: 26px;
-    height: 26px;
+    width: 30px; height: 30px;   /* 参考零钱行墨迹带高 30 */
     border-radius: 50%;
     background: #ffcc00;
     color: #fff;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 #wxPaySheet .pay-wallet-name {
-    margin-left: 10px;
-    font-size: 16px;
-    color: #fff;
+    margin-left: 12px;
+    font-size: 19px;
+    /* 参考 b_018/b_021 实测「零钱」#838383 —— 是中灰次要色，原 #fff 过白 */
+    color: #858585;
     flex: 1;
 }
-#wxPaySheet .pay-check { width: 22px; height: 22px; display: block; }
+#wxPaySheet .pay-check { width: 26px; height: 26px; display: block; }
 #wxPaySheet .pay-boxes {
     display: flex;
     justify-content: center;
-    gap: 19px;
-    margin: 30px 0 26px;
+    gap: 12px;
+    margin: 36px 0 35px;
 }
 #wxPaySheet .pay-boxes i {
-    width: 52px;
-    height: 56px;
+    width: 61px;
+    height: 62px;
     border-radius: 8px;
-    background: #2c2c2e;
+    background: #1f1f1f;
     position: relative;
-    transition: background .12s ease;
+    transition: background .09s ease;
 }
 #wxPaySheet .pay-boxes i.filled:after {
     content: '';
     position: absolute;
     left: 50%; top: 50%;
-    width: 13px; height: 13px;
-    margin: -6.5px 0 0 -6.5px;
+    width: 12px; height: 12px;
+    margin: -6px 0 0 -6px;
     border-radius: 50%;
-    background: #e8e8ea;
+    background: #dcdcdc;         /* 参考 b_021 实测密码点 #dcdcdc（Φ12） */
+    /* 落位微动效：.35→1.22→1 的过冲弹出，替代原来的「瞬间出现」（观感像匀速铺满） */
+    animation: wxPwDotPop .16s cubic-bezier(.25, 1, .4, 1) both;
 }
 /* 面板加载态：标题/金额保留，中间换微信支付 loading，键盘隐藏 */
+/* 参考 b_024 实测：加载态图标 #525252 / 文字 #595959 —— 是低对比的暗灰，
+   实测标题与金额并未变暗，故只把加载块整体压低透明度，不动其它内容。 */
 #wxPaySheet .pay-loading {
+    opacity: .3;
     display: none;
     flex-direction: column;
     align-items: center;
@@ -482,11 +516,11 @@ body.wx-chat.wxp-open .dialogue-footer {
 }
 #wxPaySheet.loading .pay-loading { display: flex; }
 #wxPaySheet.loading #pwKeyboard { display: none; }
-#wxPaySheet .pay-loading-icon { width: 46px; height: 46px; display: block; }
+#wxPaySheet .pay-loading-icon { width: 58px; height: 58px; display: block; }
 #wxPaySheet .pay-loading-text {
-    margin-top: 14px;
-    font-size: 15px;
-    color: #cfccd3;
+    margin-top: 18px;
+    font-size: 20px;
+    color: #fff;
     letter-spacing: 1px;
 }
 
@@ -504,7 +538,7 @@ body.wx-chat.wxp-open .dialogue-footer {
     visibility: hidden;
     pointer-events: none;
     transform: translateY(100%);
-    transition: transform .32s cubic-bezier(.32, .72, .35, 1), visibility .32s;
+    transition: transform .24s cubic-bezier(.22, 1, .36, 1), visibility .24s;
 }
 #wxPaySuccess.open {
     visibility: visible;
@@ -516,25 +550,31 @@ body.wx-chat.wxp-open .dialogue-footer {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-top: 110px;          /* 参考图：支付成功行中心在 ~9.4% 屏高 */
+    margin-top: 103px;          /* 参考 b_027：支付成功行墨迹 y112（原 110px 实测偏低 7px） */
 }
 #wxPaySuccess .ps-icon { width: 28px; height: 28px; display: block; }
 #wxPaySuccess .ps-title {
-    font-size: 20px;
+    /* 参考 b_027 「支付成功」4 字墨迹宽 107px → 字号 ≈26px（原 20px 偏小） */
+    font-size: 26px;
     color: #3eb575;
     letter-spacing: .5px;
 }
-#wxPaySuccess .ps-body { margin-top: 148px; text-align: center; }
+#wxPaySuccess .ps-body { margin-top: 140px; text-align: center; }
 #wxPaySuccess .ps-wait {
-    font-size: 22px;
-    color: #e8e8ea;
+    /* 参考 b_027 墨迹高 24（原 22px 只有 20） */
+    font-size: 26px;
+    /* 参考 b_027 实测「待X确认收款」#d9d9d9（原 #e8e8ea 偏白） */
+    color: #d9d9d9;
     letter-spacing: .3px;
 }
 #wxPaySuccess .ps-amount {
-    margin-top: 16px;
-    font-size: 88px;
-    font-weight: 600;
-    color: #fff;
+    margin-top: 20px;
+    /* 参考 b_027 墨迹高 55（与详情页金额同尺寸）；原 88px 实测 66，偏大 */
+    font-size: 73px;
+    /* 参考 b_027 实测 ¥1.00 #d4d4d4、笔画 8px/字高55 → Medium(500)；
+       原 600 偏粗、#fff 过白。 */
+    font-weight: 500;
+    color: #d4d4d4;
     letter-spacing: 1px;
     line-height: 1.1;
 }
@@ -543,7 +583,7 @@ body.wx-chat.wxp-open .dialogue-footer {
     margin-top: auto;
     display: flex;
     justify-content: center;
-    padding: 0 0 196px;
+    padding: 0 0 202px;
 }
 #wxPaySuccess .ps-done {
     width: 278px;
@@ -551,8 +591,9 @@ body.wx-chat.wxp-open .dialogue-footer {
     border: none;
     border-radius: 12px;
     background: #3a3a3c;
-    color: #fff;
-    font-size: 24px;
+    /* 参考 b_027 实测「完成」#dfdfdf（原 #fff 偏白） */
+    color: #dfdfdf;
+    font-size: 26px;
     cursor: pointer;
 }
 #wxPaySuccess .ps-done:active { background: #48484a; }
@@ -570,6 +611,9 @@ body.wx-chat.wxp-open .dialogue-footer {
 #taKeyboard {
     background: transparent;
     padding: 6px 12px 16px;
+    /* 参考 b_012 实测：绿键 y990-1233 → 键盘底边 y1249，屏底留 51px（≈34pt 安全区）。
+       原实现贴到 y1300，整体偏低 51px。 */
+    margin-bottom: 51px;
 }
 #taKeyboard.tkr-grid {
     display: grid;
@@ -584,9 +628,14 @@ body.wx-chat.wxp-open .dialogue-footer {
     align-items: center;
     justify-content: center;
     font-size: 32px;
-    color: #dcdcdc;
+    /* 参考 b_012 实测数字笔画 4px/字高 24。本机无 500 字面（字体栈里的
+       PingFang SC / HarmonyOS Sans SC 只有 400），font-weight:500 不生效，
+       故用极细描边补足笔画粗细。 */
+    font-weight: 500;
+    -webkit-text-stroke: .5px currentColor;
+    color: #d8d8d8;             /* 参考 b_021 实测键盘数字 #d8d8d8（原 #dcdcdc 略白） */
     cursor: pointer;
-    transition: background .1s ease;
+    transition: background .08s ease, transform .14s cubic-bezier(.25, 1, .4, 1);
 }
 #taKeyboard .tkr-key:active { background: #333335; }
 /* 底行「0」跨两列（真机布局） */
@@ -600,7 +649,8 @@ body.wx-chat.wxp-open .dialogue-footer {
     grid-row: 2 / 5;
     background: #06b756;
     color: #fff;
-    font-size: 20px;
+    /* 参考 b_012 实测「转账」墨迹 24×50；原 20px 只有 19×39，明显偏小 */
+    font-size: 25px;
     font-weight: 400;
 }
 #taKeyboard .tkr-key.tkr-ok.disabled { background: #06b756; opacity: .92; }
@@ -608,7 +658,9 @@ body.wx-chat.wxp-open .dialogue-footer {
 
 /* 付款面板键盘：iOS 风格透明按键 */
 #pwKeyboard {
-    padding: 4px 10px 14px;
+    padding: 0 12px 53px;
+    /* 参考 b_021：底部关键区（第4行往下）底色压暗到 #111111 */
+    background: linear-gradient(to bottom, #181818 0, #181818 253px, #111111 253px, #111111 100%);
 }
 #pwKeyboard .tkr-grid { display: flex; }
 #pwKeyboard .tkr-grid-inner {
@@ -617,21 +669,49 @@ body.wx-chat.wxp-open .dialogue-footer {
     grid-template-columns: repeat(3, 1fr);
 }
 #pwKeyboard .tkr-key {
-    height: 74px;
+    /* 参考键盘行距 83.5（原 74）；数字墨迹高 26（原 27px 只有 20） */
+    height: 84px;
     background: transparent;
     border-radius: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 27px;
-    color: #fff;
+    font-size: 35px;
+    /* 参考 b_021 实测面板键盘数字 #dbdbdb（原 #fff 过白） */
+    color: #dbdbdb;
     cursor: pointer;
-    transition: background .1s ease;
+    transition: background .08s ease, transform .14s cubic-bezier(.25, 1, .4, 1);
 }
 #pwKeyboard .tkr-key:active { background: rgba(255, 255, 255, .12); }
-#pwKeyboard .tkr-key.tkr-del { background: transparent; color: #fff; font-size: 22px; }
+#pwKeyboard .tkr-key.tkr-del { background: transparent; color: #dbdbdb; font-size: 22px; }
+#pwKeyboard .tkr-key.tkr-del img { width: 42px; height: 34px; display: block; }
 #pwKeyboard .tkr-key.tkr-hide { visibility: hidden; }
+/* 第 4 行（空 / 0 / ⌫）位于 #111111 暗区之上，键底回到面板底色 */
+#pwKeyboard .tkr-key:nth-child(n+10) { background: #181818; }
 
 /* 容错：暗环境下的输入光标不要太亮 */
 #wxTransferAmount input,
 #wxTransferAmount .ta-note input { caret-color: #07c160; }
+/* ============================================================
+   动画提速补丁（2026-09-11）
+   ------------------------------------------------------------
+   设计口径：入场 = 先快后缓（cubic-bezier(.22,1,.36,1)，起步一口气走完 70%，
+   尾段慢慢"落定"）；退场 = 先慢后快（cubic-bezier(.5,0,.78,.35)）。
+   两者都刻意打破原来看起来"匀速"的对称缓动。
+   ============================================================ */
+
+/* 按键落指：110ms 下压 + 回弹。用 JS 加/摘 .tkr-press，
+   而不是 CSS :active —— main.py 是程序化 click，:active 不会触发。 */
+@keyframes wxKeyPress {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(.94); }
+    100% { transform: scale(1); }
+}
+.tkr-press { animation: wxKeyPress .14s cubic-bezier(.2, .9, .3, 1); }
+
+/* 密码点落位：小 → 过冲 → 归位 */
+@keyframes wxPwDotPop {
+    0%   { opacity: .25; transform: scale(.35); }
+    55%  { opacity: 1;   transform: scale(1.22); }
+    100% { opacity: 1;   transform: scale(1); }
+}
