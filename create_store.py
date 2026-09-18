@@ -701,7 +701,7 @@ _LEGACY_RULE_PATTERNS = (
      lambda m: "发送语音"),
     (re.compile(r"(?:控制在|不超过|最多).{0,6}?(\d+)\s*人"), "max_people",
      lambda m: int(m.group(1))),
-    (re.compile(r"打字不发"), "required_action", lambda m: "打字不发"),
+    (re.compile(r"打字不发|观众字幕"), "required_action", lambda m: "打字不发"),
     (re.compile(r"(?:心理活动|解说|方法论).{0,12}(?:不要|别|少|一两句|不当成|别当成)"
                 r"|(?:不要|别|少).{0,12}(?:心理活动|解说|方法论)"),
      "forbid_annotation_as_message", lambda m: True),

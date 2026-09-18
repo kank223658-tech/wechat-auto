@@ -128,7 +128,7 @@ def format_references(references: list, category: str = "") -> str:
             summary = str(r.get("summary") or "")
             head = "参考剧本%d《%s》\n手法标签：%s\n结构摘要：%s" % (
                 i, str(r.get("title", "未命名")), tags, summary)
-            blocks.append(head + "\n" + str(r.get("text", "")))
+            blocks.append(head + "\n" + _norm_ref_text(str(r.get("text", ""))))
         parts.append(
             "【风格模板】以下整篇参考用来学「每句话背后带什么策略、如何编排节奏」，"
             "重点模仿结构与打法，而不是照抄句子；人物名一律换成【人物库】里的。\n"
@@ -242,7 +242,7 @@ def format_references(references: list, category: str = "") -> str:
             lines.append("· %s%s\n%s" % (
                 str(r.get("title", "片段")),
                 ("（%s）" % note) if note else "",
-                str(r.get("text", ""))))
+                _norm_ref_text(str(r.get("text", "")))))
         parts.append("【片段示例】这些是「某个动作该怎么演」的短示范，"
                      "成稿里用到对应动作时照着写。\n" + "\n".join(lines))
     if not parts:
@@ -857,6 +857,35 @@ _ACTION_ALIAS_NOTE = (
 
 def _norm_action(name: str) -> str:
     return st.ACTION_ALIASES.get(name, name)
+
+# 0918 补漏：参考剧本/金样文本进提示词前把旧指令名归一成新写法，
+# 否则模型照着 few-shot 旧名抄、成稿又变回旧格式（解析虽能兜底，但违背「成稿即新名」）。
+_REF_NAME_RE = [
+    (re.compile(r"我方发送图片"), "我方发图片"),
+    (re.compile(r"对方发送图片"), "对方发图片"),
+    (re.compile(r"我发送图片"), "我方发图片"),
+    (re.compile(r"对方发送表情(?!包|符号)"), "对方发表情"),
+    (re.compile(r"我方打字"), "我方发消息"),
+    (re.compile(r"打字不发"), "观众字幕"),
+    (re.compile(r"删除文字"), "清空输入框"),
+    (re.compile(r"发送图片"), "我方发图片"),
+    (re.compile(r"发送表情(?!包|符号)"), "我方发表情"),
+    (re.compile(r"发送emoji"), "我方发emoji"),
+    (re.compile(r"发送语音"), "我方发语音"),
+    (re.compile(r"对方表情(?!包|符号)"), "对方发表情"),
+    (re.compile(r"对方emoji"), "对方发emoji"),
+    (re.compile(r"对方语音"), "对方发语音"),
+    (re.compile(r"对方图片"), "对方发图片"),
+]
+
+
+def _norm_ref_text(text: str) -> str:
+    """参考剧本/金样全文进 few-shot 前的旧名归一（负向断言保护「表情包/表情符号」）。"""
+    t = str(text or "")
+    for pat, new in _REF_NAME_RE:
+        t = pat.sub(new, t)
+    return t
+
 
 
 def _as_str_list(value) -> list:
@@ -3798,7 +3827,7 @@ def _find_bridge_snippet(bridge: str) -> str:
                 continue
             title = str(r.get("title") or "").replace("·", "")
             if key in title:
-                return str(r.get("text") or "")
+                return _norm_ref_text(str(r.get("text") or ""))
     except Exception:  # noqa: BLE001
         pass
     return ""
@@ -3989,7 +4018,7 @@ def _select_ref_full(topic: str) -> str:
     """
     try:
         for r in (store.search_references(str(topic or ""), 4) or []):
-            txt = str(r.get("text") or "")
+            txt = _norm_ref_text(str(r.get("text") or ""))
             if len(txt) > 800:            # 只要完整稿（动作片段 ≤33 字）
                 return txt
     except Exception:  # noqa: BLE001
