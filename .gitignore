@@ -99,3 +99,33 @@ _mic/
 _panelpeek/
 _panel_switch_out/
 .workbuddy/memory/MEMORY_full_archive.md
+
+# ============ 临时产物 / 归档 / 抓取缓存（2026-09-18 补，均不入库） ============
+_工作文件/
+_归档_临时文件/
+_probe_tmp/
+_inprogress_*/
+xhs_downloads/
+xhs_profile/
+xhs_cookie.txt
+*.quality.json
+*.bak_*
+*.bak
+tasks.json.empty_*
+nul
+
+# ============ video2script：依赖、输入视频与产出（只留源码） ============
+video2script/.venv/
+video2script/input_videos/
+video2script/output/
+video2script/__pycache__/
+
+# ============ 根目录一次性调试脚本（体积小但属临时产物） ============
+_concurrent.json
+_sets_manifest.json
+_gen_img_list.py
+_gen_matched_presets.py
+_gen_zye_presets.py
+_test_intro_batch.py
+_test_intro_concurrent.py
+_verify_zye_presets.py

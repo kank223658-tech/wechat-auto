@@ -186,6 +186,9 @@
   .step-row .imgslot .nopic { font-size: 16px; line-height: 1; }
   /* 图片消息步骤：绿色高亮便于区分（发图片/图片消息） */
   .step-row.img { border-color: var(--wxp-amber-line); background: #fff8ea; }
+  /* 配图注释：图片槽上方那行 # 注释，离线解析带进 step.note，步骤列表里内联展示 */
+  .step-note { font-size: 12px; line-height: 1.55; color: var(--muted-2); background: var(--panel-2); border: 1px dashed var(--line); border-left: 3px solid var(--wxp-amber-line, #e8b04b); border-radius: 8px; padding: 5px 10px; margin: -3px 0 6px 8px; white-space: pre-wrap; word-break: break-all; }
+  .step-note b { color: var(--muted); font-weight: 600; }
   .step-row.img .act { color: #8a5306; }
   .step-row.img .no { background: rgba(233, 162, 59, 0.20); color: #a5650a; }
   .step-row.img .empty-sum { color: #8a5306; }
@@ -543,6 +546,10 @@ function renderDetail() {
     return;
   }
   const opt = t.options || {};
+  // intro_upload_path = 最近一次上传的片头路径（纯 UI 记忆，运行时不看它）。
+  // 这样切到「内置」再切回「上传」时路径不会丢；真正参与运行的只有 intro / intro_path。
+  const introPath = String(opt.intro_upload_path || opt.intro_path || '');
+  const introMode = String(opt.intro_path || '') ? 'upload' : (opt.intro ? 'builtin' : 'none');
   const wN = (t.warnings || []).length;
   body.innerHTML =
     '<div class="field"><label>任务名称</label><input id="dName" value="' + esc(t.name) + '"></div>' +
@@ -558,10 +565,32 @@ function renderDetail() {
       '<div class="field"><label>背景音乐路径（可空）</label><input id="dBgmPath" value="' + esc(opt.bgm_path || '') + '" placeholder="默认内置曲"></div>' +
     '</div>' +
     '<div class="opt-checks">' +
-      '<label><input type="checkbox" id="dIntro" ' + (opt.intro ? 'checked' : '') + '> 开场锁屏动画</label>' +
+      '<span style="align-self:center;font-size:12px;">片头：</span>' +
+      '<label><input type="radio" name="dIntroMode" value="none" ' + (introMode === 'none' ? 'checked' : '') + '> 不加片头</label>' +
+      '<label><input type="radio" name="dIntroMode" value="builtin" ' + (introMode === 'builtin' ? 'checked' : '') + '> 内置锁屏开场</label>' +
+      '<label><input type="radio" name="dIntroMode" value="upload" ' + (introMode === 'upload' ? 'checked' : '') + '> 上传片头（替换内置）</label>' +
+      '<button type="button" id="dIntroPreviewBtn" data-tip="预览当前选择的片头效果">▶ 预览片头</button>' +
+    '</div>' +
+    '<div id="dIntroWallRow" style="display:' + (introMode === 'builtin' ? 'flex' : 'none') + ';gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">' +
+      '<span style="font-size:12px;color:var(--muted);">🖼 片头壁纸：</span>' +
+      '<span id="dIntroWallName" style="font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (opt.intro_wallpaper ? ('已固定：' + esc(String(opt.intro_wallpaper).split('/').pop())) : '随机（每次渲染换一张）') + '</span>' +
+      '<button type="button" id="dIntroWallBtn" data-tip="打开片头壁纸库：上传/删除壁纸，点一张可固定；不固定则每条视频随机换一张">壁纸库</button>' +
+    '</div>' +
+    '<div id="dIntroUploadRow" style="display:' + (introMode === 'upload' ? 'flex' : 'none') + ';gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">' +
+      '<button type="button" id="dIntroUploadBtn" data-tip="上传竖屏视频作为片头，替换内置开场（等比居中，并在闪黑切进主视频处补一记微信提示音）">📤 上传片头视频</button>' +
+      '<span id="dIntroFileName" style="font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (introPath ? esc(introPath.split('/').pop()) : '未选择') + '</span>' +
+      '<button type="button" id="dIntroClearBtn" data-tip="清除已上传片头，回到「不加片头」">清除</button>' +
+    '</div>' +
+    '<div id="dIntroPreviewBox" style="display:none;margin-top:8px;">' +
+      '<video id="dIntroPreviewVideo" controls playsinline preload="metadata" style="width:200px;max-height:400px;background:#000;border-radius:8px;display:block;"></video>' +
+      '<span id="dIntroPreviewHint" style="font-size:12px;color:var(--muted);"></span>' +
+    '</div>' +
+    '<div class="opt-checks">' +
       '<label><input type="checkbox" id="dBgm" ' + (opt.bgm !== false ? 'checked' : '') + '> 背景音乐</label>' +
     '</div>' +
     '<div class="steps-wrap"><div class="steps-head"><b>步骤（' + (t.steps || []).length + '）</b><span class="spacer"></span>' +
+      ((window.__wxMomentsPreview && window.__wxMomentsPreview.detect(t.steps).any)
+        ? '<button type="button" class="upbtn" id="dMomentsPreview" title="在真实手机画面里预览朋友圈：成片会拍到的画面 + 按剧本走一遍">📱 预览朋友圈</button>' : '') +
       '<span class="hint">点步骤卡片可编辑 JSON；图片在下方「配图清单」统一上传/换图</span></div>' +
       '<div id="stepsList"></div></div>' +
     '<div id="taskAttach" style="display:none"></div>' +
@@ -570,23 +599,158 @@ function renderDetail() {
   renderStepsBody(t);
   renderTaskAttach(t);
   renderRunStatus(t);
+  bindIntroControls(t);
 
   const autoSave = debounce(() => saveTaskMeta(t, true), 650);
   $('dSave').onclick = async () => { await saveTaskMeta(t); };
   $('dParseAI').onclick = async () => { await parseTask(t.id, false); };
   $('dParseOff').onclick = async () => { await parseTask(t.id, true); };
+  if ($('dMomentsPreview')) {
+    $('dMomentsPreview').onclick = () => openTaskMomentsPreview(t);
+  }
   $('dName').onchange = () => { t.name = $('dName').value.trim() || '未命名任务'; saveTaskMeta(t, true); };
   // 运行选项/剧本文本改动即自动保存（无需点「保存」）
   $('dScript').addEventListener('input', autoSave);
   $('dSpeed').onchange = () => saveTaskMeta(t, true);
   $('dBgmPath').onchange = () => saveTaskMeta(t, true);
-  $('dIntro').onchange = () => saveTaskMeta(t, true);
   $('dBgm').onchange = () => saveTaskMeta(t, true);
+}
+
+/* ---------- 片头（不加 / 内置 / 上传替换） ---------- */
+function detailIntroMode() {
+  const el = document.querySelector('input[name="dIntroMode"]:checked');
+  return el ? el.value : 'none';
+}
+function refreshDetailIntroRow() {
+  const row = $('dIntroUploadRow');
+  if (row) row.style.display = detailIntroMode() === 'upload' ? 'flex' : 'none';
+  const wrow = $('dIntroWallRow');
+  if (wrow) wrow.style.display = detailIntroMode() === 'builtin' ? 'flex' : 'none';
+}
+function showDetailIntroPreview(url, hint) {
+  const v = $('dIntroPreviewVideo');
+  $('dIntroPreviewBox').style.display = 'block';
+  $('dIntroPreviewHint').textContent = hint || '';
+  if (v.getAttribute('src') !== url) v.setAttribute('src', url);
+  else v.currentTime = 0;
+  try { v.load(); } catch (e) { /* 忽略 */ }
+  const p = v.play();
+  if (p && p.catch) p.catch(() => {});
+}
+function bindIntroControls(t) {
+  document.querySelectorAll('input[name="dIntroMode"]').forEach(r => {
+    r.onchange = () => { refreshDetailIntroRow(); saveTaskMeta(t, true); };
+  });
+  refreshDetailIntroRow();
+  // 片头壁纸库：固定某张或回到随机；选中即写回 options 并自动保存
+  const wbtn = $('dIntroWallBtn');
+  if (wbtn) {
+    wbtn.onclick = () => {
+      if (!window.__wxPick || !window.__wxPick.openWallpaperPicker) { toast('壁纸库组件未加载（shared_picker.js）', true); return; }
+      window.__wxPick.openWallpaperPicker({
+        current: (t.options && t.options.intro_wallpaper) || '',
+        onPick: (p) => {
+          t.options = t.options || {};
+          t.options.intro_wallpaper = p || '';
+          const label = $('dIntroWallName');
+          if (label) label.textContent = p ? ('已固定：' + p.split('/').pop()) : '随机（每次渲染换一张）';
+          saveTaskMeta(t, true);
+        }
+      });
+    };
+  }
+  $('dIntroPreviewBtn').onclick = async () => {
+    const mode = detailIntroMode();
+    if (mode === 'none') { toast('先选「内置锁屏开场」或「上传片头」再预览', true); return; }
+    const path = (t.options && (t.options.intro_upload_path || t.options.intro_path)) || '';
+    if (mode === 'upload' && !path) { toast('请先上传片头视频', true); return; }
+    $('dIntroPreviewBtn').disabled = true;
+    $('dIntroPreviewBox').style.display = 'block';
+    $('dIntroPreviewHint').textContent = mode === 'upload' ? '正在加载上传的片头…' : '正在渲染内置开场（约十几秒）…';
+    try {
+      const r = await apiPost('/api/intro/preview', { mode: mode, path: path,
+        wallpaper: mode === 'builtin' ? ((t.options && t.options.intro_wallpaper) || '') : '' });
+      if (r && r.ok && r.url) {
+        showDetailIntroPreview(r.url, mode === 'upload'
+          ? '上传的片头（成片会在它结束、闪黑切进主视频那一刻补一记微信提示音）'
+          : '内置锁屏开场预览（用当前场景的联系人 / 消息 / 时钟）');
+      } else {
+        $('dIntroPreviewBox').style.display = 'none';
+        toast((r && r.msg) || '片头预览失败', true);
+      }
+    } catch (e) {
+      $('dIntroPreviewBox').style.display = 'none';
+      toast('片头预览失败：' + (e.message || e), true);
+    } finally {
+      $('dIntroPreviewBtn').disabled = false;
+    }
+  };
+  $('dIntroUploadBtn').onclick = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.webm,.mov,.m4v';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      if (f.size > 200 * 1024 * 1024) { toast('片头视频不能超过 200MB', true); return; }
+      toast('片头上传中 ' + (f.size / 1048576).toFixed(1) + 'MB，请稍候…');
+      fetch('/api/upload-video', {
+        method: 'POST',
+        headers: {
+          'Content-Type': f.type || 'application/octet-stream',
+          'X-File-Name': encodeURIComponent(f.name || 'intro.mp4'),
+          'X-Upload-Folder': 'intro'
+        },
+        body: f
+      }).then(r => r.json()).then(r => {
+        if (r && r.ok && r.path) {
+          t.options = t.options || {};
+          t.options.intro_path = r.path;         // 上传优先，替换内置
+          t.options.intro_upload_path = r.path;  // 记住路径，切来切去不丢
+          t.options.intro = false;
+          const up = document.querySelector('input[name="dIntroMode"][value="upload"]');
+          if (up) up.checked = true;
+          $('dIntroFileName').textContent = r.path.split('/').pop();
+          refreshDetailIntroRow();
+          saveTaskMeta(t, true);
+          toast('片头已上传：' + r.path);
+          $('dIntroPreviewBtn').click();
+        } else {
+          toast((r && r.msg) || '片头上传失败', true);
+        }
+      }).catch(e => toast('片头上传失败：' + e.message, true));
+    };
+    inp.click();
+  };
+  $('dIntroClearBtn').onclick = () => {
+    t.options = t.options || {};
+    t.options.intro_path = '';
+    t.options.intro_upload_path = '';
+    t.options.intro = false;
+    const none = document.querySelector('input[name="dIntroMode"][value="none"]');
+    if (none) none.checked = true;
+    $('dIntroFileName').textContent = '未选择';
+    $('dIntroPreviewBox').style.display = 'none';
+    $('dIntroPreviewVideo').removeAttribute('src');
+    refreshDetailIntroRow();
+    saveTaskMeta(t, true);
+    toast('已清除上传片头');
+  };
 }
 
 function imgPathFilled(v) {
   const t = String(v == null ? '' : v).trim();
   return !!t && (t.startsWith('/') || /^https?:/i.test(t));
+}
+// 「图片」参数是不是真实可用的图片路径（区别于大模型写下的找图描述/关键词）。
+// 描述词被当路径会让配图清单显示破图并误标「已配图」，故统一用它判定：
+// 非真实路径 -> path 置空（显示「待配图」+ 描述），描述原样留在参数里供找图。
+function isImgPathRef(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return false;
+  return s.startsWith('/') || s.startsWith('data:') || /^https?:/i.test(s)
+    || /^[a-zA-Z]:[\\/]/.test(s) || /[\\/]/.test(s)
+    || /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(s);
 }
 function stepSummary(p) {
   const keys = Object.keys(p || {});
@@ -603,6 +767,10 @@ function imageParamFor(step) {
   // 在步骤卡片 / 配图清单里给出上传槽，配哪张图运行时发哪张（不经过名字匹配选图）。
   const EMOJI_IMG_ACTIONS = new Set(['发送表情', '对方表情', '对方后台发表情']);
   if (EMOJI_IMG_ACTIONS.has(step && step.action)) return '表情';
+  // 链接卡片动作（我方发链接/对方发链接）：action_registry 里标了 editor:false（不需要在动作
+  // 面板里手动添加，只由剧本的 [链接] 行产出），所以查 /api/actions 查不到它们 —— 但卡片封面
+  // 就是一个要能配的图片参数。这里硬编码放行，与脚本模式（index.html 同名判断）口径一致。
+  if (step && (step.action === '我方发链接' || step.action === '对方发链接')) return '图片';
   const a = step && ACTIONS.find(x => x.action === step.action);
   if (!a) return null;
   if (!a.params.some(pp => pp.key === '图片')) return null;
@@ -689,39 +857,89 @@ function withStepOpenAccessors(slot, onChange) {
   return slot;
 }
 
+// 步骤上的「配图注释」：剧本里图片槽上方那行 # 注释（谁发·用途·效果·找图·呼应），
+// 离线解析时由 main.parse_script_text 带进 step.note。配图清单靠它回答
+// 「这张图是干嘛的」——以前只在剧本 txt 里，解析完就看不见了。
+function stepNote(step) { return (step && step.note) ? String(step.note) : ""; }
+
 // 收集一个任务里所有需要配图的步骤，生成配图清单槽位（供 renderAttachPanel 展示）。
 // 槽位带 step 引用，配图后写回该步的「图片」参数；desc 去掉 [图片] 前缀，只留下描述。
 function collectTaskImageSlots(t) {
   const slots = [];
+  // 朋友圈预览状态机：记「现在在看谁的朋友圈」，供 [点开图片] 预览「点开会是哪张图」。
+  let curChat = "", peerOpen = "", inMoments = false;
   (t.steps || []).forEach((step) => {
+    const act = step && step.action;
+    if (act === '打开聊天') { curChat = String((step.params || {})['联系人'] || ''); peerOpen = ''; inMoments = false; }
+    else if (act === '打开对方主页') { peerOpen = String((step.params || {})['对方'] || ''); }
+    else if (act === '进入对方朋友圈') { inMoments = true; }
+    else if (act === '返回主页' || act === '闪回聊天' || act === '退出朋友圈') { inMoments = false; }
+    else if (act === '点开图片') {
+      // [点开图片] 没有「图片」参数——运行时取「当前打开的朋友圈」里第 N 条第 M 张图。
+      // 给一个只读预览槽（previewOnly）：配图清单里直接显示那会点开哪张，用户不用再猜
+      // 「注释说点开她的图，到底是哪张」。
+      const seq = String((step.params || {})['序号'] || '1').trim();
+      const who = (inMoments && peerOpen) ? peerOpen : (peerOpen || curChat);
+      slots.push({
+        id: "mom_slot_" + slots.length, no: "图" + (slots.length + 1),
+        previewOnly: true, momPerson: who, momSeq: seq,
+        speaker: who ? (who + ' · 朋友圈') : '朋友圈',
+        desc: '点开朋友圈第 ' + seq + ' 张',
+        path: "",
+        note: stepNote(step)
+      });
+      return;
+    }
     // 插话里带「对方表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
     pushIjEmojiSlots(slots, step);
     const imgKey = imageParamFor(step);
     if (imgKey) {
       const params = step.params || {};
       let desc, path;
+      // 系统自动出图：槽位不写回剧本，只登记「运行时按什么名字取图」，
+      // 由 hydrateAutoPreviews 统一向后端要一次真实路径，配图清单里直接显示真图。
+      // 这样表情短名（喵星人01）、图库里已有的素材名就不会误报「未配图」。
+      let autoRef = "";
       const raw = params[imgKey] || "";
       if (imgKey === '表情') {
         // 表情动作（发送表情/对方表情/对方后台发表情）：参数存表情引用（短名或真实路径）。
-        // 只有真实路径才显示缩略图；文件名/短名显示「未配图」让用户上传自己的表情图。
-        // 上传后写回 params.表情，运行时按该路径直接发送（不经过名字匹配选图）。
-        path = (raw && (raw.startsWith('/') || /^https?:/i.test(raw) || /[\\/]/.test(raw) || /\.(png|jpe?g|gif|webp|bmp)$/i.test(raw))) ? raw : "";
+        // 真实路径＝用户上传的图，直接显示；短名＝运行时按名字自动取图库表情，解析出来预览。
+        const _isRealEmoji = !!(raw && (raw.startsWith('/') || /^https?:/i.test(raw) || /[\\/]/.test(raw) || /\.(png|jpe?g|gif|webp|bmp)$/i.test(raw)));
+        path = _isRealEmoji ? raw : "";
         desc = raw || '表情';
+        if (!_isRealEmoji) autoRef = String(raw || '').trim();
       } else {
         const md = markerToDesc(raw);
-        path = md !== null ? "" : raw;
+        const real = isImgPathRef(raw);
+        path = (md === null && real) ? raw : "";
         const content = params["内容"] !== undefined ? params["内容"] : (params["文案"] || "");
-        desc = (md !== null ? md : imgDesc(content)) || "图片消息";
-        // 链接卡片封面：图片参数是封面关键词（视频封面/封面…）、文件名或真实路径。
-        // 真实路径显示缩略图；关键词/文件名显示「未配图」让用户上传自己的封面。
+        // 描述优先取 [图片] 标记后的文字，其次取 内容/文案；
+        // 「图片」参数本身就写着找图描述时（大模型常见产物）直接拿它当描述。
+        desc = (md !== null ? md : imgDesc(content)) || (real ? "" : String(raw || "").trim()) || "图片消息";
+        if (!path) autoRef = String(md !== null ? md : (String(raw || '').trim() || desc)).trim();
+        // 链接卡片封面：图片参数是封面关键词（课程封面图/随机…）、文件名或真实路径。
+        // ★ 引用为空（剧本没写封面段，或写了「无 / -」）也照样给槽位——否则整条任务可能一个
+        //   槽都不剩、配图清单直接消失，用户根本没有地方提交封面。留空的槽标 optional，
+        //   不计入「未配图」提醒（运行时会按标题自动匹配封面）。
+        // ★ 解析落空的关键词（如「粥铺暖光门头」这类自由描述）同样给空槽，用户可手动上传。
         if (step.action === "我方发链接" || step.action === "对方发链接") {
-          if (raw === "") return;   // 无封面引用 -> 按标题自动匹配，不需要配图
-          path = (raw && md === null && (raw.startsWith("/") || /^https?:/i.test(raw))) ? raw : "";
-          desc = params["标题"] || raw || "链接封面";
+          const ref = String(raw || "").trim();
+          path = (ref && md === null && (ref.startsWith("/") || /^https?:/i.test(ref))) ? ref : "";
+          desc = params["标题"] || ref || "链接封面";
+          slots.push({
+            id: "tsk_slot_" + slots.length, no: "图" + (slots.length + 1),
+            desc, path, step, imgKey, note: stepNote(step),
+            linkCover: true,      // 写回时只动「图片」，不把标题塞进 内容（链接动作没有该参数）
+            linkTitle: String(params["标题"] || "").trim(),   // 封面留空时运行时按标题自动匹配
+            origRef: ref,         // 清除配图时还原成剧本里的原引用
+            autoRef: path ? "" : ref,                         // 有引用先按引用解析，空则后端按标题兜底
+            optional: true        // 未定封面：留空＝运行时按标题自动配图，不计入未配图提醒
+          });
+          return;
         }
       }
       slots.push(withStepOpenAccessors(
-        { id: "tsk_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step, imgKey },
+        { id: "tsk_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, autoRef, step, imgKey, note: stepNote(step) },
         () => { renderStepsBody(t); saveTaskMeta(t, true); }
       ));
       return;
@@ -742,6 +960,7 @@ function collectTaskImageSlots(t) {
               no: "图" + (slots.length + 1),
               speaker, desc,
               path: (m.image || "").trim(),
+              note: (m.note || ""),      // 历史块图片上方的 # 注释（如「占位图·不用找」）
               autoplayable: true,
               setPath: (p) => { m.image = p; },
               get open() { return m.open || ""; },
@@ -767,7 +986,25 @@ function collectTaskImageSlots(t) {
               speaker,
               desc: _desc,
               path: _isReal ? _raw : "",
+              note: (m.note || ""),
               emoji: true,
+              setPath: (p) => { m.image = p; },
+              onOptsChange: () => { renderStepsBody(t); saveTaskMeta(t, true); }
+            });
+          } else if (m.kind === "link") {
+            // 链接卡片封面：历史会话块里 [链接] 消息的 image 字段通常是封面关键词/短名
+            // （前端 config.js 会自动补 /images/link/ 前缀）。仅当已是真实路径时才直接
+            // 显示缩略图，否则交给 autoRef 走「系统自动出图」预览——与脚本模式一致。
+            const _raw = (m.image || "").trim();
+            const _isReal = _raw.startsWith("/") || /^https?:/i.test(_raw);
+            slots.push({
+              id: "hist_" + slots.length,
+              no: "图" + (slots.length + 1),
+              speaker,
+              desc: (m.title || m.text || m.image || conv.name || "链接封面"),
+              path: _isReal ? _raw : "",
+              autoRef: _isReal ? "" : _raw,
+              note: (m.note || ""),
               setPath: (p) => { m.image = p; },
               onOptsChange: () => { renderStepsBody(t); saveTaskMeta(t, true); }
             });
@@ -779,29 +1016,210 @@ function collectTaskImageSlots(t) {
   return slots;
 }
 
+// 有配图注释、但没有配图槽的图片步骤（点开的朋友圈图等）：素材不用用户准备，
+// 但注释写着「点开的是谁的哪条动态」，照样要能看到——收进配图清单的「不用配图的图」区。
+function collectTaskNoteLines(t) {
+  const out = [];
+  (t.steps || []).forEach((step) => {
+    const text = stepNote(step);
+    if (!text) return;
+    if (imageParamFor(step)) return;            // 有槽位的图，注释已显示在该槽位下方
+    if (step && step.action === "点开图片") return;   // 点图已收成「系统自动」预览槽，注释跟着槽位走
+    out.push({ label: step.action || "图", text });
+  });
+  return out;
+}
+
+/* ---------- 系统自动出图预览（并发页：解析完就能看见图，而不是一片「未配图」） ----------
+   三类图运行时本来就能自己取到，不该让用户以为还要准备：
+     ① 表情短名（喵星人01…）：运行时按名字取自图库表情包；
+     ② 图片找图描述：图库里已有同名素材时运行时直接取用；
+     ③ 链接卡片封面：引用为空时运行时按标题自动配封面。
+   另有只读预览：朋友圈 [点开图片] 取的是该人主页第 N 条第 M 张动态图。
+   解析结果只写 slot.previewPath（展示用），绝不写回剧本 —— 运行时仍按原引用取名。 */
+const _refPreviewCache = Object.create(null);   // 引用名 -> {path, kind}；'' 表示已问过且解析不到
+const _refPreviewTried = Object.create(null);   // 问过但接口异常的名字：记档，避免反复请求+反复重绘
+let _peerPresetsCache = null;                   // peer_presets.json 的 presets 段（主页动态）
+let _autoPreviewRedrawGuard = false;            // 重绘中标记：重绘期间不再触发重绘（防递归爆栈）
+
+async function _loadPeerPresets() {
+  if (_peerPresetsCache !== null) return _peerPresetsCache;
+  try {
+    const r = await api('/api/peer-presets');
+    _peerPresetsCache = (r && r.presets) || {};
+  } catch (e) { _peerPresetsCache = {}; }
+  return _peerPresetsCache;
+}
+
+// 朋友圈序号口径：写「2」=第2条第1张，写「2,3」=第2条第3张（与运行时一致）
+function _momentsImage(presets, person, seq) {
+  const p = presets && person ? presets[person] : null;
+  if (!p || !Array.isArray(p.posts) || !p.posts.length) return { path: '', note: '' };
+  const parts = String(seq || '1').split(/[,，]/);
+  const ni = Math.max(1, parseInt(parts[0], 10) || 1);
+  const mi = Math.max(1, parseInt(parts[1], 10) || 1);
+  const post = p.posts[ni - 1] || p.posts[0];
+  const imgs = (post && post.images) || [];
+  return {
+    path: imgs[mi - 1] || imgs[0] || '',
+    note: '第 ' + ni + ' 条动态「' + String((post && post.text) || '').slice(0, 16) + '」'
+  };
+}
+
+// 用现有缓存把预览同步填到槽位上（不请求、不重绘）。渲染面板前先跑一遍：
+// 命中缓存时第一帧就有图，不会「先显示未配图、再闪一下变有图」。
+function _fillAutoPreviews(slots) {
+  let changed = false;
+  const setP = (s, v) => { if (s.previewPath !== v) { s.previewPath = v; changed = true; } };
+  const setTag = (s, v) => { if (s.previewTag !== v) { s.previewTag = v; changed = true; } };
+  const setNote = (s, v) => { if (s.previewNote !== v) { s.previewNote = v; changed = true; } };
+  slots.forEach(s => {
+    if (!s || s.path) return;
+    if (s.previewOnly) {
+      if (_peerPresetsCache === null) return;              // 人设库还没到，等异步那一轮
+      const r = _momentsImage(_peerPresetsCache, s.momPerson, s.momSeq);
+      if (r.path) {
+        setP(s, r.path); setTag(s, '系统自动');
+        setNote(s, '运行时打开她的朋友圈自动取这张 · ' + r.note + '，无需准备');
+      } else {
+        setNote(s, '运行时按她主页动态取图（该联系人在人设库里没有动态，画面会是空框）');
+      }
+      return;
+    }
+    if (s.linkCover) {
+      const k = 'link::' + s.linkTitle + '::' + (s.autoRef || '');
+      const c = _refPreviewCache[k];
+      if (!c) return;
+      if (c.path) { setP(s, c.path); setTag(s, '系统自动'); setNote(s, '运行时按标题自动配封面，无需上传'); }
+      else setNote(s, '封面解析不到，运行时会渲染空方框（可手动配一张）');
+      return;
+    }
+    const key = String(s.autoRef || '');
+    if (!key) return;
+    const c = _refPreviewCache[key];
+    if (!c) return;
+    if (c.path) {
+      setP(s, c.path);
+      setTag(s, c.kind === 'sticker' ? '图库自动' : '图库有');
+      setNote(s, c.kind === 'sticker'
+        ? '运行时按名字自动取这张表情，无需上传'
+        : '图库已有同名素材，运行时自动取用（不用你找图）');
+    } else {
+      setNote(s, '图库里没有这张 —— 需要你上传，或改写成图库里已有的名字');
+    }
+  });
+  return changed;
+}
+
+async function hydrateAutoPreviews(t, slots, redraw) {
+  const keyOf = (s) => s.previewOnly ? '' : (s.linkCover
+    ? 'link::' + s.linkTitle + '::' + (s.autoRef || '')
+    : String(s.autoRef || ''));
+  const pending = slots.filter(s => {
+    if (!s || s.path || !keyOf(s)) return false;
+    const k = keyOf(s);
+    if (s.previewOnly) return _peerPresetsCache === null;      // 人设库未加载才算待办
+    return !_refPreviewCache[k] && !_refPreviewTried[k];
+  });
+  const needNames = Array.from(new Set(pending.filter(s => !s.linkCover && !s.previewOnly).map(s => s.autoRef)));
+  const needLinks = pending.filter(s => s.linkCover);
+  const needPresets = slots.some(s => s && !s.path && s.previewOnly) && _peerPresetsCache === null;
+  if (!needNames.length && !needLinks.length && !needPresets) return;
+
+  if (needNames.length || needLinks.length) {
+    try {
+      const qs = new URLSearchParams();
+      qs.set('names', needNames.join('\n'));
+      qs.set('links', needLinks.map(s => s.linkTitle + '\t' + (s.autoRef || '')).join('\n'));
+      const r = await api('/api/resolve-refs?' + qs.toString());
+      ((r && r.items) || []).forEach(it => { _refPreviewCache[it.name] = { path: it.path || '', kind: it.kind || '' }; });
+      ((r && r.links) || []).forEach(it => {
+        _refPreviewCache['link::' + it.title + '::' + (it.ref || '')] = { path: it.path || '', kind: 'cover' };
+      });
+    } catch (e) {
+      // 接口异常：本轮不写缓存（保持「待配图」），但记档避免每次重绘都重试造成卡顿。
+      needNames.forEach(n => { _refPreviewTried[n] = 1; });
+      needLinks.forEach(s => { _refPreviewTried['link::' + s.linkTitle + '::' + (s.autoRef || '')] = 1; });
+      return;
+    }
+    // 问过就记档：空路径＝图库里确实没有这张，需要用户上传（别再反复问）
+    needNames.forEach(n => { if (!_refPreviewCache[n]) _refPreviewCache[n] = { path: '', kind: '' }; });
+    needLinks.forEach(s => {
+      const k = 'link::' + s.linkTitle + '::' + (s.autoRef || '');
+      if (!_refPreviewCache[k]) _refPreviewCache[k] = { path: '', kind: 'cover' };
+    });
+  }
+  if (needPresets) await _loadPeerPresets();
+  const changed = _fillAutoPreviews(slots);
+  // 只有「这轮真的填进了新东西」才重绘一次；重绘期间上锁，避免 renderTaskAttach→hydrate→重绘 无限递归。
+  if (changed && !_autoPreviewRedrawGuard) {
+    _autoPreviewRedrawGuard = true;
+    try { redraw(); } finally { _autoPreviewRedrawGuard = false; }
+  }
+}
+
+/* 打开朋友圈预览：内嵌真实前端（/wxpv/），按该任务的剧本演示朋友圈段。
+   数据源与运行时一致：[编辑对方资料]/人设库 出对方朋友圈，[编辑朋友圈]/scene.json 出我的朋友圈。 */
+async function openTaskMomentsPreview(t) {
+  const P = window.__wxMomentsPreview;
+  if (!P) { alert('朋友圈预览模块（moments_preview.js）没加载成功。'); return; }
+  const d = P.detect(t.steps);
+  if (!d.any) { alert('该任务里没有朋友圈动作。'); return; }
+  let scene = {};
+  try { scene = await api('/api/scene'); } catch (e) { scene = {}; }
+  if (!scene || typeof scene !== 'object') scene = {};
+  let presets = {};
+  try { presets = ((await api('/api/peer-presets')) || {}).presets || {}; } catch (e) { presets = {}; }
+  const ov = P.extractDataOverrides(t.steps);
+  if (ov.moments) scene.moments = ov.moments;
+  if (ov.peer) scene.peer = ov.peer;
+  P.open({ steps: t.steps, segments: d.segments, scene, presets });
+}
+
 function renderTaskAttach(t) {
   const box = $("taskAttach");
   if (!box || !window.__wxPick) return;
   const slots = collectTaskImageSlots(t);
-  if (!slots.length) { box.style.display = "none"; box.innerHTML = ""; return; }
+  const notes = collectTaskNoteLines(t);
+  if (!slots.length && !notes.length) { box.style.display = "none"; box.innerHTML = ""; return; }
   box.style.display = "";
+  _fillAutoPreviews(slots);        // 渲染前先用缓存填好「系统自动出图」预览（命中时一帧到位，不闪）
   window.__wxPick.renderAttachPanel(box, slots, (id, path) => {
     const s = slots.find(x => x.id === id);
     if (!s) return;
     if (s.setPath) {
       s.setPath(path || "");       // 历史会话块的图片：写回消息的 image 字段
     } else if (s.step) {
-      s.step.params = s.step.params || {};
+      const params = s.step.params = (s.step.params || {});
       // 只写图片路径，不改内容里的 [图片] 标记——保留标记才能保证清图后仍被识别为图片消息
       // 表情步骤若只有 图片 key（AI 手写）就沿用 图片 写回，避免空 表情 顶掉真值
       let k = s.imgKey;
-      if (k === '表情' && s.step.params['表情'] === undefined && s.step.params['图片'] !== undefined) k = '图片';
-      s.step.params[k] = path || "";
+      if (k === '表情' && params['表情'] === undefined && params['图片'] !== undefined) k = '图片';
+      if (s.linkCover) {
+        // 链接卡片封面：只写/还原「图片」引用。链接动作没有「内容」参数，
+        // 若照普通图片槽的留档逻辑会把标题写进 params.内容，污染步骤参数。
+        params['图片'] = path || s.origRef || "";
+      } else {
+        // 配图前 params[k] 里是「找图描述」：配上路径会把它顶掉、清单只剩「图片消息」，
+        // 所以先把描述挪进 内容 留档；清空配图时再还回 params[k]。
+        const _desc = (k !== '表情' && s.desc && s.desc !== "图片消息") ? s.desc : "";
+        if (path) {
+          const old = params['内容'];
+          if (_desc && (old === undefined || old === "" || old === _desc)) params['内容'] = _desc;
+          params[k] = path;
+        } else {
+          if (_desc && params['内容'] === _desc) delete params['内容'];
+          params[k] = _desc;
+        }
+      }
     }
     s.path = path || "";
     renderStepsBody(t);          // 只刷新步骤列表缩略图，不重建配图面板
     saveTaskMeta(t, true);
-  });
+  }, notes);
+  // 解析完立刻把「运行时系统会自动出图」的槽显示成真图
+  //（表情短名 / 图库已有素材 / 链接封面 / 朋友圈点图），用户不用为这些图准备素材。
+  hydrateAutoPreviews(t, slots, () => renderTaskAttach(t));
 }
 
 /* ---------- 运行选项默认值持久化（本地记忆，新建任务自动沿用） ---------- */
@@ -812,17 +1230,22 @@ function loadBatchDefaults() {
     return {
       typing_speed: isFinite(Number(d.typing_speed)) ? Number(d.typing_speed) : 30,
       intro: !!d.intro,
+      intro_path: (typeof d.intro_path === 'string' ? d.intro_path : '') || '',
+      intro_upload_path: (typeof d.intro_upload_path === 'string' ? d.intro_upload_path : '') || '',
       bgm: d.bgm !== false,
       bgm_path: (typeof d.bgm_path === 'string' ? d.bgm_path : '') || '',
     };
   } catch (e) {
-    return { typing_speed: 30, intro: false, bgm: true, bgm_path: '' };
+    return { typing_speed: 30, intro: false, intro_path: '', intro_upload_path: '',
+             bgm: true, bgm_path: '' };
   }
 }
 function rememberBatchDefaults(opt) {
   const d = {
     typing_speed: isFinite(Number(opt.typing_speed)) ? Number(opt.typing_speed) : 30,
     intro: !!opt.intro,
+    intro_path: (typeof opt.intro_path === 'string' ? opt.intro_path : '') || '',
+    intro_upload_path: (typeof opt.intro_upload_path === 'string' ? opt.intro_upload_path : '') || '',
     bgm: opt.bgm !== false,
     bgm_path: (typeof opt.bgm_path === 'string' ? opt.bgm_path : '') || '',
   };
@@ -843,13 +1266,16 @@ function renderStepsBody(t) {
     let imgHtml = '';
     if (imgKey) {
       const cur = (s.params && s.params[imgKey]) || '';
-      imgHtml = '<button type="button" class="imgslot' + (imgPathFilled(cur) ? ' ok' : ' need') + '" data-step="' + i + '" data-act="pickimg" title="' +
+      // 只有真实可用的图片地址才渲染缩略图：封面关键词/找图描述（如「粥铺暖光门头」「随机」）
+      // 直接当 src 会请求 /粥铺暖光门头 这类假地址、拿到 404 破图。这类值只留在 title 里做提示。
+      const curOk = imgPathFilled(cur) || /^data:/i.test(cur);
+      imgHtml = '<button type="button" class="imgslot' + (curOk ? ' ok' : ' need') + '" data-step="' + i + '" data-act="pickimg" title="' +
         (cur ? esc(cur) : '点击选一张图（也可在下方配图清单批量上传）') + '">' +
-        (cur ? '<img src="' + esc(cur) + '">' : '<span class="nopic">📷</span>') +
+        (curOk ? '<img src="' + esc(cur) + '">' : '<span class="nopic">📷</span>') +
       '</button>';
     }
     const rowFilled = imgKey ? imgPathFilled((s.params || {})[imgKey]) : false;
-    return '<div class="step-row' + (imgKey ? (' img' + (rowFilled ? ' filled' : '')) : '') + '" data-step="' + i + '">' +
+    const row = '<div class="step-row' + (imgKey ? (' img' + (rowFilled ? ' filled' : '')) : '') + '" data-step="' + i + '">' +
       '<span class="no">' + (i + 1) + '</span>' +
       '<span class="act">' + esc(s.action || '?') + '</span>' +
       (imgKey ? '<span class="need' + (rowFilled ? ' ok' : '') + '">' + (rowFilled ? '已配图' : '待配图') + '</span>' : '') +
@@ -857,6 +1283,9 @@ function renderStepsBody(t) {
       imgHtml +
       '<button data-act="edit">编辑</button>' +
       '<button data-act="del" title="删除这一步">×</button></div>';
+    // 配图注释内联展示：这张图是干嘛的、去哪找——解析完当场就能看到，不用翻剧本原文
+    const note = s.note ? '<div class="step-note" title="' + esc(s.note) + '">📌 ' + esc(s.note) + '</div>' : '';
+    return row + note;
   }).join('');
 
   el.querySelectorAll('.step-row').forEach(row => {
@@ -919,7 +1348,16 @@ async function saveTaskMeta(t, silent) {
       t.options.typing_speed = isFinite(spv) && spv >= 0.1 ? spv : t.options.typing_speed;
     }
     if (onScreen && $('dBgmPath')) t.options = t.options || {}, t.options.bgm_path = $('dBgmPath').value.trim();
-    if (onScreen && $('dIntro')) t.options = t.options || {}, t.options.intro = $('dIntro').checked;
+    if (onScreen && document.querySelector('input[name="dIntroMode"]:checked')) {
+      t.options = t.options || {};
+      const im = detailIntroMode();
+      // 记忆字段：优先用已有的，其次把老任务/API 建的任务里的 intro_path 补记进来。
+      // intro_path 由「模式 + 记忆」反推，切到内置/不加也能切回来（路径不会丢）。
+      const saved = String(t.options.intro_upload_path || t.options.intro_path || '');
+      if (saved) t.options.intro_upload_path = saved;
+      t.options.intro = (im === 'builtin');
+      t.options.intro_path = (im === 'upload') ? saved : '';
+    }
     if (onScreen && $('dBgm')) t.options = t.options || {}, t.options.bgm = $('dBgm').checked;
     rememberBatchDefaults(t.options);
     const res = await apiPost('/api/tasks/' + t.id, {
@@ -963,7 +1401,8 @@ async function parseTask(id, offline) {
 async function runTask(id) {
   const t = tasks.find(x => x.id === id);
   if (t && !(t.steps || []).length) { toast('请先解析剧本再运行', true); return; }
-  const missing = t ? collectTaskImageSlots(t).filter(s => !s.path).length : 0;
+  // optional 槽（链接封面留空＝按标题自动配图）不算未配图，避免误报
+  const missing = t ? collectTaskImageSlots(t).filter(s => !s.path && !s.optional).length : 0;
   if (missing) toast('提醒：还有 ' + missing + ' 张图片未配图，运行会得到空图，建议先在下「配图清单」补图', true);
   try {
     const res = await apiPost('/api/tasks/' + id + '/run', {});
@@ -1072,7 +1511,7 @@ async function pollStatus() {
 /* ---------- 批量操作 ---------- */
 async function runSelected(ids) {
   const target = tasks.filter(x => ids.includes(x.id));
-  const missing = target.reduce((n, x) => n + (x ? collectTaskImageSlots(x).filter(s => !s.path).length : 0), 0);
+  const missing = target.reduce((n, x) => n + (x ? collectTaskImageSlots(x).filter(s => !s.path && !s.optional).length : 0), 0);
   if (missing) toast('提醒：这些任务里还有 ' + missing + ' 张图片未配图，运行会得到空图', true);
   const res = await apiPost('/api/tasks/run-selected', { ids });
   if (res.ok) {
@@ -1574,6 +2013,7 @@ compressHints(document.body);
 })();
 </script>
 <script src="/shared_picker.js"></script>
+<script src="/moments_preview.js"></script>
 <script>
 /* 图片库与选图器共用同一份分类数据：分类被改名/新增后，把本页图库一并刷新 */
 (function () {

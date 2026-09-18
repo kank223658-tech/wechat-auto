@@ -1,0 +1,31 @@
+{
+  "mode": "wx",
+  "bgm_path": "/longimg-assets/ref_bgm.wav",
+  "meta": {
+    "peer_name": "小雅",
+    "peer_avatar": "/images/avatar/dygirl_47.jpg",
+    "my_avatar": "/images/avatar/男_竹林幽经.jpg",
+    "badge": "99"
+  },
+  "blocks": [
+    {"side": "peer", "text": "我们还是分手吧", "note": "缺乏安全感"},
+    {"side": "peer", "text": "我坚持不下去了", "note": "判断真假"},
+    {"side": "me", "text": "认真的？", "note": "先试探一下"},
+    {"side": "peer", "text": "嗯", "note": "态度冷淡"},
+    {"side": "me", "text": "如果明天下雨 我就同意你的决定", "note": "出其不意 不按逻辑出牌"},
+    {"side": "peer", "text": "纠结了很长时间", "note": "矛盾是女生的常态"},
+    {"side": "peer", "text": "所以长痛不如短痛", "note": "没人带领就会失去方向"},
+    {"side": "me", "text": "就像生了一场小感冒", "note": "继续带"},
+    {"side": "me", "text": "我们一起处理", "note": "补充安全感"},
+    {"side": "peer", "text": "是我太任性了只顾着自己瞎想", "note": "态度有所缓和"},
+    {"side": "me", "text": "难受的时候你还有我 而不是自己消化"},
+    {"side": "me", "text": "我们之后都要好好的"},
+    {"side": "peer", "text": "也许吧"},
+    {"side": "me", "text": "要是累了就多给我说说", "note": "引导倾诉"}
+  ],
+  "ending": {"note": "下课 遇到不会聊的女生就来找我吧", "color": "red"},
+  "bgm": {"path": "", "fade_out": 1.2},
+  "intro": {"blocks": 2},
+  "pace": {"glide": 0.36, "max_step": 3.5, "tail_hold": 2.2, "min_gap": 1.15},
+  "quality": {"supersample": 2.0}
+}

@@ -134,10 +134,11 @@ body, #app { background: #181818 !important; }
 #wx-header .center > span { color: #d8d8d8 !important; font-size: 25px !important; font-weight: 500 !important; }
 #wx-header .center .parentheses { color: #d8d8d8 !important; }
 #wx-header .wx-header-count { color: #d8d8d8 !important; font-size: 25px !important; font-weight: 500 !important; }
-/* 隐藏原「⋯／＋」图标实体（改为 JS 注入 #wx-home-plus 承载加号十字线） */
+/* 隐藏原「⋯／＋」图标实体（改为 JS 注入 #wx-home-plus 承载加号十字线）。
+   聊天页除外：右上角「···」(icon-chat-friends) 是真机样式，必须保留显示。 */
 #wx-header .other { position: relative !important; }
 #wx-header .other .icon-tips-jia,
-#wx-header .other .iconfont { display: none !important; }
+body:not(.wx-chat) #wx-header .other .iconfont { display: none !important; }
 /* 加号按钮：外圆 31×31，边框 2px #B8B8B8，内部 2px 十字线。append 到 body，
    position:fixed 使其相对画布(视口)定位：圆心 (557,115)。 */
 #wx-home-plus {
@@ -389,6 +390,9 @@ body, #app { background: #181818 !important; }
 #wechat .wechat-list .list-row:nth-child(7) { top: 660px !important; }
 #wechat .wechat-list .list-row:nth-child(8) { top: 770px !important; }
 #wechat .wechat-list .list-row:nth-child(9) { top: 880px !important; }
+/* 第 10 行 = 删除补位行：整体在屏幕外（容器 930px 只到 1162），平时不可见；
+   删除联系人时 block_ui 会把这一行的内容搬进空出的行，列表不漏空 */
+#wechat .wechat-list .list-row:nth-child(10) { top: 990px !important; }
 
 /* ============================================================
    六、右侧悬浮胶囊（被屏幕右边缘裁切）

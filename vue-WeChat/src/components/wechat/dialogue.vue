@@ -25,7 +25,10 @@
                 <div class="msg-time" v-if="showTime(index, item)" :key="'t'+index">{{dividerText(item)}}</div>
                 <!-- 系统提示（撤回/群公告等）：无头像的居中灰字条 -->
                 <div class="msg-system" v-if="item.system" :key="'s'+index">{{item.system}}</div>
-                <div class="row clearfix" v-else :class="{self: isSelf(item.name)}" :key="index">
+                <!-- 空气泡防护：无任何内容（text/image/emoji/voice/transfer/link 全空）
+                     的消息行不渲染——无历史会话时 config.js 的兜底占位消息
+                     （仅供主页列表预览取值）不该在聊天页画出一个空气泡。 -->
+                <div class="row clearfix" v-else-if="hasContent(item)" :class="{self: isSelf(item.name)}" :key="index">
                     <img :src="item.headerUrl" class="header">
                     <p class="text msg-image" v-if="item.image"><img :src="item.image"></p>
                     <p class="text msg-emoji" :class="{'msg-wxemoji': item.emoji && item.emoji.indexOf('/wxemoji3d/') > -1}" v-else-if="item.emoji"><img :src="item.emoji"></p>
@@ -117,8 +120,13 @@
             })
         },
         mounted() {
-            // 聊天页像素级覆盖（chat_exact.css）作用域标记：进入聊天页时挂到 body
+            // 聊天页像素级覆盖（chat_exact.css）作用域标记：进入聊天页时挂到 body。
+            // 同时登记 owner（组件 uid）：返回主页后 wx-chat 延迟到离场动画结束才摘，
+            // 若期间又打开了新聊天，新组件会刷新 owner 并清掉残留的 wx-chat-persist，
+            // 旧组件的兜底回调见 uid 不是自己的就跳过，不会误摘新聊天页的类。
+            window.__wxDlgUid = this._uid;
             document.body.classList.add('wx-chat');
+            document.body.classList.remove('wx-chat-persist');
             // 注入聊天页专属结构：未读胶囊 / 三点悬浮胶囊 / 输入框麦克风 / 状态栏定位图标
             try {
                 if (window.__wxChatPage) window.__wxChatPage.mount();
@@ -150,9 +158,28 @@
             // 摘掉聊天页专属注入结构（右侧三点胶囊），避免返回主页后残留
             const pill = document.getElementById('chat-right-pill');
             if (pill) pill.remove();
-            // 延后到下一帧再摘掉 wx-chat：保证整段离场动画期间聊天页仍保持精修样式，
-            // 不会被回退成未精修布局或让贴纸失去尺寸约束（产生巨大笑脸）。
-            requestAnimationFrame(() => document.body.classList.remove('wx-chat'));
+            // ⚠️ wx-chat 必须撑满整段离场动画（wxSlideOutRight .34s）再摘。
+            // 旧实现 rAF 只延了 1 帧：动画刚开始 body.wx-chat 就被移除，
+            // chat_exact.css 里几百条 body.wx-chat 作用域的精修规则集体失效 →
+            // 滑出中的聊天页当场重排：气泡压缩、内容变矮、scrollTop 被钳回顶部，
+            // 成片里出现「整段会话从第一条挤在一屏」的假画面（应为滚动态原样滑出）。
+            // 做法：监听离场动画 animationend + 450ms 兜底；owner 标记防止
+            // 「刚返回又立刻打开新聊天」时旧组件的定时回调摘掉新聊天的类。
+            const myUid = this._uid;
+            const el = this.$el;
+            // 全局规则（主页控件显隐/状态栏样式）已改为 :not(.wx-chat-persist)，
+            // 加上本类后它们照旧立即切回主页态；聊天页内容规则则撑满整段动画。
+            if (window.__wxDlgUid === myUid) {
+                document.body.classList.add('wx-chat-persist');
+            }
+            const dropWxChat = () => {
+                if (window.__wxDlgUid !== myUid) return;   // 新聊天页已接管，不动
+                document.body.classList.remove('wx-chat');
+                document.body.classList.remove('wx-chat-persist');
+                if (el) el.removeEventListener('animationend', dropWxChat);
+            };
+            if (el) el.addEventListener('animationend', dropWxChat);
+            setTimeout(dropWxChat, 450);
         },
         computed: {
             msgInfo() {
@@ -268,6 +295,12 @@
                     return '<img class="wx-inline-emoji" src="/images/wxemoji3d/' + file + '" alt="' + name + '">';
                 });
                 return '<span class="wx-rt">' + html + '</span>';
+            },
+            // 空气泡防护：消息行有任意可见内容才渲染（system 条另行判断）
+            hasContent(item) {
+                return !!(item && (item.image || item.emoji || item.voice ||
+                    item.transfer || item.link ||
+                    String(item.text == null ? '' : item.text).trim() !== ''));
             },
             // 判断该消息是否是「我」发的：按名字与配置里的我的昵称比较，决定气泡靠右(绿色)
             isSelf(name) {

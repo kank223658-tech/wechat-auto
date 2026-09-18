@@ -105,6 +105,30 @@
         font-size: 15px; color: rgba(255, 255, 255, .78);
         letter-spacing: .5px; line-height: 1.2;
       }
+      /* ---- 已接收态卡片（参考 f_238）：暗橙 #a66123 + 半透明白文字/图标 ----
+         由 transfer_detail.js 在收款后给卡片加 .tf-accepted（收发双方卡通用） */
+      .row .text.msg-transfer.tf-accepted,
+      .row.self .text.msg-transfer.tf-accepted,
+      body.wx-chat .dialogue-section .row .text.text.msg-transfer.tf-accepted,
+      body.wx-chat .dialogue-section .row.self .text.text.msg-transfer.tf-accepted {
+        background: #a66123 !important;
+      }
+      .row .text.msg-transfer.tf-accepted .tf-amount,
+      .row.self .text.msg-transfer.tf-accepted .tf-amount,
+      body.wx-chat .dialogue-section .row .text.text.msg-transfer.tf-accepted .tf-amount,
+      body.wx-chat .dialogue-section .row.self .text.text.msg-transfer.tf-accepted .tf-amount,
+      .row .text.msg-transfer.tf-accepted .tf-title,
+      .row.self .text.msg-transfer.tf-accepted .tf-title,
+      body.wx-chat .dialogue-section .row .text.text.msg-transfer.tf-accepted .tf-title,
+      body.wx-chat .dialogue-section .row.self .text.text.msg-transfer.tf-accepted .tf-title {
+        color: rgba(255, 255, 255, .38) !important;
+      }
+      .row .text.msg-transfer.tf-accepted .tf-badge,
+      .row.self .text.msg-transfer.tf-accepted .tf-badge,
+      body.wx-chat .dialogue-section .row .text.text.msg-transfer.tf-accepted .tf-badge,
+      body.wx-chat .dialogue-section .row.self .text.text.msg-transfer.tf-accepted .tf-badge {
+        color: rgba(255, 255, 255, .34) !important;
+      }
       /* 我方/对方转账卡片气泡尖角（同款橙色，双方样式一致） */
       .row.self .text.msg-transfer:before {
         border-left-color: #df8d37 !important;
@@ -291,7 +315,8 @@
       body.wx-chat.wx-emoji-open .component-dialogue-bar-person .icon-dialogue-jianpan,
       body.wx-chat.wx-emoji-open .component-dialogue-bar-person .expression,
       body.wx-chat.wx-emoji-open .component-dialogue-bar-person .more {
-        top: calc(22px + var(--chat-grow, 0px)) !important;
+        top: calc(21.3px + var(--chat-grow, 0px)) !important;
+        transition: top .22s cubic-bezier(.25, .46, .45, .94) !important;
       }
       /* 消息区高度：消息区底边 = 输入栏顶边（真机：面板打开时消息区压缩、最后一条贴输入栏，不穿透面板）。
          旧式为 552 - (面板高-键盘513)，会把消息区底伸到输入栏/面板里，文字「透出来」。
@@ -300,7 +325,7 @@
       body.wx-chat.wx-emoji-open .dialogue-section {
         height: calc(100% - 71px - var(--chat-grow, 0px) - var(--emoji-h, 583px) - var(--chat-bar-base, 86px)) !important;
       }
-      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .chat-way { top: 12px !important; }
+      body.wx-chat.wx-emoji-open .component-dialogue-bar-person .chat-way { top: 10.7px !important; }
       body.wx-chat.wx-emoji-open .component-dialogue-bar-person .chat-say { top: 12px !important; }
       /* 表情面板打开时，输入栏右侧「笑脸键」换成「键盘键」（再点一下回到键盘；对齐参考视频）。
          用的就是你提供的键盘图标原图 kb_circle.png（已不再自己画，手绘 kb_circle.svg 已删除）。 */
@@ -1139,10 +1164,13 @@
         document.body.style.setProperty('--emoji-h', panelH + 'px');
         // 收起键盘，但跳过消息区高度动画（表情面板接管消息区高度），
         // 避免「键盘收起先把消息区弹回、面板再压缩」的两段跳动。
+        // ★ 先挂 wx-emoji-open 再收键盘（2026-09-15）：keyboard._animKb 收起分支要靠
+        //   这个类把 footer 的 rAF 目标从「屏底收起位 0」改判成「面板顶 -emoji-h」，
+        //   顺序反了 footer 会被逐帧压回屏底、面板到位后才追上来（面板已到位输入栏没跟上）。
+        document.body.classList.add('wx-emoji-open');
         try {
             if (window.__wxKeyboard && window.__wxKeyboard.hide) window.__wxKeyboard.hide({ keepSection: true });
         } catch (e) { /* 忽略 */ }
-        document.body.classList.add('wx-emoji-open');
         // 同帧起步：先强制 reflow 提交 translateY(100%) 起始态，再立刻加 open，
         // 让面板滑入与键盘下滑同一帧开始，交叉才均匀（双 rAF 会让面板晚 ~一帧）。
         void panel.offsetHeight;
@@ -1166,14 +1194,24 @@
                「先沉回聊天底部、再升起来」的两段跳。 */
             if (after === 'kb' && window.__wxPanels && window.__wxPanels.set) {
                 _draftBarRemove();
-                if (window.__wxPanels.set('kb')) { if (cb) setTimeout(cb, 160); return; }
+                if (window.__wxPanels.set('kb')) {
+                    /* 面板切换的 CSS 过渡 = panel_switch 的 DUR(230ms) + 40ms settle；
+                       到这一刻整段「表情包动画」才算真正跑完，给 Python 侧打信号收口
+                       （替代按老预算的固定盲等——滑入已提速、.ep-picked 又是空规则，
+                       老预算会多等约 1s 死时间，正是「发完表情包停一下才打字」的真凶）。 */
+                    setTimeout(() => { window.__wxEmojiSeqDone = performance.now(); }, 280);
+                    if (cb) setTimeout(cb, 160);
+                    return;
+                }
             }
             document.body.classList.remove('wx-emoji-open');
             panel.classList.remove('open');
-            // 面板收起，消息区高度恢复：内容贴底跟随下落（文字「落下」）。内容不铺满则锚顶。
+            // 面板收起，消息区高度恢复：内容底跟随下落（文字「落下」）。内容不铺满则锚顶。
             _pinSectionBottom(300);
             _draftBarRemove();
             setTimeout(() => { if (panel.parentNode) panel.parentNode.removeChild(panel); }, 360);
+            /* 收起分支：面板下滑 130ms + 节点移除 360ms，取 380ms 作为整段收尾时刻 */
+            setTimeout(() => { window.__wxEmojiSeqDone = performance.now(); }, 380);
             if (cb) setTimeout(cb, 160);
         }
     }
@@ -1350,8 +1388,8 @@
        chat_exact.css），发送清空后自动回落。键盘展开（wxkb-open）与
        表情面板打开（wx-emoji-open）两种展开态都生效。
        ============================================================ */
-    const _GROW_BASE = 61;        // 必须与 --chat-box-base 一致
-    const _GROW_LN_H = 38;        // 必须与 --chat-ln-h 一致
+    const _GROW_BASE = 60.5;      // 展开态单行框高，与 --chat-kb-box-base 一致（参考实测 60.5）
+    const _GROW_LN_H = 31;        // 展开态行高，与 --chat-kb-ln-h 一致
     const _GROW_MAX_LINES = 6;    // 达到该行数前输入框持续长高（真实微信“一直上移”），超出才转内部滚动
     const _growDoc = () => document.documentElement;
 
@@ -1371,12 +1409,22 @@
     const _resetChatGrow = () => _growDoc().style.setProperty('--chat-grow', '0px');
 
     /* 消息区滚到底：仅当内容溢出可视区(历史铺满)才滚，贴住输入栏；
-       未溢出时保持顶部锚定，键盘弹出只压缩底部空区，不把消息/头部往上顶。 */
+       未溢出时保持顶部锚定，键盘弹出只压缩底部空区，不把消息/头部往上顶。
+       ★ 2026-09-14 修「多行输入框顶住上方气泡」：grow 变化时消息区高度走 .18s CSS 过渡，
+       旧实现只在这一瞬间钉一次 scrollTop——此刻高度还没缩到位，scrollTop 被钳在旧的
+       最大值上，气泡被长高的输入栏盖住；要等下一次 body class 变化等偶然触发才补滚，
+       观感就是「气泡过一会儿自己上弹」。改为 280ms 贴底钉住窗口：过渡期间每帧把
+       scrollTop 钉到新底，气泡与输入栏顶的 16px 间隔全程保持，动画结束自然停准。 */
     const _scrollChatSection = () => {
         const sec = document.querySelector('.dialogue-section');
         if (!sec || !(sec.scrollHeight > sec.clientHeight)) return;
         sec.scrollTop = sec.scrollHeight;
-        requestAnimationFrame(() => { sec.scrollTop = sec.scrollHeight; });
+        const t0 = performance.now();
+        const pin = () => {
+            if (sec.scrollHeight > sec.clientHeight) sec.scrollTop = sec.scrollHeight;
+            if (performance.now() - t0 < 280) requestAnimationFrame(pin);
+        };
+        requestAnimationFrame(pin);
     };
 
     /* 根据文字是否为空，给 .chat-way 加/去 has-text（驱动麦克风渐隐、输入框变全宽） */
@@ -1392,13 +1440,33 @@
         if (!_chatBarExpanded()) { _resetChatGrow(); return; }
         const ta = _chatGrowInput();
         if (!ta) { _resetChatGrow(); return; }
+        /* 收起图标点击后的挂起态：框保持单行，清空文字或再次输入才恢复 */
+        if (window.__wxKbCollapseHold) {
+            if (!(ta.value || '').trim()) { window.__wxKbCollapseHold = false; }
+            else { _resetChatGrow(); return; }
+        }
         ta.style.setProperty('height', 'auto', 'important');   // 释放固定高再量内容
+        /* 量高时统一用"多行态"上内边距(10.5)：单行态是 14.2（垂直居中），
+           若按当前内边距量，1→2 行那一下会多算出 3.7px，下一帧再被纠回来 → 框高抖动。 */
+        ta.style.setProperty('padding-top', '10.5px', 'important');
         const needed = ta.scrollHeight || 0;
+        ta.style.removeProperty('padding-top');
         /* 封顶高度 = 单行基线 + (最大行数-1)*行高 */
         const maxH = _GROW_BASE + (_GROW_MAX_LINES - 1) * _GROW_LN_H;
         const h = Math.min(needed, maxH);
-        const grow = Math.max(0, Math.round(h - _GROW_BASE));
+        /* 单行态特判（2026-09-13 复核）：单行时 scrollHeight 被 min-height(60.5) 撑到 61，
+           直接相减四舍五入会得到 1px 的"假增高"——框底从参考的 774.4 掉到 775.8，
+           而且 grow≠0 会让下面把 --chat-kb-pt 判成"多行"（10.5 而非 14.2），
+           单行文字整体偏高 3.7px（实测字形顶 729，参考 734）。
+           needed 不足"单行基线 + 1.5"即视为单行（两行最少也要 85+，不会误判）。 */
+        let grow = Math.round(h - _GROW_BASE);
+        if (needed <= _GROW_BASE + 1.5) grow = 0;
+        grow = Math.max(0, grow);
         _growDoc().style.setProperty('--chat-grow', grow + 'px');
+        /* 单行态（grow=0）框被 min-height 撑高，文字需下移 3.7px 才与参考的垂直居中一致 */
+        _growDoc().style.setProperty('--chat-kb-pt', grow === 0 ? '14.2px' : '10.5px');
+        /* ≥3 行时显示输入框左上角“收起”小图标（参考视频行为；3 行 grow=56） */
+        document.body.classList.toggle('wx-kb-tall', grow >= 55);   /* 3行态 grow=59 即显示（参考视频：≥3行出现） */
         /* 超过封顶行数 → 内部滚动，否则交给盒子高度（隐藏内部滚动条） */
         ta.style.setProperty('overflow-y', needed > maxH ? 'auto' : 'hidden', 'important');
         ta.style.removeProperty('height');                     // 让 CSS calc 决定最终高度
@@ -1412,7 +1480,10 @@
         _growHooked = true;
         document.addEventListener('input', (e) => {
             const t = e.target;
-            if (t && t.classList && t.classList.contains('chat-txt')) _recalcChatGrow();
+            if (t && t.classList && t.classList.contains('chat-txt')) {
+                window.__wxKbCollapseHold = false;   /* 再次输入解除收起挂起 */
+                _recalcChatGrow();
+            }
         }, true);
         document.addEventListener('focusin', (e) => {
             const t = e.target;
@@ -1480,17 +1551,23 @@
                 pill.innerHTML = '<i></i><i></i><i></i>';
                 document.body.appendChild(pill);
             }
-            /* 2b. 左上角“收起键盘”小图标（键盘展开时显示，点击收起键盘） */
+            /* 2b. 左上角“收起”小图标（输入框 ≥3 行时出现，贴框左上；参考视频逐帧实测）。
+               贴图 collapse_cut.png 为参考视频原帧多帧平均裁切，非手绘。
+               点击 = 输入框回落单行（文字保留，真实微信行为），再次输入自动恢复长高。 */
             if (!document.getElementById('chat-kb-collapse')) {
                 const kb = document.createElement('span');
                 kb.id = 'chat-kb-collapse';
                 kb.className = 'chat-kb-collapse';
-                kb.textContent = '∨';   /* 收起键盘的向下 chevron */
+                kb.innerHTML = '<img src="/images/chatbar/collapse_cut.png" alt="收起">';
                 kb.addEventListener('click', () => {
-                    try { if (window.__wxKeyboard && window.__wxKeyboard.hide) window.__wxKeyboard.hide(); }
-                    catch (e) { /* 忽略 */ }
+                    try {
+                        window.__wxKbCollapseHold = true;   /* 挂起：输入框保持单行 */
+                        document.documentElement.style.setProperty('--chat-grow', '0px');
+                        document.body.classList.remove('wx-kb-tall');
+                    } catch (e) { /* 忽略 */ }
                 });
-                document.body.appendChild(kb);
+                const _kbBar = document.querySelector('.component-dialogue-bar-person');
+                (_kbBar || document.body).appendChild(kb);
             }
             /* 3. 输入框内麦克风（注入到「键盘输入」容器，避免随语音容器被隐藏）
                用参考图《真实打字框.PNG》里真机麦克风的【抠图】（透明 PNG，
@@ -1622,6 +1699,9 @@ window.__wxChatExt = {
            time：时间标注（如 "18:22"），给出时该表情消息前显示一条时间分隔条。 */
         selfEmoji(url, time, after) {
             if (!url) return false;
+            /* 清掉上一轮的「整段动画跑完」信号：本动作结束时由 emojiSheet.close 置位，
+               Python 侧据此收口（不再按固定预算盲等）。 */
+            window.__wxEmojiSeqDone = 0;
             emojiSheet({ url: url, after: after }, function () {
                 /* 入 store（Vue 渲染）保证「切页面再回来」表情不消失；store 不可用才退回 DOM 直插 */
                 if (!pushEmojiToStore(true, url, time)) {
@@ -1645,6 +1725,7 @@ window.__wxChatExt = {
             const list = (Array.isArray(idxs) ? idxs : [idxs])
                 .map(Number).filter((n) => n >= 1 && n <= EMOJI3D_MAX_NUM);
             if (!list.length) return false;
+            window.__wxEmojiSeqDone = 0;      /* 清上一轮信号，本轮结束时重新置位 */
             let first = true;
             emojiSheet({ view: 'emoji', after: after }, function (u) {
                 if (!pushEmojiToStore(true, u, first ? time : null)) {
@@ -1689,8 +1770,14 @@ window.__wxChatExt = {
                    供「发送emoji → 接着打字」连贯衔接；否则按原样收起面板。 */
                 if ((after === 'kb' || after === 'keyboard' || after === '键盘')
                     && window.__wxPanels && window.__wxPanels.set
-                    && window.__wxPanels.set('kb')) return;
+                    && window.__wxPanels.set('kb')) {
+                    /* 面板切换收尾（DUR 230ms + 40ms settle）=整段动画真正跑完，打信号给 Python */
+                    setTimeout(() => { window.__wxEmojiSeqDone = performance.now(); }, 280);
+                    return;
+                }
                 if (window.__wxEmojiPanel && window.__wxEmojiPanel.close) window.__wxEmojiPanel.close();
+                /* 收起分支：面板下滑 130ms + 节点移除 360ms，取 380ms 作为整段收尾时刻 */
+                setTimeout(() => { window.__wxEmojiSeqDone = performance.now(); }, 380);
             }, total);
             return true;
         },

@@ -506,25 +506,25 @@ body.wx-peer-open { overflow: hidden; }
 }
 .wpm-imgs img {
     width: 100%;
-    height: 64px;
+    height: 75px;                  /* 统一略高比例（≈1:1.16，用户按真实朋友圈定标） */
     object-fit: cover;
     border-radius: 3px;
     background: #2c2c2e;
     display: block;
 }
-/* 单图：按原始比例，最大高度略高 */
+/* 单图：统一略高比例（131×150，与多图块/视频封面同大） */
 .wpm-imgs-1 { grid-template-columns: 1fr; width: 131px; }
 .wpm-imgs-1 img {
     width: 131px;
-    height: auto;
-    max-height: 175px;
+    height: 150px;
+    object-fit: cover;
 }
 /* 两图：并排 */
 .wpm-imgs-2 { grid-template-columns: repeat(2, 1fr); }
-.wpm-imgs-2 img { height: 64px; }
+.wpm-imgs-2 img { height: 75px; }
 /* 三图：左一大（跨两行）+ 右两张 */
-.wpm-imgs-3 { grid-template-columns: repeat(2, 1fr); grid-template-rows: 64px 64px; }
-.wpm-imgs-3 img:first-child { grid-row: span 2; height: 130px; }
+.wpm-imgs-3 { grid-template-columns: repeat(2, 1fr); grid-template-rows: 74px 74px; }
+.wpm-imgs-3 img:first-child { grid-row: span 2; height: 150px; }
 /* 四图：2x2 */
 .wpm-imgs-4 { grid-template-columns: repeat(2, 1fr); }
 /* 五图以上：三列，控制在与两列同宽内 */
@@ -532,7 +532,7 @@ body.wx-peer-open { overflow: hidden; }
     grid-template-columns: repeat(3, 1fr);
 }
 .wpm-imgs-5 img, .wpm-imgs-6 img, .wpm-imgs-7 img,
-.wpm-imgs-8 img, .wpm-imgs-9 img { height: 42px; }
+.wpm-imgs-8 img, .wpm-imgs-9 img { height: 48px; }
 .wpm-imgs-empty { display: none; }
 
 .wpm-texts {
@@ -549,12 +549,13 @@ body.wx-peer-open { overflow: hidden; }
     word-break: break-word;
 }
 
-/* 视频动态：封面 + 居中播放角标（点击走 __wxVideo 全屏播放） */
+/* 视频动态：封面 + 居中播放角标（点击走 __wxVideo 全屏播放）
+   封面与单图/多图块统一尺寸（131×150 略高比例，用户定标） */
 .wpm-imgs-video { width: 131px; }
 .wpm-imgs-video .wpm-video-wrap {
     position: relative;
     width: 131px;
-    height: 175px;
+    height: 150px;
     border-radius: 3px;
     overflow: hidden;
     background: #2c2c2e;

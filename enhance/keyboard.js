@@ -1117,20 +1117,94 @@
        CSS 那种 transition + visibility + will-change 的组合，在开合瞬间容易把动画「跳成闪出/闪没」
        (合成层时序/过渡被跳过)，观感就是键盘直接弹出来没动画。这里与 _animChatSection 一样：
        先提交起始值(强制 reflow)，再逐帧 translateY，最后交还 CSS 稳态；期间锁定 visibility:visible，
-       保证下滑收起时不会因 class 切换在屏幕上瞬间消失。 */
-    function _animKb(fromPct, toPct, durMs, finalize) {
+       保证下滑收起时不会因 class 切换在屏幕上瞬间消失。
+       ★ 输入栏(.dialogue-footer)由本循环同帧联动（2026-09-13，修「键盘先到、输入框后到」）：
+         旧方案 footer 靠自己的 CSS transition(.22s) 去追键盘的 rAF(.18s)，两套时钟差 40ms，
+         运动中必然错位露底。现在 footer 的 transform/height 与键盘同曲线逐帧写出（同一 rAF
+         同一帧写入，结构性帧同步）；结束后移除 inline 交还 CSS 稳态，终值=CSS 目标值无跳变。 */
+    function _animKb(fromPct, toPct, durMs, finalize, footerPlan) {
         const t0 = performance.now();
         const ease = t => 1 - (1 - t) * (1 - t);          // easeOutQuad，与消息区一致
+        /* footer 起止值：弹出 transform 0→-513px、高度 131→(bar-base+grow)；收起反向。
+           起值一律读当前计算值（快速连开合时可能停在中间帧，按计算值起步避免跳变）。 */
+        /* footerPlan（可选，表情面板接管态专用）：{dur, ease} 覆盖 footer 的时钟。
+           面板滑入是 0.13s easeOutQuint（chat_extra.js），比键盘的 180ms quad 快得多；
+           footer 仍跟键盘时钟的话，面板到位后输入栏还要追 50~70ms（开到位窗口内
+           最差落后 ~17px），逐帧看是「输入栏从面板后面钻出来」。给 footer 同面板的
+           130ms quint，两者同帧起步同帧落定，全程贴合。
+           （fDur/fEase 在下方 footer 目标值算完后才取，footerPlan 由 hide() 目标分支写入） */
+        const footer = document.querySelector('.dialogue-footer');
+        let fFromY = 0, fToY = 0, fFromH = 0, fToH = 0;
+        if (footer) {
+            const opening = toPct < fromPct;              // 100→0 = 弹出
+            try {
+                const tf = getComputedStyle(footer).transform;
+                fFromY = (tf && tf !== 'none') ? new DOMMatrixReadOnly(tf).m42 : 0;
+            } catch (e) { fFromY = 0; }
+            fFromH = parseFloat(getComputedStyle(footer).height) || 131;
+            if (opening) {
+                const cs = getComputedStyle(document.documentElement);
+                const base = parseFloat(cs.getPropertyValue('--chat-bar-base')) || 84.4;
+                const grow = parseFloat(cs.getPropertyValue('--chat-grow')) || 0;
+                fToY = -513;
+                fToH = base + grow;
+            } else {
+                fToY = 0;
+                fToH = 131;
+                /* 表情面板接管态（2026-09-15 修「面板已到位、输入栏没跟上」）：
+                   emojiSheet 先挂 wx-emoji-open 再调 hide({keepSection:true})，
+                   此时输入栏的稳态目标是「面板顶 -emoji-h」（面板比键盘高，
+                   输入栏净上移 ~70px），不是屏底收起位 0。漏判这条 footer 会被
+                   本 rAF 逐帧压回屏底，面板 0.13s 到位后输入栏才靠 CSS 过渡追上来，
+                   成片出现一段「只有面板没有输入栏」的空窗。 */
+                if (document.body.classList.contains('wx-emoji-open')) {
+                    try {
+                        const cb = getComputedStyle(document.body);
+                        const eh = parseFloat(cb.getPropertyValue('--emoji-h'));
+                        if (isFinite(eh) && eh > 0) {
+                            const eb = parseFloat(cb.getPropertyValue('--chat-bar-base')) || 84.4;
+                            const eg = parseFloat(cb.getPropertyValue('--chat-grow')) || 0;
+                            fToY = -eh;
+                            fToH = eb + eg;
+                            /* footer 时钟对齐面板滑入（0.13s easeOutQuint），同帧落定 */
+                            footerPlan = { dur: 130, ease: t => 1 - Math.pow(1 - t, 5) };
+                        }
+                    } catch (e) { /* 读不到变量就按原屏底收起处理 */ }
+                }
+            }
+            footer.style.setProperty('transition', 'none');   // 逐帧写值期间关掉自身 CSS 过渡
+        }
+        const fEase = (footerPlan && footerPlan.ease) || ease;
+        const fDur = (footerPlan && footerPlan.dur) || durMs;
         root.style.setProperty('transition', 'none');
         root.style.setProperty('visibility', 'visible'); // 滑动期间始终可见
         root.style.setProperty('transform', 'translateY(' + fromPct + '%)');
+        if (footer) {
+            /* footer 稳态规则带 !important，inline 必须 important 才能逐帧接管 */
+            footer.style.setProperty('transform', 'translateY(' + fFromY.toFixed(2) + 'px)', 'important');
+            footer.style.setProperty('height', fFromH.toFixed(2) + 'px', 'important');
+        }
         void root.offsetWidth;                            // 提交起始值，避免跳变到终点
         const tick = () => {
             const p = Math.min(1, (performance.now() - t0) / durMs);
-            const v = fromPct + (toPct - fromPct) * ease(p);
-            root.style.transform = 'translateY(' + v.toFixed(2) + '%)';
+            const e = ease(p);
+            root.style.transform = 'translateY(' + (fromPct + (toPct - fromPct) * e).toFixed(2) + '%)';
+            if (footer) {
+                const fp = Math.min(1, (performance.now() - t0) / fDur);
+                const fe = fEase(fp);
+                footer.style.setProperty('transform', 'translateY(' + (fFromY + (fToY - fFromY) * fe).toFixed(2) + 'px)', 'important');
+                footer.style.setProperty('height', (fFromH + (fToH - fFromH) * fe).toFixed(2) + 'px', 'important');
+            }
+            /* footer 时钟比键盘短时(130<180)：fp 先到 1，继续原值写到键盘收尾，末尾统一摘 inline */
             if (p < 1) requestAnimationFrame(tick);
-            else if (finalize) finalize();
+            else {
+                if (footer) {
+                    footer.style.removeProperty('transform');
+                    footer.style.removeProperty('height');
+                    footer.style.removeProperty('transition');
+                }
+                if (finalize) finalize();
+            }
         };
         requestAnimationFrame(tick);
     }

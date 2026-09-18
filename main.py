@@ -317,7 +317,8 @@ DEL_HOLD_MS = 100
 SOUNDS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sounds")
 ENABLE_AUDIO = True      # 总开关：False 则完全不生成/播放音效（成品视频无声）
 LIVE_AUDIO = True        # 运行过程中是否实时播放（演示/录屏时能听到，与成品音轨独立）
-AUDIO_VOLUME = 1.0       # 合进成品视频的音轨音量（0~1）
+AUDIO_VOLUME = 1.4       # 合进成品视频的音轨音量（>1 会增益，写 wav 时 clip 保护）
+CONTINUOUS_TYPE_VOLUME = 1.65  # 持续打字声专用增益（源文件响度偏低 rms 0.035，抬到与发送音效同档；只抬这条，不动发送音效/BGM）
 
 # 背景音乐（成品视频铺底；默认用 苹果音效/背景音乐.mp3，可用命令行 --bgm 指定其它文件）
 # ------------------------------------------------------------
@@ -325,7 +326,7 @@ AUDIO_VOLUME = 1.0       # 合进成品视频的音轨音量（0~1）
 # AudioDeDupTool 但大幅精简，听感不变、字节/频谱特征每次不同），随后循环/裁剪到
 # 视频时长、按 BGM_VOLUME 音量铺在打字/发送音效之下。--no-bgm 可关闭。
 BGM_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "苹果音效", "背景音乐.mp3")
-BGM_VOLUME = 0.35        # 背景音乐相对音量（低音量铺底，避免盖过打字/发送音效）
+BGM_VOLUME = 0.25        # 背景音乐相对音量（AUDIO_VOLUME 抬到 1.4 后按比例下调，BGM 绝对响度不变、打字/发送音效更突出）
 ENABLE_BGM = True        # 总开关：False 则成品视频不混背景音乐
 
 
@@ -347,7 +348,8 @@ def _dbg_log(location, message, data=None):
         return
     import json as _json
     try:
-        _p = r"g:\weixin-auto\.cursor\debug-189770.log"
+        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          ".cursor", "debug-189770.log")
         os.makedirs(os.path.dirname(_p), exist_ok=True)
         with open(_p, "a", encoding="utf-8") as _f:
             _f.write(_json.dumps({
@@ -374,7 +376,8 @@ def _dbg_log_batch(entries):
         return
     try:
         import json as _json
-        _p = r"g:\weixin-auto\.cursor\debug-189770.log"
+        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          ".cursor", "debug-189770.log")
         os.makedirs(os.path.dirname(_p), exist_ok=True)
         _now = int(time.time() * 1000)
         with open(_p, "a", encoding="utf-8") as _f:
@@ -485,7 +488,7 @@ CONTINUOUS_TYPE_MIN_SPEED = 5.0
 
 # 连续打字声的「断段」间隔：相邻两次打字事件间隔超过此值（秒）即视为一段新连打，
 # 上一段先收口、再开新段，避免把跨动作/跨「等待」的长停顿也包进同一条持续声。
-# 远大于 20 倍速下 4~6ms 的逐键间隔，仅在对方插话(约 0.26~0.44s)或动作切换时断开。
+# 远大于 20 倍速下 4~6ms 的逐键间隔，仅在对方插话(约 0.17~0.24s)或动作切换时断开。
 CONTINUOUS_TYPE_MAX_GAP = 0.25
 
 VIEW_IMAGE_HOLD_DEFAULT = 1.0 # 点开图片放大后默认停留查看时长（秒）。未显式给「停留」时用本值：
@@ -2620,6 +2623,81 @@ class WeChatAuto:
         self.live_snapshot()   # 首帧：让编辑器立刻看到手机画面
         print("[启动] 页面已打开，开始执行剧本……")
 
+    @staticmethod
+    def _drop_tail_stale_frame(frames, min_gap: float = 1.5, max_backtrack: float = 12.0):
+        """尾部「旧画面重播」防护。
+
+        实测：剧本结束后、采集停止前，浏览器可能把一块已被替换的旧合成表面
+        按**新时间戳**重发一帧甚至连续几帧（页面实际停在微信列表，结尾却翻回
+        4 秒前的通讯录——时间戳是新的，乱序检查拦不住）。
+
+        判定（回溯窗口内按画面切段，容差比较容忍 JPEG 噪声）：
+          1. 重播段与上一段之间存在 ≥ min_gap 的异常时间间隙
+             （正常静止段 screencast 仍持续推帧，段间隙远小于此）；
+          2. 重播段很短（≤3 帧）；
+          3. 重播段画面 = 上上一段画面（把上一段之前的屏幕翻回来重播）。
+        命中则丢弃重播段。只在间隙超阈值时才离线解码，代价可忽略。
+        """
+        if len(frames) < 4:
+            return frames
+        # 零开销预检：末尾若干帧之间存在 ≥ min_gap 的异常间隙才值得深入分析
+        suspicious = False
+        for i in range(len(frames) - 1, max(len(frames) - 16, 0), -1):
+            if frames[i][0] - frames[i - 1][0] >= min_gap:
+                suspicious = True
+                break
+        if not suspicious:
+            return frames
+        t_last, _ = frames[-1]
+        try:
+            import base64 as _base64
+            import io as _io
+            from PIL import Image as _PIL
+
+            def _sig(b64):
+                im = _PIL.open(_io.BytesIO(_base64.b64decode(b64))).convert("L").resize((64, 64))
+                return list(im.getdata())
+        except Exception:                    # noqa: BLE001
+            return frames
+
+        def _close(a, b):
+            # 实测标定：同屏重编码 MAD≈0.02，不同屏 ≈29 → 阈值取 5
+            diff = sum(abs(x - y) for x, y in zip(a, b))
+            return diff <= 5.0 * len(a)
+
+        # 回溯窗口内的帧签名（旧 → 新）
+        window = []                          # [(idx, sig)]
+        for i in range(len(frames) - 1, -1, -1):
+            t, d = frames[i]
+            if t_last - t > max_backtrack:
+                break
+            try:
+                window.append((i, _sig(d)))
+            except Exception:                # noqa: BLE001
+                return frames
+        window.reverse()
+        if len(window) < 4:
+            return frames
+        # 切段：画面相近的连续帧归一段，记录段起点与段尾帧时间
+        segs = []                            # [[起始idx, 代表sig, 段尾ts]]
+        for i, s in window:
+            t_i = frames[i][0]
+            if not segs or not _close(s, segs[-1][1]):
+                segs.append([i, s, t_i])
+            else:
+                segs[-1][2] = t_i
+        _dbg = os.environ.get("WX_DEBUG_TAIL")
+        if len(segs) >= 3:
+            gap = frames[segs[-1][0]][0] - segs[-2][2]
+            tail_len = len(frames) - segs[-1][0]
+            if _dbg:
+                print(f"[DBG][tail] segs={len(segs)} last_gap={gap:.3f} "
+                      f"tail_len={tail_len}", flush=True)
+            if (gap >= min_gap and tail_len <= 3
+                    and _close(segs[-1][1], segs[-3][1])):
+                return frames[:segs[-1][0]]  # 丢弃重播段
+        return frames
+
     def stop(self):
         """关闭录制并合成按真实时间戳输出的 VFR MP4。"""
         global _PUMP_BOT
@@ -2658,6 +2736,13 @@ class WeChatAuto:
             with _FRAME_LOCK:
                 frames = list(_FRAMES)
                 _FRAMES.clear()
+            # 尾部乱序防护：screencast 停止瞬间可能收到「迟到的旧帧」（时间戳早于
+            # 前面的帧），按到达序合成会让视频结尾闪回旧画面（如结尾停在通讯录）；
+            # 这里把尾部时间戳倒挂的帧丢弃，保证最后一帧是最新画面。
+            while len(frames) >= 2 and frames[-1][0] < frames[-2][0]:
+                frames.pop()
+            # 尾部「旧画面重播」防护：时间戳是新的、内容却是几秒前旧画面的重播帧
+            frames = WeChatAuto._drop_tail_stale_frame(frames)
             # 确定性重采窗口替换：把暂停/步进期的失真实时帧换成精确 1/60s 的合成帧列
             frames = self._apply_det_spans(frames)
             if FRAME_CAPTURE_ENABLED and frames:
@@ -3746,7 +3831,7 @@ class WeChatAuto:
         self._ct_live_played = False
         self._ct_first_commit_wall = None
 
-    def _finalize_send_sound(self):
+    def _finalize_send_sound(self, name: str = "send"):
         """把发送声锚定到「我方气泡真正渲染」的视觉时刻，而不是按键/回车命令时刻。
 
         发送链路：按 send 键高亮 → Enter 回车触发 keydown → pushMsgToStore 推 store
@@ -3757,7 +3842,9 @@ class WeChatAuto:
         # 发送声属于「非打字音效」：无论是否放音，都先闭合未收口的连打段，
         # 保证事件顺序与真实节奏一致（打字声收口在前、发送声在后）。
         self._seal_continuous_type()
-        if not ENABLE_AUDIO or not self._sounds or "send" not in self._sounds:
+        if name not in self._sounds:
+            name = "send"                  # 指定音效缺失时回退常规发送声
+        if not ENABLE_AUDIO or not self._sounds or name not in self._sounds:
             self._pending_send_wall = None
             return
         if self._mute_sound:
@@ -3784,9 +3871,9 @@ class WeChatAuto:
             wall = anchor                  # 拿不到气泡时刻：退回 send 键高亮时刻
         else:
             wall = time.time()
-        self._audio_events.append((wall, "send"))
+        self._audio_events.append((wall, name))
         if LIVE_AUDIO:
-            self._play_live("send")
+            self._play_live(name)
 
     def _play_live(self, name: str):
         """用 winsound 异步实时播放一个音效（高速连发时可能截断，属可接受的机械感）。"""
@@ -3882,6 +3969,10 @@ class WeChatAuto:
                 n = max(1, int(round(dur * sound_engine.SAMPLE_RATE)))
                 arr = sound_engine.loop_to_length(self._sounds[name], n, fade_s=0.01)
                 if arr is not None and arr.size:
+                    if name == "continuous_type" and CONTINUOUS_TYPE_VOLUME != 1.0:
+                        import numpy as _np
+                        arr = _np.clip(arr.astype(_np.float32) * CONTINUOUS_TYPE_VOLUME,
+                                       -32767, 32767).astype(arr.dtype)
                     track.add(arr, qpos)
                     placed += 1
             else:
@@ -4035,7 +4126,7 @@ class WeChatAuto:
                                                        on_progress)
 
         if send:
-            _pump_wait(0.15)   # 打完字后固定停顿 0.15s 再发送（原 _type_minmax 会被倍速压到近乎 0）
+            _pump_wait(max(0.03, 0.15 / max(0.05, TYPE_SPEED)))   # 打完字→发送的自然停顿：随打字倍速缩放（固定 0.15 会把「打完字→对方发出」的感知间隔拖过 0.2 标尺）
             # 时间标注（时间分隔条占位）：把标注时刻放进临时变量，sendSelfFromInput
             # 在 Enter 回车触发发送时取出并挂到新上屏的这条消息上。
             self.page.evaluate("(t) => { window.__wxNextSendTime = t || ''; }", time_spec or "")
@@ -4081,10 +4172,12 @@ class WeChatAuto:
         """
         self._ensure_enhance()
         if show_typing:
+            # 「正在输入」横幅只做 flash 级提示（2026-09-14 晚定标：横幅+间隙+插话后停顿
+            # 总计约 0.2~0.3s，此前 0.15~0.32+0.06~0.16 叠加后第一条插话停顿最长 0.72s）
             self.page.evaluate("window.__wxTypingOn()")
-            _sd_minmax(150, 320)
+            _sd_minmax(60, 90)
             self.page.evaluate("window.__wxTypingOff()")
-            _sd_minmax(60, 160)
+            _sd_minmax(20, 40)
         kind, body = _classify_interjection(text or "")
         try:
             if kind == "sticker":
@@ -4143,7 +4236,7 @@ class WeChatAuto:
         except Exception as exc:                    # noqa: BLE001
             print(f"[插话] 对方插话注入失败（跳过）：{text} - {exc}")
             return
-        _sd_minmax(260, 440)      # 像真人被对方打断、稍停再继续打字
+        _sd_minmax(170, 240)      # 像真人被对方打断、稍停再继续打字（0.2s 档，2026-09-14 晚定标 0.26~0.44→0.17~0.24）
         self.live_snapshot()
 
     def _segment_text(self, text: str):
@@ -4263,12 +4356,20 @@ class WeChatAuto:
         name = str(name).strip()
         if not name:
             raise RuntimeError("[打开聊天] 缺少联系人名称。")
-        # 优先精确匹配 .desc-author，找不到再退化为子串模糊匹配
-        item = self.page.locator(
-            f'.wechat-list li:has(.desc-author:text-is("{name}")) .list-info')
-        if item.count() == 0:
+        # 优先精确匹配 .desc-author，找不到再退化为子串模糊匹配。
+        # 并行多任务时 CPU 抢占严重，[编辑主页] 的 setHomeList 注入后 Vue 重建
+        # 10 条会话列表可能远超 0.5s；这里改为轮询等待（默认最多 8s），
+        # 避免「数据已注入但列表尚未渲染」被判成找不到联系人（误报竞态）。
+        deadline = time.time() + 8.0
+        while True:
             item = self.page.locator(
-                f'.wechat-list li:has(.desc-author:text("{name}")) .list-info')
+                f'.wechat-list li:has(.desc-author:text-is("{name}")) .list-info')
+            if item.count() == 0:
+                item = self.page.locator(
+                    f'.wechat-list li:has(.desc-author:text("{name}")) .list-info')
+            if item.count() > 0 or time.time() >= deadline:
+                break
+            time.sleep(0.25)
         if item.count() == 0:
             raise RuntimeError(
                 f'聊天列表中找不到联系人「{name}」。'
@@ -4315,6 +4416,10 @@ class WeChatAuto:
         if avatar:
             self.page.evaluate(
                 "(u) => window.__wxConfig && window.__wxConfig.setPeerAvatar(u)", avatar)
+        # 名字也要跟着换：抽屉/主页/删除弹窗文案/删除后从列表摘除都按它取名字
+        self.page.evaluate(
+            "(n) => window.__wxConfig && window.__wxConfig.setPeerName(n)", name)
+        if avatar:
             _sd_minmax(120, 260)
 
     def go_back_home(self, hold: float = None):
@@ -4805,6 +4910,92 @@ class WeChatAuto:
         self._sleep_with_capture(hold)
         self.live_snapshot()
 
+    # ---- 删除联系人链路（复刻参考视频「拉黑动作.mp4」：扫黑转场两套动作） ----
+
+    def open_chat_detail(self):
+        """打开「聊天详情」抽屉（聊天页右上角 … 右滑推入，纯展示层）。
+
+        须已在聊天界面；抽屉为纯展示（查找聊天内容/消息免打扰/…/投诉），
+        参考视频里它是进入设置页前的过渡画面。
+        """
+        self._ensure_enhance()
+        ok = self._block_eval("openChatDetail")
+        if not ok:
+            raise RuntimeError("[打开聊天详情] 抽屉打开失败（当前可能不在聊天界面）。")
+        self._sleep_with_capture(self.PEER_TRANSITION_WAIT)
+        self.live_snapshot()
+
+    def sweep_to_settings(self):
+        """扫黑进设置页：黑幕淡入 → 黑屏下瞬时关抽屉/资料页并开设置页 → 黑幕淡出。
+
+        参考视频的招牌转场：聊天详情抽屉（或对方主页）整体被黑幕盖住后，
+        亮起时已在「联系人设置页」。前置画面须是聊天详情抽屉或对方资料页。
+        """
+        self._ensure_enhance()
+        st = self._block_eval("isOpen") or {}
+        in_drawer = bool(self._block_eval("isChatDetailOpen"))
+        if not in_drawer and not st.get("settings") and not self._peer_eval("isOpen"):
+            raise RuntimeError(
+                "[扫黑进设置页] 前置画面不对：先 [打开聊天详情]（聊天页右上角 …）"
+                "或 [打开对方主页] 再进设置。")
+        self._black_in(0.10)
+        self._block_eval("swapToSettingsInstant")
+        _pump_wait(0.06)
+        self.page.evaluate(
+            "() => document.body.classList.remove('wx-peer-nocut')")
+        self._black_out(0.16)
+        _pump_wait(0.1)
+        self.live_snapshot()
+
+    def delete_peer_contact(self, confirm: bool = True, toast_sec: float = 1.2,
+                            hold: float = 0.8):
+        """「删除联系人」全过程动画（须已在联系人设置页）：
+
+          底部弹起「即将删除联系人"昵称"」弹窗（0.65s）
+          → 点「删除」（按压高亮 0.15s）→ 弹窗收起（0.3s）
+          → 中央「正在加载」Toast（toast_sec 秒）
+          → 扫黑切到聊天列表（该会话从列表消失）+「已删除联系人」对勾 Toast
+          → Toast 淡出 → 结束停留 hold 秒。
+
+        confirm=False 时点「取消」：弹窗收起后停在设置页（演示取消路径）。
+        """
+        self._ensure_enhance()
+        st = self._block_eval("isOpen") or {}
+        if not st.get("settings"):
+            raise RuntimeError("[删除联系人] 请先进入联系人设置页"
+                               "（[打开对方设置] / [扫黑进设置页]）。")
+        # 1. 底部弹起确认弹窗
+        self._block_eval("showDeleteSheet")
+        self._sleep_with_capture(0.65)
+        if not confirm:
+            # 取消路径：弹窗收起，停在设置页
+            self._block_eval("cancelDeleteSheet")
+            self._sleep_with_capture(0.35)
+            self._sleep_with_capture(hold)
+            self.live_snapshot()
+            return
+        # 2. 点「删除」：按压高亮 → 确认收起
+        self._block_eval("pressDelete")
+        self._sleep_with_capture(0.15)
+        self._block_eval("confirmDeleteSheet")
+        self._sleep_with_capture(0.3)
+        # 3. 「正在加载」Toast
+        self._block_eval("showToast", float(toast_sec))
+        self._sleep_with_capture(float(toast_sec) + 0.3)
+        # 4. 扫黑切到聊天列表 + 「已删除联系人」对勾 Toast（黑幕下瞬时完成）
+        self._black_in(0.10)
+        self._block_eval("sweepToListInstant")
+        _pump_wait(0.06)
+        self.page.evaluate(
+            "() => { document.body.classList.remove('wx-peer-nocut');"
+            " document.body.classList.remove('wx-nocut'); }")
+        self._black_out(0.16)
+        # 5. 对勾 Toast 亮一会儿再淡出
+        self._sleep_with_capture(0.7)
+        self._block_eval("hideDeleteToast")
+        self._sleep_with_capture(0.4 + max(0.0, hold))
+        self.live_snapshot()
+
     def peer_hard_cut(self, settle: float = 0.12, flash: bool = False):
         """「闪回聊天」硬切：瞬间隐藏对方主页/朋友圈，直接回到聊天界面接着录制。
 
@@ -4895,7 +5086,7 @@ class WeChatAuto:
         if contact:
             self.set_peer(contact)
         if black:
-            self._black_in(0.16)
+            self._black_in(0.10)
         self.page.evaluate(
             """() => {
                 document.body.classList.add('wx-peer-nocut');
@@ -4905,10 +5096,10 @@ class WeChatAuto:
                 }
                 void document.body.offsetWidth;
             }""")
-        _pump_wait(0.12)
+        _pump_wait(0.06)
         self.page.evaluate("() => document.body.classList.remove('wx-peer-nocut')")
         if black:
-            self._black_out(0.26)
+            self._black_out(0.16)
         _pump_wait(max(0.05, settle))
         self.live_snapshot()
 
@@ -4926,7 +5117,7 @@ class WeChatAuto:
         self._ensure_enhance()
         on_moments = bool(self.page.evaluate("() => !!document.getElementById('moments')"))
         if black and not flash:
-            self._black_in(0.16)
+            self._black_in(0.10)
         self.page.evaluate(
             """() => {
                 document.body.classList.add('wx-nocut');
@@ -4968,7 +5159,7 @@ class WeChatAuto:
             "() => { document.body.classList.remove('wx-nocut');"
             " document.body.classList.remove('wx-peer-nocut'); }")
         if black and not flash:
-            self._black_out(0.26)
+            self._black_out(0.16)
         self.live_snapshot()
 
     def play_video(self, src: str = None, index: int = 1, hold: float = None):
@@ -5257,11 +5448,23 @@ class WeChatAuto:
         # 先完整打字、过程中不插话 —— 让「逐键上浮字母」的打字动画从头到尾完整呈现
         committed = self.human_type(".chat-txt", text, send=False,
                                     interjections=None, avatar=avatar)
-        # 打完字停留：文字停在输入框，看得到「打完了但没发」
-        _pump_wait(max(0.35, hold_seconds))
-        # 打完字之后，对方才按顺序逐条回
-        for idx, msg in enumerate(self._normalize_interjections(interjections)):
-            self._inject_peer_msg(msg, avatar, show_typing=(idx == 0))
+        # 打完字停留 + 对方插话的先后（2026-09-14 晚二次定标）：
+        # 用户感知的「我打完字→她发出来」必须贴住 0.2s 标尺。此前停留整段堵在插话前，
+        # 叠上 flash 后首条插话要 0.5~0.65s 才出现，被判定"迟迟没发出来"。
+        # 现改为：有插话时先给 ~0.08s 短停留（+flash 0.08~0.13 ≈ 0.2s 到达），
+        # 插话气泡出完再把剩余停留补在后面——未发出文字的总展示时长仍≈停留值，
+        # 无插话时维持原节奏（纯「打完不发」的凝视窗口）。
+        ij = self._normalize_interjections(interjections)
+        hold_eff = max(0.15, hold_seconds)      # 兜底只防 0；不再抬高用户写的 0.3（旧 max(0.35,·) 会偷偷改时间）
+        if ij:
+            _pump_wait(0.08)
+            for idx, msg in enumerate(ij):
+                self._inject_peer_msg(msg, avatar, show_typing=(idx == 0))
+            remain = hold_eff - 0.08
+            if remain > 0:
+                _pump_wait(remain)
+        else:
+            _pump_wait(hold_eff)
         return committed
 
     def delete_chars(self, count: int):
@@ -5465,7 +5668,7 @@ class WeChatAuto:
             ok = self.page.evaluate("window.__wxTransfer && window.__wxTransfer.openPanel()")
             if not ok:
                 raise RuntimeError("发送图片打开「+」功能面板失败：__wxTransfer 未注入。")
-        _pump_wait(0.85)
+        _pump_wait(0.5)     # 面板停留收紧（0.85→0.5）：滑入动画 0.26s 后稍作展示即点照片
         # 面板升起是真实滑入动画；静止期无帧，间隔被补交叉混合会变成假渐变
         self._record_no_blend_span(t_panel, pad_before=3.0, pad_after=2.5)
         # 2) 点「照片」瓦片：图标块瞬时压暗的按压反馈（~0.2s）
@@ -5474,7 +5677,7 @@ class WeChatAuto:
             "'#wxTransferPanel .tp-item[data-id=\"photo\"]');"
             " if (t) { t.classList.add('tap');"
             " setTimeout(() => t.classList.remove('tap'), 200); } }")
-        _pump_wait(0.22)
+        _pump_wait(0.16)    # 按压反馈停留收紧（0.22→0.16）
         # 3) 收面板 + 闪黑进预览页，预览页自动「发送」上屏（selfImage 内部处理）
         t_prev = time.time()
         self._chat_ext("selfImage", url, time_spec)
@@ -5548,10 +5751,11 @@ class WeChatAuto:
             _pump_wait(KB_OPEN_WAIT)   # 只等键盘上推动画播完，不额外暂停
         mode = _panel_after_mode(after, getattr(self, "_next_action", ""))
         self._chat_ext("selfEmoji", url, time_spec, mode)
-        # 表情面板为异步驱动（滑入0.3s + 停0.7s + 高亮0.2s + 收起0.3s + 上屏缓冲），
-        # _chat_ext 只等 0.5s，这里再补足到动画完整播完 + 气泡上屏，避免录屏/下一动作截断。
-        # 面板去向是键盘时，眉尾还要多等一段 230ms 的直接切换动画（表情→键盘）。
-        _pump_wait(1.2 + (0.45 if mode == "kb" else 0))
+        # 表情面板为异步驱动（滑入 0.13s + 停 0.7s + 上屏 + 切面板/收起）：不再按固定
+        # 预算盲等，改为等前端「整段动画跑完」的信号（__wxEmojiSeqDone）再补一点缓冲。
+        # 旧写法 `_pump_wait(1.2 + 0.45)` 是按「滑入0.3s+停0.7s+高亮0.2s+收起0.3s」的
+        # 老动画估的，滑入提速 + `.ep-picked` 空规则后已多等约 1s 死时间。
+        _wait_emoji_seq_done(self)
 
     def peer_emoji(self, url: str, time_spec: str = None):
         """对方发送表情贴纸
@@ -5597,9 +5801,10 @@ class WeChatAuto:
             _pump_wait(KB_OPEN_WAIT)
         mode = _panel_after_mode(after, getattr(self, "_next_action", ""))
         self._chat_ext("selfEmoji3D", idxs, time_spec, mode)
-        # 面板滑入 + 逐个点选 + 发送上屏 + 收面板，按个数补足等待，避免下一动作截断动画。
-        # 去向是键盘时再多等一段直接切换动画（表情→键盘 230ms）。
-        _pump_wait(1.6 + 0.5 * len(idxs) + (0.45 if mode == "kb" else 0))
+        # 同 send_emoji：等前端「整段动画跑完」的信号，而不是按个数盲等
+        # （旧的 1.6 + 0.5*len + 0.45 同源过期，会多等约 1s 死时间）。
+        # 超时兜底按个数放大（面板滑入 + 逐个点选 + 逐张上屏 + 切换）。
+        _wait_emoji_seq_done(self, timeout=EMOJI_SEQ_TIMEOUT + 0.5 * len(idxs))
 
     def peer_wxemoji(self, ref: str, time_spec: str = None):
         """对方发送 emoji（直接上屏左侧气泡，无面板动画）"""
@@ -5869,6 +6074,15 @@ class WeChatAuto:
         # 否则合成器把「静止尾帧 → 卡片帧」拉成 1~2s 的交叉混合 = 假「淡入」。
         self._record_no_blend_span(t0, pad_before=3.0, pad_after=2.5)
 
+    def _tfd_marks(self, tag):
+        """回读页面时钟探针（transfer_detail.js tfdMark），核对成片节奏。"""
+        try:
+            marks = self.page.evaluate("() => (window.__tfdLog || []).join(' | ')")
+            if marks:
+                print("[转账详情时钟][%s] %s" % (tag, marks), flush=True)
+        except Exception:
+            pass
+
     def open_transfer_detail(self):
         """点击对方转账卡片，打开转账详情页（右滑推入，对齐参考视频）。"""
         self._ensure_enhance()
@@ -5882,8 +6096,17 @@ class WeChatAuto:
         if not ok:
             raise RuntimeError("打开转账详情失败：__wxTransferDetail 未注入。")
         # 确定性重采：暂停动画逐帧重采推入过渡（失败自动保持实时采集）
+        _t_open = time.time()
         self._det_transition("打开转账详情")
-        _pump_wait(0.25)
+        # 参考节奏（30fps 逐帧实测）：点卡片 f_043 → 点收款 f_120 = 77 帧 ≈ 2.57s。
+        # det 重采的真实耗时不可预测（ stepping 截图有快有慢），成片时间线由帧时间戳
+        # 决定，这里按 open() 起算补齐稳态停留，保证「推入→待收款停留→点收款」与参考同拍。
+        _remain = 2.55 - (time.time() - _t_open)
+        if _remain > 0:
+            _pump_wait(_remain)
+        else:
+            _pump_wait(0.25)
+        self._tfd_marks("打开")
 
     def accept_transfer(self):
         """在转账详情页点「收款」：内容瞬时切换为已收款（对齐参考视频）。"""
@@ -5893,7 +6116,20 @@ class WeChatAuto:
             "() => window.__wxTransferDetail && window.__wxTransferDetail.accept()")
         if not ok:
             raise RuntimeError("接收转账失败：转账详情页未打开。请先 [打开转账详情]。")
-        _pump_wait(0.8)
+        # 参考节奏：点收款 → 转圈 1.567s → 单帧切已收款 → toast 淡出 0.3s，
+        # 已收款稳态停留 2.0s（f_167→f_227）后才右滑退出。此前只等 0.8s，
+        # 剧本紧跟「关闭转账详情」时页面会在转圈中途滑走（转圈被砍短、
+        # 已收款稳态整段丢失）。这里轮询等 loading 真正结束再垫稳态停留。
+        _deadline = time.time() + 3.0
+        while time.time() < _deadline:
+            _settled = self.page.evaluate(
+                "() => { const r = document.getElementById('wxTfDetail');"
+                " return !!(r && r.dataset.loading !== '1'); }")
+            if _settled:
+                break
+            _pump_wait(0.05)
+        _pump_wait(1.85)
+        self._tfd_marks("收款")
 
     def close_transfer_detail(self):
         """关闭转账详情页（右滑退出回聊天页）。"""
@@ -6851,6 +7087,10 @@ TEXT_COMMAND_MAP = {
     "打开对方设置": "对方",
     "加入黑名单": "确认",
     "移出黑名单": "确认",
+    "删除联系人": "确认",
+    "主页删除联系人": "对方",
+    "扫黑进设置页": None,
+    "打开聊天详情": None,
     "返回上一页": None,
     "闪回聊天": "回到",
     "编辑对方资料": "数据",
@@ -7109,18 +7349,69 @@ ACTION_ALIASES = {
     "解除拉黑": "移出黑名单",
     "取消拉黑": "移出黑名单",
     "移出黑名单": "移出黑名单",
+    # 删除联系人（复刻「拉黑动作.mp4」两套动作）
+    "删除对方": "删除联系人",
+    "把他删除": "删除联系人",
+    "删除好友": "删除联系人",
+    "删好友": "删除联系人",
+    "删除联系人": "删除联系人",
+    "主页删除": "主页删除联系人",
+    "主页删除联系人": "主页删除联系人",
+    "进主页删除": "主页删除联系人",
+    "打开聊天详情": "打开聊天详情",
+    "聊天详情": "打开聊天详情",
+    "扫黑进设置": "扫黑进设置页",
+    "扫黑进设置页": "扫黑进设置页",
 }
+
+
+# ----------------------------------------------------------------------------
+# 配图注释（# 行）→ 步骤 note 字段
+# ----------------------------------------------------------------------------
+# 剧本里每个图片槽上方可以紧跟一行 `#` 注释当「找图说明书」（谁发·用途·效果·找图·呼应），
+# 用户照着它去找/拍照片，不用通读上下文。以前这行在解析时被整行丢弃，离线解析完
+# 编辑器里就只剩光秃秃一个「图片消息」，用户看不到这张图是干嘛的。
+# 现在把它带进步骤的 note 字段，编辑器配图清单直接显示（不影响成片：运行时只读 action/params）。
+#
+# 判定规则（与 _check_script_quality.py 的覆盖检查同一口径）：
+#   1) 以 # 开头、去掉 # 后非空；
+#   2) 且【不含冒号】——带冒号的 # 行是文件头说明（`# 剧本：…`/`# 选题：…`），
+#      进历史块还会被 _line_to_message 当成一条对白凭空上屏；
+#   3) 只挂给紧跟在它后面的图片类动作（下面 _SLOT_NOTE_ACTIONS），别的动作丢弃。
+_SLOT_NOTE_ACTIONS = {
+    "发送图片", "对方发图片", "点开图片", "播放视频",
+    "发送表情", "对方表情", "对方后台发表情",
+    "对方后台发消息", "我方发链接", "对方发链接",
+}
+
+
+def _merge_slot_note(pending, line):
+    """把一行 `#` 注释并进「待挂注释」，返回新的待挂值。
+
+    不是图片注释（空注释 / 带冒号的文件头说明）时原样返回 pending，不改变待挂状态。
+    连着写多行注释时按空格拼成一条，全部挂到后面那个图片动作上。
+    """
+    txt = str(line or "").lstrip("#").strip()
+    if not txt or "：" in txt or ":" in txt:
+        return pending
+    return (pending + " " + txt) if pending else txt
 
 
 def parse_script_text(text: str):
     """解析文本剧本内容 -> 动作步骤列表 [{"action":..., "params":{...}}]
 
-    兼容：空行 / # 注释行自动跳过；无法识别的行打印警告并跳过。
+    兼容：空行自动跳过；`#` 注释行不进步骤，但紧跟在图片动作上方的注释会作为
+    该步骤的 note 字段带出来（供编辑器配图清单显示这张图是干嘛的）；
+    无法识别的行打印警告并跳过。
     """
     steps = []
+    pending_note = None       # 图片槽上方的 `# …` 注释（找图说明书），挂到紧跟其后的图片动作上
     for lineno, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
-        if not line or line.startswith("#"):
+        if line.startswith("#"):
+            pending_note = _merge_slot_note(pending_note, line)
+            continue
+        if not line:
             continue
         m = LINE_RE.match(line)
         if not m:
@@ -7244,7 +7535,13 @@ def parse_script_text(text: str):
                         params[key] = parts[i]
                     elif i == len(_order) - 1:
                         params[key] = " | ".join(parts[i:])
-        steps.append({"action": cmd, "params": params})
+        step = {"action": cmd, "params": params}
+        # 配图注释只挂给图片类动作：挂在别的动作上既没用，还会把「注释 → 步骤」的对应关系搞乱。
+        # 无论挂没挂上都清空，避免一条注释错挂到后面无关的图片步骤上。
+        if pending_note and cmd in _SLOT_NOTE_ACTIONS:
+            step["note"] = pending_note
+        pending_note = None
+        steps.append(step)
     return steps
 
 
@@ -7714,6 +8011,41 @@ def _panel_after_mode(after, next_action: str = "") -> str:
     return "kb" if str(next_action or "").strip() in _TYPING_ACTIONS else "close"
 
 
+# 表情面板整段动画的收尾信号（前端 chat_extra.js 在面板切换 settle / 面板收起完成时
+# 把 __wxEmojiSeqDone 置为 performance.now()）。超时值=前端最坏情况的兜底，宁可按老节奏
+# 多等，也绝不提前打断动画；settle=信号到达后再留一点缓冲，保证最后一帧落定。
+EMOJI_SEQ_SETTLE = 0.12
+EMOJI_SEQ_TIMEOUT = 2.4
+
+
+def _wait_emoji_seq_done(bot, timeout: float = EMOJI_SEQ_TIMEOUT,
+                         settle: float = EMOJI_SEQ_SETTLE) -> bool:
+    """等前端「表情面板整段动画跑完」的信号，替代按固定预算的盲等。
+
+    为什么要等信号：发表情链路前端是异步驱动的（面板滑入 → 上屏 → 切面板），
+    固定预算会随动画提速而过期——滑入早已提速到 0.13s、`.ep-picked` 又是无视觉的
+    空规则，老的 `_pump_wait(1.2 + 0.45)` 就变成「动画早已播完还空等约 1s」，
+    正是「发完表情包停一下才打字」的观感来源（2026-09-15 审计）。
+
+    返回 True=拿到信号（按实际收尾时刻放行）；False=超时兜底（JS 未置位，按 timeout 放行）。
+    """
+    deadline = time.time() + timeout
+    got = False
+    while time.time() < deadline:
+        try:
+            if bot.page.evaluate("() => window.__wxEmojiSeqDone || 0"):
+                got = True
+                break
+        except Exception:                     # noqa: BLE001
+            break
+        _pump_wait(0.03)
+    if not got:
+        print(f"[提示] 表情面板收尾信号超时（>{timeout}s），按兜底时长放行。"
+              f"若成片出现动画被截断，请检查 enhance/chat_extra.js 的 __wxEmojiSeqDone。")
+    _pump_wait(settle)
+    return got
+
+
 def execute_step(bot: WeChatAuto, action: str, params: dict):
     """执行单个工作流动作（params 为 dict）"""
     action = ACTION_ALIASES.get(action, action)   # 别名统一归一
@@ -7812,6 +8144,33 @@ def execute_step(bot: WeChatAuto, action: str, params: dict):
         _toast = _num(p.get("加载秒", p.get("加载秒数")), 1.4)
         _hold = _num(p.get("停留"), 0.8)
         bot.block_peer(confirm=_confirm, toast_sec=_toast, hold=_hold, unblock=True)
+    elif action == "删除联系人":
+        # 复刻「拉黑动作.mp4」动作一（聊天页直接进）：
+        # 聊天页 → 聊天详情抽屉右滑 → 扫黑进设置页 → 弹窗 → 删除 → 正在加载
+        # → 扫黑回聊天列表 + 「已删除联系人」对勾 Toast
+        _confirm = _truthy(p.get("确认") if str(p.get("确认", "")).strip() else "是")
+        _toast = _num(p.get("加载秒", p.get("加载秒数")), 1.2)
+        _hold = _num(p.get("停留"), 0.8)
+        bot.open_chat_detail()
+        bot.sweep_to_settings()
+        bot.delete_peer_contact(confirm=_confirm, toast_sec=_toast, hold=_hold)
+    elif action == "主页删除联系人":
+        # 复刻「拉黑动作.mp4」动作二（先切对方主页）：
+        # 聊天页 → 对方主页（iOS 推入）→ 右上角 … 设置页从右滑入（真机路径，
+        # 不扫黑）→ 弹窗 → 删除 → 正在加载 → 扫黑回聊天列表 + 对勾 Toast
+        _who = p.get("对方", p.get("联系人", p.get("预设", "")))
+        _confirm = _truthy(p.get("确认") if str(p.get("确认", "")).strip() else "是")
+        _toast = _num(p.get("加载秒", p.get("加载秒数")), 1.2)
+        _hold = _num(p.get("停留"), 0.8)
+        bot.open_peer_profile(str(_who).strip() or None)
+        bot.open_peer_settings()
+        bot.delete_peer_contact(confirm=_confirm, toast_sec=_toast, hold=_hold)
+    elif action == "扫黑进设置页":
+        # 单独动作：从聊天详情抽屉或对方主页扫黑进设置页（进阶用法）
+        bot.sweep_to_settings()
+    elif action == "打开聊天详情":
+        # 单独动作：聊天页右上角 … 打开聊天详情抽屉（进阶用法）
+        bot.open_chat_detail()
     elif action == "返回上一页":
         bot.peer_back()
     elif action == "闪回聊天":
@@ -8041,6 +8400,20 @@ def main():
                         help="录制完成后在视频开头拼接 1-2 秒锁屏收消息开场（与视频会话对齐）")
     parser.add_argument("--intro-target", default="",
                         help="开场锁屏的发送者/目标会话名字；留空则自动取工作流里第一个 [打开聊天] 的联系人")
+    parser.add_argument("--intro-upload", default="",
+                        help="用自己的片头视频替换内置锁屏开场（/videos/xxx.mp4 或本地路径）；"
+                             "与 --intro 互斥，优先级更高；默认居中适配并在闪黑转场处补微信提示音")
+    parser.add_argument("--intro-fit", default="", choices=["", "cover", "contain"],
+                        help="上传片头如何适配主视频画幅：默认 contain（等比居中、不裁画面）")
+    parser.add_argument("--intro-sound", default="",
+                        help="片头闪黑转场处叠加的音效路径；上传片头默认用内置微信提示音，"
+                             "传 none 可关闭")
+    parser.add_argument("--intro-wallpaper", default="",
+                        help="内置锁屏开场的壁纸（/images/introwall/xxx.jpg 或本地路径）；"
+                             "不传则从壁纸库 vue-WeChat/public/images/introwall 随机挑一张；"
+                             "仅内置开场生效，上传片头自动忽略")
+    parser.add_argument("--intro-wallpaper-seed", default="",
+                        help="片头壁纸随机挑选种子（整数）；同 seed 同图，跑批时固定每条任务的壁纸")
     parser.add_argument("--editmode", action="store_true",
                         help="编辑模式：打开手机画面后空闲待命，供编辑器点击画面/修改元素")
     parser.add_argument("--bgm", default=None,
@@ -8076,7 +8449,9 @@ def main():
     CHAT_BG_SEED = args.chat_bg_seed
     if CHAT_BG:
         print(f"[背景] 本视频聊天背景：{CHAT_BG}（seed={CHAT_BG_SEED}）", flush=True)
-    if args.intro:
+    if args.intro_upload.strip():
+        print(f"[开场] 已开启：录制完成后将拼接上传片头（{args.intro_upload.strip()}）。", flush=True)
+    elif args.intro:
         print("[开场] 已开启：录制完成后将拼接锁屏入场动画。", flush=True)
 
     # ============ 编辑模式：画面就绪后一直待命，等编辑器命令 ============
@@ -8302,8 +8677,10 @@ def main():
     if mp4:
         size_mb = os.path.getsize(mp4) / 1024 / 1024
         print(f"[视频] 已保存：{mp4}（{size_mb:.1f} MB）")
-        # ---- 可选：录制完成后在开头拼接 1-2 秒锁屏收消息开场 ----
-        if args.intro:
+        # ---- 可选：录制完成后在开头拼接片头 ----
+        #      --intro-upload 有值 → 用上传的视频替换内置开场（互斥）；
+        #      --intro           → 内置锁屏收消息开场（约 1 秒）。
+        if args.intro_upload.strip() or args.intro:
             try:
                 _prepend = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                         "准备制作界面", "prepend_intro.py")
@@ -8314,11 +8691,24 @@ def main():
                     _cmd += ["--scene", args.scene]
                 if args.intro_target.strip():
                     _cmd += ["--target", args.intro_target.strip()]
-                print("[开场] 正在合成锁屏入场动画……", flush=True)
+                # 片头壁纸：显式指定 / 随机种子（内置开场用；上传片头自动忽略）
+                if args.intro_wallpaper.strip():
+                    _cmd += ["--wallpaper", args.intro_wallpaper.strip()]
+                if args.intro_wallpaper_seed.strip():
+                    _cmd += ["--wallpaper-seed", args.intro_wallpaper_seed.strip()]
+                if args.intro_upload.strip():
+                    _cmd += ["--upload", args.intro_upload.strip()]
+                    if args.intro_fit:
+                        _cmd += ["--fit", args.intro_fit]
+                    if args.intro_sound.strip():
+                        _cmd += ["--tail-sound", args.intro_sound.strip()]
+                    print("[开场] 正在拼接上传片头 + 闪黑提示音……", flush=True)
+                else:
+                    print("[开场] 正在合成锁屏入场动画……", flush=True)
                 subprocess.run(_cmd, cwd=os.path.dirname(os.path.abspath(__file__)), check=True)
-                print("[视频] 已合成锁屏开场。", flush=True)
+                print("[视频] 已合成片头。", flush=True)
             except Exception as exc:                        # noqa: BLE001
-                print(f"[警告] 开场锁屏合成失败，已保留原视频：{exc}")
+                print(f"[警告] 片头合成失败，已保留原视频：{exc}")
 
 
 if __name__ == "__main__":

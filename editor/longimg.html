@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>长图工作台 · JSON → 微信长图视频</title>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f4f5f7; --panel:#ffffff; --panel2:#f2f3f6; --panel3:#e9ebef; --field:#f7f8fa;
+  --line:rgba(17,24,39,.08); --line-strong:rgba(17,24,39,.16);
+  --txt:#1c1e22; --dim:#5c616b; --dim2:#9095a0;
+  --acc:#0aac5f; --acc-strong:#0a9d57; --acc-soft:rgba(10,172,95,.10); --acc-border:rgba(10,172,95,.38);
+  --acc2:#b9791e; --ok:#0aac5f; --bad:#d54941; --r:14px; --topbar-h:58px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);
+  font:14px/1.6 "PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;padding:0 0 60px}
+a{color:var(--acc-strong);text-decoration:none}
+/* 顶栏与工作流编辑器同款：品牌标记 + 子标题 + 右侧操作，切换过去是一个软件 */
+.top{position:sticky;top:0;z-index:50;height:var(--topbar-h);
+  background:rgba(255,255,255,.82);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line);padding:0 16px;
+  display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:#0f1115;letter-spacing:.2px}
+.brand-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;
+  color:#fff;font-weight:800;background:linear-gradient(145deg,#17d377,#0aa257);
+  box-shadow:0 6px 16px rgba(10,172,95,.28),inset 0 1px 0 rgba(255,255,255,.25)}
+.brand-sub{display:block;margin-top:1px;color:var(--dim2);font-size:11px;
+  font-weight:400;letter-spacing:.4px}
+h1{font-size:18px;display:flex;align-items:center;gap:8px}
+h1 .sub{font-size:12px;color:var(--dim);font-weight:normal}
+.spacer{flex:1}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;padding:16px 22px 0;align-items:start}
+@media(max-width:1200px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;
+  box-shadow:0 6px 20px rgba(17,24,39,.06)}
+.card h2{font-size:15px;margin-bottom:10px;color:var(--acc-strong);display:flex;align-items:center;gap:8px}
+.card h2 .tag{font-size:11px;color:var(--dim);font-weight:normal;border:1px solid var(--line);border-radius:99px;padding:1px 8px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim)}
+input[type=text],input[type=number],select,textarea{
+  background:var(--field);border:1px solid var(--line-strong);border-radius:8px;
+  color:var(--txt);padding:7px 10px;font-size:13px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--acc-border)}
+textarea{width:100%;min-height:140px;font-family:Consolas,monospace;font-size:12px;line-height:1.5}
+button{height:34px;background:var(--panel2);border:1px solid var(--line-strong);color:var(--txt);
+  border-radius:9px;padding:0 14px;cursor:pointer;font-size:13px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+button:hover{border-color:var(--acc-border)}
+button.primary{background:linear-gradient(180deg,#17d377,#0aa257);border-color:transparent;color:#fff;font-weight:600}
+button.ok{background:linear-gradient(180deg,#15d274,#0cb259);border-color:transparent;color:#fff;font-weight:600}
+button.warn{background:rgba(213,73,65,.10);border-color:rgba(213,73,65,.35);color:var(--bad)}
+button.mini{height:26px;padding:0 8px;font-size:12px;border-radius:7px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{border-radius:8px}
+.tabs button.on{background:var(--acc-soft);color:var(--acc-strong);border-color:var(--acc-border);font-weight:600}
+table.blocks{width:100%;border-collapse:collapse;font-size:13px}
+table.blocks th{color:var(--dim);font-weight:normal;text-align:left;padding:2px 6px;font-size:12px}
+table.blocks td{padding:3px 4px;vertical-align:middle}
+table.blocks tr.self td:nth-child(2) select{color:var(--acc2)}
+table.blocks tr.peer td:nth-child(2) select{color:var(--acc)}
+table.blocks input[type=text]{width:100%}
+table.blocks select{width:62px}
+.blocks-wrap{max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--panel2)}
+.hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.7}
+/* ---- 折叠：card 默认收起（界面清爽），展开状态存在 localStorage ---- */
+.card.collapsed > *:not(h2){display:none!important}
+.card h2{cursor:pointer;user-select:none}
+.card h2 .hint,.card h2 .chev{font-size:11px;color:var(--dim2);font-weight:normal}
+.card h2 .chev{color:var(--dim);font-size:12px}
+.caret{display:inline-block;margin-left:auto;transition:transform .18s ease}
+.card.collapsed .caret{transform:rotate(-90deg)}
+.card h2 .tag{margin-left:0}
+/* 核心卡不折叠的视觉提示 */
+.card.core{border-color:var(--acc-border);box-shadow:0 6px 20px rgba(10,172,95,.10)}
+.card.core h2 .tag{color:var(--acc-strong);border-color:var(--acc-border);background:var(--acc-soft)}
+/* 顶部折叠总控 */
+.top .lnk{background:none;border:none;color:var(--dim);font-size:12px;height:auto;padding:0 4px}
+.top .lnk:hover{color:var(--acc-strong)}
+/* 高级按钮（切换右侧面板布局） */
+.adv-btn{height:26px;padding:0 10px;font-size:12px;border-radius:7px;background:none;
+  border:1px dashed var(--line-strong);color:var(--dim2)}
+.adv-btn.on{border-style:solid;border-color:var(--acc-border);color:var(--acc-strong);background:var(--acc-soft)}
+.card h2 .rng{margin-left:6px;color:var(--dim2);font-size:11px;font-weight:normal}
+.card h2 .num{color:var(--acc-strong);font-weight:600}
+/* 出片卡：核心按钮放大一档 */
+#cardRender h2{color:var(--acc-strong)}
+#cardRender .core-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* 顶部「核心三步」指引条：一眼看清主流程在哪 */
+.steps{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:14px 22px 0;padding:10px 14px;background:var(--panel);
+  border:1px solid var(--acc-border);border-radius:var(--r);
+  box-shadow:0 6px 20px rgba(10,172,95,.08)}
+.steps-t{font-size:13px;font-weight:600;color:var(--acc-strong)}
+.step{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--txt)}
+.step b{width:18px;height:18px;border-radius:50%;background:var(--acc);color:#fff;
+  font-size:11px;font-weight:600;display:grid;place-items:center}
+.step small{color:var(--dim2);font-size:11px}
+.steps-note{margin-left:auto;font-size:12px;color:var(--dim)}
+.pre{font-family:Consolas,monospace;font-size:12px;white-space:pre-wrap;background:var(--panel2);
+  border:1px solid var(--line);border-radius:8px;padding:10px;max-height:320px;overflow:auto;color:var(--dim)}
+.preview img,.preview video{max-width:100%;border-radius:8px;border:1px solid var(--line);margin-top:8px;display:block}
+.job{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;background:var(--panel2)}
+.job .st{font-weight:600}
+.job.running .st{color:var(--acc2)} .job.success .st{color:var(--ok)} .job.failed .st{color:var(--bad)}
+.job pre{font-size:11px;color:var(--dim);max-height:120px;overflow:auto;white-space:pre-wrap;margin-top:6px}
+.chip{font-size:12px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);
+  border-radius:99px;padding:3px 10px}
+.chip.on{border-color:var(--acc);color:var(--acc)}
+.avprev{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--line);display:block}
+.range{display:flex;align-items:center;gap:8px}
+input[type=range]{accent-color:var(--acc);width:150px}
+.modal{position:fixed;inset:0;background:rgba(17,24,39,.42);display:none;align-items:center;justify-content:center;z-index:200}
+.modal.on{display:flex}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(880px,92vw);
+  max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.modal .hd{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.modal .bd{padding:14px 16px;overflow:auto}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.thumbs img{width:100%;height:104px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer}
+.thumbs img:hover{border-color:var(--acc)}
+.thumbs.round img{height:78px;border-radius:50%;object-fit:cover}
+.avs{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
+.avs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;border:1px solid var(--line);cursor:pointer}
+.avs img:hover{border-color:var(--acc)}
+.badge-note{font-size:12px;color:var(--acc2)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:12px}
+/* doc 卡改用 h2 折叠后，.md 直接挂在卡上（原 details.doc 选择器保留兼容旧结构） */
+.card .md h3{font-size:13px;color:var(--acc2);margin:12px 0 4px}
+.card .md code{background:var(--panel2);border-radius:4px;padding:1px 5px;font-family:Consolas,monospace}
+.card .md table{border-collapse:collapse;font-size:12px;margin:6px 0}
+.card .md th,.card .md td{border:1px solid var(--line);padding:3px 7px;text-align:left}
+.card .md th{color:var(--dim);font-weight:normal}
+.note-blue{color:#56B4EB} .note-yellow{color:#ffd246} .note-red{color:#ff5656}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand" title="微信录屏工作流可视化编辑器">
+    <div class="brand-mark">微</div>
+    <div>
+      长图工作台
+      <span class="brand-sub">JSON 对话 → 微信长图 · 鼓点卡点镜头视频</span>
+    </div>
+  </div>
+  <button type="button" onclick="location.href='/'"
+          data-tip="回到工作流编辑器">← 返回工作流</button>
+  <span class="chip" id="svcState">检测中…</span>
+  <div class="spacer"></div>
+  <button type="button" class="lnk" id="btnToggleAll" onclick="toggleAllCards()"
+          data-tip="一键收起所有配置卡，只看①②⑦三个核心">全部收起</button>
+  <button type="button" onclick="loadAll()">↻ 刷新</button>
+</div>
+
+<div class="steps">
+  <span class="steps-t">核心三步</span>
+  <span class="step"><b>1</b>写对话<small>① 内容来源</small></span>
+  <span class="step"><b>2</b>看一眼<small>⑥ 预览长图</small></span>
+  <span class="step"><b>3</b>出片<small>⑦ 生成视频</small></span>
+  <span class="steps-note">左边写对话 → 右边看长图 → 点生成视频。其余卡片都是可选配置，点标题可收起。</span>
+</div>
+
+<div class="grid">
+  <!-- ================= 左列 ================= -->
+  <div>
+    <div class="card" data-card="source">
+      <h2 data-tip="① 写对话。这是核心，不用收起">① 内容来源<span class="caret">▾</span></h2>
+      <div class="tabs">
+        <button id="tabWx" class="on" onclick="setMode('wx')">JSON 对话 → 微信长图（推荐）</button>
+        <button id="tabLong" onclick="setMode('longimg')">上传整张长图</button>
+      </div>
+
+      <!-- ---------- JSON 对话 ---------- -->
+      <div id="paneWx">
+        <div class="row">
+          <button type="button" class="primary" onclick="addBlock('peer')">＋ 她说</button>
+          <button type="button" onclick="addBlock('me')">＋ 我说</button>
+          <button type="button" onclick="loadSample()">载入示例</button>
+          <button type="button" onclick="importJson()">导入 JSON</button>
+          <button type="button" onclick="exportJson()">导出 JSON</button>
+          <button type="button" class="warn" onclick="clearBlocks()">清空</button>
+        </div>
+
+        <div class="blocks-wrap">
+          <table class="blocks" id="blkTable">
+            <thead><tr>
+              <th style="width:26px">#</th>
+              <th style="width:66px">说话人</th>
+              <th>台词（气泡里的话）</th>
+              <th style="width:30%">点评行（留空不显示）</th>
+              <th style="width:92px">配图</th>
+              <th style="width:74px">操作</th>
+            </tr></thead>
+            <tbody id="blkBody"></tbody>
+          </table>
+        </div>
+        <div class="hint">台词写进气泡；点评行是气泡下面那行彩色小字（她=蓝、我=黄），用来说明这条的心理/目的。
+          「配图」= 这条消息发的是照片（不是文字）。写完可以在下面「JSON」区看到实时配置。</div>
+
+        <div class="row" style="margin-top:10px">
+          <label class="f" style="flex:1">结尾 CTA（大字，留空则不要）
+            <input type="text" id="endingNote" placeholder="下课 遇到不会聊的女生就来找我吧"></label>
+          <label class="f">颜色
+            <select id="endingColor">
+              <option value="red" selected>红（推荐）</option>
+              <option value="yellow">黄</option>
+              <option value="blue">蓝</option>
+            </select></label>
+        </div>
+      </div>
+
+      <!-- ---------- 上传整图 ---------- -->
+      <div id="paneLong" style="display:none">
+        <div class="row">
+          <input type="file" id="longFile" accept="image/png,image/jpeg,image/webp" style="display:none">
+          <button type="button" class="primary" onclick="document.getElementById('longFile').click()">📤 上传长图</button>
+          <button type="button" onclick="openExported()">用最近导出的微信长图</button>
+          <span id="longInfo" class="chip">未选择</span>
+        </div>
+        <div class="preview" id="longThumb"></div>
+        <div class="hint">整图模式：镜头靠像素探测自动识别气泡（不如 JSON 路准），适合已经自己拼好的长图。</div>
+      </div>
+    </div>
+
+    <div class="card" data-card="cast">
+      <h2 data-tip="点标题可收起/展开">② 人物与头像<span class="rng" id="castSum"></span><span class="caret">▾</span></h2>
+      <div class="row">
+        <label class="f">对方名字<input type="text" id="peerName" value="小雅" style="width:110px"></label>
+        <label class="f">左上角角标<input type="text" id="badge" value="99" style="width:64px"></label>
+        <div class="spacer"></div>
+        <label class="f">对方头像
+          <span class="row">
+            <img id="peerAvImg" class="avprev" src="/images/avatar/dygirl_47.jpg">
+            <button type="button" class="mini" onclick="openAvatar('peer')">选/传</button>
+          </span></label>
+        <label class="f">我的头像
+          <span class="row">
+            <img id="myAvImg" class="avprev" src="/images/avatar/dygirl_49.jpg">
+            <button type="button" class="mini" onclick="openAvatar('my')">选/传</button>
+          </span></label>
+      </div>
+      <input type="file" id="avFile" accept="image/*" style="display:none">
+      <div class="hint">头像可直接用内置库（150 张），也能传自己的图。角标是顶栏返回箭头旁边那个灰圈数字。</div>
+    </div>
+
+    <div class="card" data-card="bgm">
+      <h2 data-tip="点标题可收起/展开">③ 背景音乐 <span class="tag">步进会卡在它的鼓点上</span><span class="rng" id="bgmSum"></span><span class="caret">▾</span></h2>
+      <div class="row">
+        <input type="file" id="bgmFile" accept="audio/*" style="display:none">
+        <button type="button" class="primary" onclick="document.getElementById('bgmFile').click()">📤 上传音乐</button>
+        <select id="bgmSelect" style="flex:1;min-width:220px"><option value="">— 选择音乐 —</option></select>
+        <button type="button" class="mini" onclick="previewBgm()">▶ 试听</button>
+      </div>
+      <audio id="bgmAudio" controls style="width:100%;margin-top:6px;display:none"></audio>
+    </div>
+
+    <div class="card" data-card="pace">
+      <h2 data-tip="点标题可收起/展开">④ 节奏参数
+        <span class="rng">默认值即可出片，一般不用动</span>
+        <button type="button" class="adv-btn" id="btnPaceAdv"
+                data-tip="展开其它 4 个微调项（片头/缩放下限/淡出/画质）">高级 ▾</button>
+        <span class="caret">▾</span></h2>
+      <div class="row" style="margin-bottom:2px"><span class="hint" style="margin:0">最常动的两项：</span></div>
+      <div class="row"><span class="chip" style="width:120px;text-align:center">最快步距</span>
+        <div class="range"><input type="range" id="minGap" min="8" max="25" value="12">
+        <b id="minGapV">1.2s</b></div>
+        <span class="hint" style="margin:0">两次挪镜头之间最少隔多久</span></div>
+      <div class="row"><span class="chip" style="width:120px;text-align:center">结尾停留</span>
+        <div class="range"><input type="range" id="tailHold" min="10" max="45" value="22">
+        <b id="tailHoldV">2.2s</b></div>
+        <span class="hint" style="margin:0">最后一句 + CTA 停住多久</span></div>
+
+      <div id="paceAdv" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
+      <div class="row" style="margin-bottom:2px"><span class="hint" style="margin:0">高级微调（改动前建议先跑一次默认值）：</span></div>
+      <div class="row"><span class="chip" style="width:120px;text-align:center">片头滑入条数</span>
+        <div class="range"><input type="range" id="introBlocks" min="0" max="4" value="2">
+        <b id="introBlocksV">2</b></div>
+        <span class="hint" style="margin:0">开头停几个鼓点再开始挪镜头（0.5 秒级）</span></div>
+      <div class="row"><span class="chip" style="width:120px;text-align:center">缩放下限</span>
+        <div class="range"><input type="range" id="zoomFloor" min="10" max="25" value="10">
+        <b id="zoomFloorV">1.0x</b></div>
+        <span class="hint" style="margin:0">允许拉到多远（越小视野越宽）</span></div>
+      <div class="row"><span class="chip" style="width:120px;text-align:center">音乐淡出</span>
+        <div class="range"><input type="range" id="fadeOut" min="0" max="30" value="12">
+        <b id="fadeOutV">1.2s</b></div>
+        <span class="hint" style="margin:0">结尾音乐渐弱时长</span></div>
+      <div class="row"><span class="chip" style="width:120px;text-align:center">画质</span>
+        <div class="range"><input type="range" id="supersample" min="10" max="20" value="20">
+        <b id="supersampleV">2.0x</b></div>
+        <span class="hint" style="margin:0">超采样倍数，越高越清晰越慢</span></div>
+      </div>
+    </div>
+
+    <div class="card" data-card="json">
+      <h2 data-tip="点标题可收起/展开">⑤ JSON 配置 <span class="tag">可看可改，改完点「应用」</span><span class="rng">默认收起</span><span class="caret">▾</span></h2>
+      <textarea id="jsonBox" spellcheck="false" placeholder="点上面「载入示例」或自己写；格式见右下角说明"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button type="button" onclick="syncJsonFromUi('表格 → JSON')">↻ 表格同步到 JSON</button>
+        <button type="button" class="ok" onclick="applyJson()">✓ 应用 JSON（写回上面表单）</button>
+        <button type="button" onclick="copyJson()">复制</button>
+        <span class="hint" style="margin:0" id="jsonMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 右列 ================= -->
+  <div>
+    <div class="card" data-card="preview">
+      <h2 data-tip="② 先看长图对不对，再出片">⑥ 预览 <span class="tag">出片前先看一眼</span><span class="caret">▾</span></h2>
+      <div class="row">
+        <button type="button" class="primary" onclick="doWxshot()">🖼 只看长图（约 10~30 秒）</button>
+        <button type="button" onclick="doPreview()">🎞 关键帧预览</button>
+      </div>
+      <div class="hint" id="prevMsg"></div>
+      <div class="preview" id="shotBox"></div>
+      <div class="preview" id="previewBox"></div>
+    </div>
+
+    <div class="card core" id="cardRender" data-card="render">
+      <h2 data-tip="③ 配置就绪后点这里出片">⑦ 出片 <span class="tag">核心</span><span class="caret">▾</span></h2>
+      <div class="core-row">
+        <button type="button" class="ok" id="btnRender" onclick="doRender()" style="font-size:16px;padding:12px 26px">⏺ 生成视频</button>
+        <span class="chip" id="estChip">—</span>
+      </div>
+      <div class="hint" id="renderMsg">流程：JSON → 正宗微信长图 → 自动镜头（逐句下移/换人平移/卡鼓点）→ 成片 MP4。
+        取景逻辑：第一句框一句、同人第二句拉远刚好两句同框、第三句三句，再多发就滑动最近三句；换人开口立刻移到另一边。</div>
+    </div>
+
+    <div class="card" data-card="jobs">
+      <h2 data-tip="渲染进度与成片，点标题可收起">⑧ 任务 <span class="tag" id="jobCount"></span><span class="caret">▾</span></h2>
+      <div id="jobs"></div>
+      <div class="hint">渲染在后台跑（一条 20 句的对话大约 1~3 分钟），期间可以继续改配置。</div>
+    </div>
+
+    <div class="card" data-card="doc">
+      <h2 data-tip="点标题可收起/展开">📖 JSON 格式说明 <span class="rng">字段写法</span><span class="caret">▾</span></h2>
+      <div class="md" id="docMd"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 图片选择弹窗 ============ -->
+<div class="modal" id="mPhoto">
+  <div class="box">
+    <div class="hd">
+      <b>选一条「她/我发的照片」</b>
+      <span class="chip" id="photoCount"></span>
+      <div class="spacer" style="flex:1"></div>
+      <input type="file" id="photoFile" accept="image/*" style="display:none">
+      <button type="button" class="primary" onclick="document.getElementById('photoFile').click()">📤 上传新图</button>
+      <button type="button" onclick="closeModal('mPhoto')">关闭</button>
+    </div>
+    <div class="bd">
+      <div class="thumbs" id="photoThumbs"></div>
+      <div class="row" style="justify-content:center;margin-top:12px">
+        <button type="button" onclick="loadPhotos(-1)">← 上一页</button>
+        <span class="chip" id="photoPage">—</span>
+        <button type="button" onclick="loadPhotos(1)">下一页 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 头像选择弹窗 ============ -->
+<div class="modal" id="mAvatar">
+  <div class="box">
+    <div class="hd">
+      <b id="avTitle">选头像</b>
+      <span class="chip">内置库里点一下就选中</span>
+      <div class="spacer" style="flex:1"></div>
+      <input type="file" id="avUpload" accept="image/*" style="display:none">
+      <button type="button" class="primary" onclick="document.getElementById('avUpload').click()">📤 上传头像</button>
+      <button type="button" onclick="closeModal('mAvatar')">关闭</button>
+    </div>
+    <div class="bd"><div class="avs" id="avThumbs"></div></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   长图工作台
+   ------------------------------------------------------------
+   两条出片路：
+     wx      JSON 对话 → wx_export.py 出正宗微信长图 → 动态镜头渲染（推荐）
+     longimg 自己上传的长图 → 动态镜头渲染（像素探测）
+   数据结构就是页面右侧展示的那份 JSON，页面所有控件都读写同一份 STATE，
+   表格 ↔ JSON 双向同步，避免“表单和 JSON 各说各话”。
+   ============================================================ */
+const $ = id => document.getElementById(id);
+let MODE = 'wx';
+let LONG_URL = '';
+let PHOTO_OFF = 0, PHOTO_TOTAL = 0, PICK_ROW = -1, PICK_AV = 'peer';
+
+const STATE = {
+  meta: { peer_name: '小雅', badge: '99',
+          peer_avatar: '/images/avatar/dygirl_47.jpg',
+          my_avatar: '/images/avatar/dygirl_49.jpg' },
+  blocks: [],
+  ending: { note: '下课 遇到不会聊的女生就来找我吧', color: 'red' },
+  bgm_path: '',
+  intro: { blocks: 2 },
+  pace: { glide: 0.36, min_gap: 1.2, tail_hold: 2.2, max_step: 3.5 },
+  quality: { supersample: 2.0 },
+  fade_out: 1.2,
+  longimg_opts: { zoom: 1.0, pan: 'side' },
+};
+
+/* ============================================================
+   折叠：让界面只露核心，细节按需展开
+   ------------------------------------------------------------
+   规则：每张 .card 都可点标题收起；收起状态存 localStorage（按 data-card 记），
+   下一次打开保持你习惯的样子。①②⑥⑦⑧ 是主流程，默认展开；③④⑤ 与说明
+   默认收起——所以首屏只剩「写对话 → 看长图 → 生成视频」。
+   「全部收起/展开」在顶栏。
+   ============================================================ */
+const CARD_KEY = 'longimg.cards.v1';
+const CARD_DEFAULT_OPEN = { source: true, cast: false, bgm: false, pace: false,
+                            json: false, preview: true, render: true, jobs: true, doc: false };
+function loadCardState() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(CARD_KEY) || '{}') || {}; } catch (e) { saved = {}; }
+  document.querySelectorAll('.card[data-card]').forEach(card => {
+    const key = card.getAttribute('data-card');
+    const open = (key in saved) ? !!saved[key] : (CARD_DEFAULT_OPEN[key] !== false);
+    card.classList.toggle('collapsed', !open);
+    const h2 = card.querySelector('h2') || card.querySelector('summary');
+    if (!h2) return;
+    h2.onclick = ev => {
+      /* 标题上的控件（折叠按钮 / 高级开关 / 链接）不该连带折叠整卡 */
+      if (ev.target.closest('button')) return;
+      card.classList.toggle('collapsed');
+      saveCardState(); syncToggleAllLabel();
+    };
+  });
+  syncToggleAllLabel();
+}
+function syncToggleAllLabel() {
+  const cards = [...document.querySelectorAll('.card[data-card]')];
+  const anyOpen = cards.some(c => !c.classList.contains('collapsed'));
+  $('btnToggleAll').textContent = anyOpen ? '全部收起' : '全部展开';
+}
+function saveCardState() {
+  const out = {};
+  document.querySelectorAll('.card[data-card]').forEach(c => {
+    out[c.getAttribute('data-card')] = !c.classList.contains('collapsed');
+  });
+  try { localStorage.setItem(CARD_KEY, JSON.stringify(out)); } catch (e) { /* 隐私模式忽略 */ }
+}
+function toggleAllCards() {
+  const cards = [...document.querySelectorAll('.card[data-card]')];
+  const anyOpen = cards.some(c => !c.classList.contains('collapsed'));
+  cards.forEach(c => c.classList.toggle('collapsed', anyOpen));   /* 有展开的 → 全收；全收着 → 全开 */
+  $('btnToggleAll').textContent = anyOpen ? '全部展开' : '全部收起';
+  saveCardState();
+}
+/* ④ 节奏参数的高级微调：默认藏起来，点「高级」才出现 */
+function bindPaceAdv() {
+  const btn = $('btnPaceAdv'), box = $('paceAdv');
+  btn.onclick = ev => {
+    ev.stopPropagation();
+    const show = box.style.display === 'none';
+    box.style.display = show ? '' : 'none';
+    btn.classList.toggle('on', show);
+    btn.textContent = show ? '高级 ▴' : '高级 ▾';
+  };
+}
+
+/* 收起时标题右侧给一句摘要：不展开也知道里面配的是什么 */
+function updateSummaries() {
+  const cast = $('castSum');
+  if (cast) cast.textContent = STATE.meta.peer_name ? '· ' + STATE.meta.peer_name : '';
+  const bgm = $('bgmSum');
+  if (bgm) bgm.textContent = STATE.bgm_path ? '· ' + STATE.bgm_path.split('/').pop() : '· 未选';
+}
+
+/* ---------------- 顶部提示 / 服务状态 ---------------- */
+function toast(msg, ok) {
+  const el = $('renderMsg');
+  el.textContent = msg;
+  el.style.color = ok ? 'var(--ok)' : 'var(--dim)';
+}
+async function checkService() {
+  try {
+    const r = await fetch('/api/longimg/assets');
+    const d = await r.json();
+    $('svcState').textContent = d.ok ? '服务正常' : '服务异常';
+    $('svcState').className = 'chip' + (d.ok ? ' on' : '');
+  } catch (e) {
+    $('svcState').textContent = '编辑器服务未响应';
+  }
+}
+
+/* ---------------- 模式切换 ---------------- */
+function setMode(m) {
+  MODE = m;
+  $('tabWx').classList.toggle('on', m === 'wx');
+  $('tabLong').classList.toggle('on', m === 'longimg');
+  $('paneWx').style.display = m === 'wx' ? '' : 'none';
+  $('paneLong').style.display = m === 'longimg' ? '' : 'none';
+  syncJsonFromUi();
+}
+
+/* ============================================================
+   对话表格
+   ============================================================ */
+function renderBlocks() {
+  const body = $('blkBody');
+  body.innerHTML = '';
+  STATE.blocks.forEach((b, i) => {
+    const tr = document.createElement('tr');
+    tr.className = b.side === 'me' ? 'self' : 'peer';
+    tr.innerHTML = `
+      <td style="color:var(--dim);font-size:12px">${i + 1}</td>
+      <td><select>
+        <option value="peer"${b.side !== 'me' ? ' selected' : ''}>她说</option>
+        <option value="me"${b.side === 'me' ? ' selected' : ''}>我说</option>
+      </select></td>
+      <td><input type="text" class="tx" placeholder="台词 / 留空只发图" value="${esc(b.text || '')}"></td>
+      <td><input type="text" class="nt" placeholder="点评行（可留空）" value="${esc(b.note || '')}"></td>
+      <td><button type="button" class="mini" title="这条发照片">${b.img ? '🖼 已选' : '＋ 选图'}</button></td>
+      <td>
+        <button type="button" class="mini op-up" title="上移">↑</button>
+        <button type="button" class="mini op-dn" title="下移">↓</button>
+        <button type="button" class="mini warn op-del" title="删除">✕</button>
+      </td>`;
+    tr.querySelector('select').onchange = e => { b.side = e.target.value; tr.className = b.side === 'me' ? 'self' : 'peer'; syncJsonFromUi(); };
+    tr.querySelector('.tx').oninput = e => { b.text = e.target.value; syncJsonFromUi(); };
+    tr.querySelector('.nt').oninput = e => { b.note = e.target.value; syncJsonFromUi(); };
+    tr.querySelectorAll('td')[4].querySelector('button').onclick = () => openPhoto(i);
+    tr.querySelector('.op-up').onclick = () => moveBlock(i, -1);
+    tr.querySelector('.op-dn').onclick = () => moveBlock(i, 1);
+    tr.querySelector('.op-del').onclick = () => { STATE.blocks.splice(i, 1); renderBlocks(); syncJsonFromUi(); };
+    body.appendChild(tr);
+  });
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function addBlock(side) {
+  STATE.blocks.push({ side: side === 'me' ? 'me' : 'peer', text: '', note: '' });
+  renderBlocks(); syncJsonFromUi();
+  const rows = $('blkBody').querySelectorAll('tr');
+  const last = rows[rows.length - 1];
+  if (last) { last.querySelector('.tx').focus(); last.scrollIntoView({ block: 'nearest' }); }
+}
+function moveBlock(i, d) {
+  const j = i + d;
+  if (j < 0 || j >= STATE.blocks.length) return;
+  const t = STATE.blocks[i]; STATE.blocks[i] = STATE.blocks[j]; STATE.blocks[j] = t;
+  renderBlocks(); syncJsonFromUi();
+}
+function clearBlocks() {
+  if (!confirm('清空所有对话？')) return;
+  STATE.blocks = []; renderBlocks(); syncJsonFromUi();
+}
+
+/* ============================================================
+   JSON 双向同步
+   ============================================================ */
+function buildConfig() {
+  return {
+    mode: MODE,
+    longimg: LONG_URL || undefined,
+    bgm_path: STATE.bgm_path,
+    fade_out: +STATE.fade_out.toFixed(2),
+    meta: {
+      peer_name: STATE.meta.peer_name,
+      badge: STATE.meta.badge,
+      peer_avatar: STATE.meta.peer_avatar,
+      my_avatar: STATE.meta.my_avatar,
+    },
+    blocks: STATE.blocks
+      .map(b => {
+        const o = { side: b.side };
+        if (b.text && b.text.trim()) o.text = b.text.trim();
+        if (b.img) o.img = b.img;
+        if (b.note && b.note.trim()) o.note = b.note.trim();
+        return o;
+      })
+      .filter(b => b.text || b.img),
+    ending: { note: STATE.ending.note, color: STATE.ending.color },
+    intro: { blocks: +STATE.intro.blocks },
+    pace: { glide: STATE.pace.glide, min_gap: +STATE.pace.min_gap.toFixed(2),
+            tail_hold: +STATE.pace.tail_hold.toFixed(2), max_step: STATE.pace.max_step },
+    quality: { supersample: +STATE.quality.supersample.toFixed(1) },
+    longimg_opts: { zoom: +STATE.longimg_opts.zoom.toFixed(2), pan: STATE.longimg_opts.pan },
+  };
+}
+function syncJsonFromUi(why) {
+  // 表单 → 结构化字段 → JSON 文本
+  STATE.meta.peer_name = $('peerName').value.trim();
+  STATE.meta.badge = $('badge').value.trim() || '99';
+  STATE.ending.note = $('endingNote').value.trim();
+  STATE.ending.color = $('endingColor').value;
+  STATE.intro.blocks = +$('introBlocks').value;
+  STATE.pace.min_gap = +$('minGap').value / 10;
+  STATE.pace.tail_hold = +$('tailHold').value / 10;
+  STATE.longimg_opts.zoom = +$('zoomFloor').value / 10;
+  STATE.fade_out = +$('fadeOut').value / 10;
+  STATE.quality.supersample = +$('supersample').value / 10;
+  $('jsonBox').value = JSON.stringify(buildConfig(), null, 1);
+  $('jsonMsg').textContent = why ? (why + ' ✓ ' + new Date().toLocaleTimeString()) : '';
+  estimate();
+  updateSummaries();
+}
+function applyJson() {
+  let d;
+  try { d = JSON.parse($('jsonBox').value); }
+  catch (e) { $('jsonMsg').textContent = '❌ JSON 语法错误：' + e.message; return; }
+  if (Array.isArray(d)) d = { mode: MODE, blocks: d };
+  if (!d || typeof d !== 'object') { $('jsonMsg').textContent = '❌ 顶层必须是对象或数组'; return; }
+  if (d.mode === 'longimg' || d.mode === 'wx') MODE = d.mode;
+  if (d.meta) {
+    if (d.meta.peer_name !== undefined) $('peerName').value = d.meta.peer_name;
+    if (d.meta.badge !== undefined) $('badge').value = d.meta.badge;
+    if (d.meta.peer_avatar) { STATE.meta.peer_avatar = d.meta.peer_avatar; $('peerAvImg').src = d.meta.peer_avatar; }
+    if (d.meta.my_avatar) { STATE.meta.my_avatar = d.meta.my_avatar; $('myAvImg').src = d.meta.my_avatar; }
+  }
+  if (Array.isArray(d.blocks)) {
+    STATE.blocks = d.blocks.map(b => ({
+      side: b.side === 'me' ? 'me' : 'peer',
+      text: b.text || '', img: b.img || '', note: b.note || '',
+    }));
+    renderBlocks();
+  }
+  if (d.ending) {
+    $('endingNote').value = d.ending.note || '';
+    $('endingColor').value = ['red', 'yellow', 'blue'].includes(d.ending.color) ? d.ending.color : 'red';
+  }
+  if (d.intro && d.intro.blocks !== undefined) { $('introBlocks').value = d.intro.blocks; $('introBlocksV').textContent = d.intro.blocks; }
+  if (d.pace) {
+    if (d.pace.min_gap !== undefined) { $('minGap').value = Math.round(d.pace.min_gap * 10); $('minGapV').textContent = (+d.pace.min_gap).toFixed(1) + 's'; }
+    if (d.pace.tail_hold !== undefined) { $('tailHold').value = Math.round(d.pace.tail_hold * 10); $('tailHoldV').textContent = (+d.pace.tail_hold).toFixed(1) + 's'; }
+  }
+  if (d.fade_out !== undefined) { $('fadeOut').value = Math.round(d.fade_out * 10); $('fadeOutV').textContent = (+d.fade_out).toFixed(1) + 's'; }
+  if (d.longimg_opts && d.longimg_opts.zoom !== undefined) {
+    $('zoomFloor').value = Math.round(d.longimg_opts.zoom * 10);
+    $('zoomFloorV').textContent = (+d.longimg_opts.zoom).toFixed(1) + 'x';
+  }
+  if (d.quality && d.quality.supersample !== undefined) {
+    $('supersample').value = Math.round(d.quality.supersample * 10);
+    $('supersampleV').textContent = (+d.quality.supersample).toFixed(1) + 'x';
+  }
+  if (d.bgm_path) selectBgm(d.bgm_path);
+  if (d.longimg) { LONG_URL = d.longimg; $('longInfo').textContent = d.longimg.split('/').pop(); }
+  syncJsonFromUi('JSON 已应用');
+  $('jsonMsg').textContent = '✓ 已应用' + (MODE === 'wx' ? '（JSON 对话模式）' : '（整图模式）');
+}
+async function copyJson() {
+  try { await navigator.clipboard.writeText($('jsonBox').value); $('jsonMsg').textContent = '✓ 已复制到剪贴板'; }
+  catch (e) { $('jsonMsg').textContent = '复制失败，请手动选中'; }
+}
+function importJson() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const fr = new FileReader();
+    fr.onload = () => { $('jsonBox').value = fr.result; applyJson(); };
+    fr.readAsText(f, 'utf-8');
+  };
+  inp.click();
+}
+function exportJson() {
+  const blob = new Blob([JSON.stringify(buildConfig(), null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '长图对话_' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '') + '.json';
+  a.click();
+}
+async function loadSample() {
+  try {
+    const r = await fetch('/api/longimg/sample');
+    const d = await r.json();
+    if (!d.ok) { toast('示例加载失败：' + (d.msg || '')); return; }
+    d.config.mode = 'wx';
+    d.config.bgm_path = d.config.bgm_path || STATE.bgm_path;
+    $('jsonBox').value = JSON.stringify(d.config, null, 1);
+    applyJson();
+    if (d.config.bgm) { /* 示例里的 bgm 字段只用于独立跑脚本，工作台用 bgm_path */ }
+    toast('示例已载入（' + ((d.config.blocks || []).length) + ' 条），选好音乐就能出片', true);
+  } catch (e) { toast('示例加载失败：' + e.message); }
+}
+
+/* ============================================================
+   图片 / 头像选择
+   ============================================================ */
+function openModal(id) { $(id).classList.add('on'); }
+function closeModal(id) { $(id).classList.remove('on'); }
+async function openPhoto(row) {
+  PICK_ROW = row;
+  PHOTO_OFF = 0;
+  openModal('mPhoto');
+  await loadPhotos(0);
+}
+async function loadPhotos(dir) {
+  PHOTO_OFF = Math.max(0, PHOTO_OFF + dir * 60);
+  try {
+    const r = await fetch('/api/longimg/photos?offset=' + PHOTO_OFF + '&limit=60');
+    const d = await r.json();
+    PHOTO_TOTAL = d.total || 0;
+    $('photoThumbs').innerHTML = (d.items || []).map(u => '<img src="' + u + '" title="点一下选中">').join('');
+    [...$('photoThumbs').children].forEach((img, i) => {
+      img.onclick = () => {
+        const u = d.items[i];
+        STATE.blocks[PICK_ROW].img = u;
+        renderBlocks(); syncJsonFromUi('配图已选');
+        closeModal('mPhoto');
+      };
+    });
+    $('photoPage').textContent = PHOTO_OFF + 1 + ' ~ ' + Math.min(PHOTO_OFF + 60, PHOTO_TOTAL) + ' / ' + PHOTO_TOTAL;
+    $('photoCount').textContent = '共 ' + PHOTO_TOTAL + ' 张（素材库 + 内置图集）';
+  } catch (e) { $('photoCount').textContent = '加载失败'; }
+}
+async function openAvatar(who) {
+  PICK_AV = who;
+  $('avTitle').textContent = who === 'peer' ? '选「她」的头像' : '选「我」的头像';
+  openModal('mAvatar');
+  const r = await fetch('/api/longimg/avatars');
+  const d = await r.json();
+  $('avThumbs').innerHTML = (d.items || []).map(u => '<img src="' + u + '">').join('');
+  [...$('avThumbs').children].forEach((img, i) => {
+    img.onclick = () => {
+      const u = d.items[i];
+      if (PICK_AV === 'peer') { STATE.meta.peer_avatar = u; $('peerAvImg').src = u; }
+      else { STATE.meta.my_avatar = u; $('myAvImg').src = u; }
+      syncJsonFromUi('头像已换'); closeModal('mAvatar');
+    };
+  });
+}
+$('avUpload').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const d = await upload(f, 'image');
+  if (!d.ok) return toast('头像上传失败');
+  if (PICK_AV === 'peer') { STATE.meta.peer_avatar = d.url; $('peerAvImg').src = d.url; }
+  else { STATE.meta.my_avatar = d.url; $('myAvImg').src = d.url; }
+  syncJsonFromUi('头像已上传'); closeModal('mAvatar');
+};
+$('photoFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const d = await upload(f, 'image');
+  if (!d.ok) return;
+  STATE.blocks[PICK_ROW].img = d.url;
+  const img = STATE.blocks[PICK_ROW];
+  if (!img) return;
+  renderBlocks(); syncJsonFromUi('配图已上传'); closeModal('mPhoto');
+};
+
+/* ============================================================
+   素材上传 / BGM
+   ============================================================ */
+async function upload(file, kind) {
+  try {
+    const r = await fetch('/api/longimg/upload', {
+      method: 'POST', body: file,
+      headers: { 'X-Longimg-Kind': kind, 'X-Longimg-Name': encodeURIComponent(file.name) },
+    });
+    return r.json();
+  } catch (e) { return { ok: false, msg: e.message }; }
+}
+function selectBgm(url) {
+  const sel = $('bgmSelect');
+  let hit = [...sel.options].some(o => o.value === url);
+  if (!hit) { const o = document.createElement('option'); o.value = url; o.textContent = url.split('/').pop(); sel.appendChild(o); }
+  sel.value = url; STATE.bgm_path = url;
+}
+function previewBgm() {
+  if (!STATE.bgm_path) return toast('先选一首音乐');
+  const a = $('bgmAudio');
+  a.src = STATE.bgm_path; a.style.display = ''; a.play();
+}
+$('bgmFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  toast('上传音乐中…');
+  const d = await upload(f, 'bgm');
+  if (!d.ok) return toast('音乐上传失败');
+  selectBgm(d.url); syncJsonFromUi('音乐已上传'); toast('音乐就绪', true);
+};
+$('longFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  toast('上传长图中…');
+  const d = await upload(f, 'image');
+  if (!d.ok) return toast('长图上传失败');
+  LONG_URL = d.url;
+  $('longInfo').textContent = f.name + '（' + Math.round(f.size / 1024) + 'KB）';
+  $('longThumb').innerHTML = '<img src="' + d.url + '">';
+  syncJsonFromUi(); toast('长图就绪', true);
+};
+async function openExported() {
+  const r = await fetch('/api/longimg/exported');
+  const d = await r.json();
+  if (!d.ok || !d.items.length) return toast('还没有导出过的长图，先点「只看长图」');
+  const list = d.items.slice(0, 10).map((it, i) => (i + 1) + '. ' + it.name + '  ' + it.kbytes + 'KB').join('\n');
+  const n = prompt('选一个最近导出的微信长图（填序号）：\n' + list, '1');
+  const it = d.items[(+n || 1) - 1];
+  if (!it) return;
+  LONG_URL = it.url.split('?')[0];
+  $('longInfo').textContent = it.name;
+  $('longThumb').innerHTML = '<img src="' + it.url + '">';
+  syncJsonFromUi(); toast('已选用：' + it.name, true);
+}
+
+/* ============================================================
+   参数滑块
+   ============================================================ */
+function bindRange(id, vid, fmt, apply) {
+  const el = $(id);
+  el.oninput = () => {
+    $(vid).textContent = fmt(+el.value / 10, el.value);
+    if (apply) apply();
+    syncJsonFromUi();
+  };
+  $(vid).textContent = fmt(+el.value / 10, el.value);
+}
+bindRange('introBlocks', 'introBlocksV', v => String(v), () => { $('introBlocksV').textContent = $('introBlocks').value; });
+bindRange('minGap', 'minGapV', v => v.toFixed(1) + 's');
+bindRange('tailHold', 'tailHoldV', v => v.toFixed(1) + 's');
+bindRange('zoomFloor', 'zoomFloorV', v => v.toFixed(1) + 'x');
+bindRange('fadeOut', 'fadeOutV', v => v.toFixed(1) + 's');
+bindRange('supersample', 'supersampleV', v => v.toFixed(1) + 'x');
+$('introBlocksV').textContent = $('introBlocks').value;
+$('peerName').oninput = () => syncJsonFromUi();
+$('badge').oninput = () => syncJsonFromUi();
+$('endingNote').oninput = () => syncJsonFromUi();
+$('endingColor').onchange = () => syncJsonFromUi();
+$('bgmSelect').onchange = e => { STATE.bgm_path = e.target.value; syncJsonFromUi('音乐已选'); };
+
+function estimate() {
+  const n = STATE.blocks.filter(b => (b.text || '').trim() || b.img).length;
+  $('estChip').textContent = n ? (n + ' 句 · 成片约 ' + Math.max(8, Math.round(n * 1.6)) + '~'
+    + Math.round(n * 2.4) + ' 秒') : '还没有对话';
+}
+
+/* ============================================================
+   调接口：长图 / 预览 / 渲染
+   ============================================================ */
+function busy(b) { $('btnRender').disabled = b; }
+function preMsg(t, ok) { $('prevMsg').textContent = t; $('prevMsg').style.color = ok ? 'var(--ok)' : 'var(--dim)'; }
+function guard() {
+  const c = buildConfig();
+  if (MODE === 'wx' && !c.blocks.length) { toast('请先写对话（至少一条台词）'); return null; }
+  if (MODE === 'longimg' && !c.longimg) { toast('请先上传长图，或选一张最近导出的'); return null; }
+  if (!c.bgm_path) { toast('请先选/传背景音乐'); return null; }
+  return c;
+}
+async function doWxshot() {
+  if (MODE !== 'wx') return toast('「只看长图」只在 JSON 对话模式可用');
+  const cfg = buildConfig();
+  if (!cfg.blocks.length) return toast('请先写对话');
+  preMsg('正在导出微信长图…（要驱动仿真页面排版，20~40 秒）');
+  try {
+    const r = await fetch('/api/longimg/wxshot', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg),
+    });
+    const d = await r.json();
+    if (!d.ok) return preMsg('导出失败：' + d.msg);
+    $('shotBox').innerHTML = '<img src="' + d.url + '" title="点开看全图">';
+    preMsg('长图已导出：' + d.name + '（' + d.count + ' 条消息，' + d.width_px + '×' + d.height_px
+      + '，倍率 ' + d.dsf + 'x）', true);
+  } catch (e) { preMsg('请求失败：' + e.message); }
+}
+async function doPreview() {
+  const c = guard(); if (!c) return;
+  busy(true); preMsg('生成关键帧预览…（约 5~20 秒）');
+  try {
+    const r = await fetch('/api/longimg/preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c),
+    });
+    const d = await r.json();
+    if (!d.ok) { preMsg('预览失败：' + d.msg); }
+    else {
+      if (d.shot) $('shotBox').innerHTML = '<img src="' + d.shot + '">';
+      $('previewBox').innerHTML = '<img src="' + d.url + '">';
+      preMsg('关键帧预览已生成（一屏一格缩略图）', true);
+    }
+  } catch (e) { preMsg('请求失败：' + e.message); }
+  busy(false);
+}
+async function doRender() {
+  const c = guard(); if (!c) return;
+  busy(true); toast('已提交，后台渲染中…');
+  try {
+    const r = await fetch('/api/longimg/render', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c),
+    });
+    const d = await r.json();
+    if (d.ok) { toast('任务已提交：' + d.job.id + '（下面任务区看进度）', true); setTimeout(pollJobs, 800); }
+    else toast('提交失败：' + d.msg);
+  } catch (e) { toast('请求失败：' + e.message); }
+  busy(false);
+}
+
+/* ============================================================
+   任务列表
+   ============================================================ */
+function jobEl(j) {
+  const el = document.createElement('div');
+  el.className = 'job ' + j.status;
+  const st = { running: '⏳ 渲染中', success: '✅ 完成', failed: '❌ 失败' }[j.status] || j.status;
+  const used = j.finished ? Math.round(j.finished - j.started) : Math.round(Date.now() / 1000 - j.started);
+  el.innerHTML = '<span class="st">' + st + '</span> <span class="chip">' + (j.tag || '') + '</span>'
+    + ' <span class="chip">' + new Date(j.started * 1000).toLocaleTimeString() + '</span>'
+    + ' <span class="chip">' + used + 's</span>'
+    + (j.url && j.status === 'success'
+      ? '<div class="preview"><video src="' + j.url + '" controls preload="metadata"></video>'
+        + '<div class="row" style="margin-top:6px"><a href="' + j.url + '" download>⬇ 下载视频</a>'
+        + '<button type="button" class="mini" onclick="showLog(\'' + j.id + '\')">看日志</button></div></div>'
+      : (j.status === 'failed' ? '<div class="row" style="margin-top:6px"><button type="button" class="mini" onclick="showLog(\'' + j.id + '\')">看失败原因</button></div>' : ''))
+    + (j.log ? '<pre>' + esc(j.log) + '</pre>' : '');
+  return el;
+}
+let LOGS = {};
+let jobSig = '';
+function showLog(id) {
+  const j = (LOGS[id] || {});
+  alert('任务 ' + id + ' 日志：\n\n' + (j.log || '（暂无）').slice(-1500));
+}
+async function pollJobs() {
+  try {
+    const r = await fetch('/api/longimg/jobs');
+    const d = await r.json();
+    const items = d.items || [];
+    LOGS = {}; items.forEach(j => LOGS[j.id] = j);
+    /* 状态没变化就不动 DOM —— 任务区每 3 秒整体重建会把用户正在播放的
+       视频进度打断（这也是控制台 ERR_ABORTED/ERR_CONNECTION_REFUSED 的来源） */
+    const sig = items.map(j => j.id + ':' + j.status + ':' + (j.log || '').length).join('|');
+    if (sig === jobSig) return;
+    jobSig = sig;
+    const box = $('jobs'); box.innerHTML = '';
+    $('jobCount').textContent = items.length ? (items.length + ' 条') : '';
+    if (!items.length) box.innerHTML = '<div class="hint">还没有任务。配置好点「生成视频」，这里会显示进度和成片。</div>';
+    items.forEach(j => box.appendChild(jobEl(j)));
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ============================================================
+   格式说明
+   ============================================================ */
+async function loadDoc() {
+  try {
+    const r = await fetch('/api/longimg/format');
+    const d = await r.json();
+    if (d.ok) $('docMd').innerHTML = miniMarkdown(d.text);
+  } catch (e) { $('docMd').innerHTML = '<div class="hint">说明加载失败</div>'; }
+}
+function miniMarkdown(md) {
+  const lines = md.split(/\r?\n/);
+  let out = '', inTable = false, inCode = false;
+  for (const raw of lines) {
+    let ln = esc(raw);
+    if (/^```/.test(raw)) { out += inCode ? '</pre>' : '<pre class="pre">'; inCode = !inCode; continue; }
+    if (inCode) { out += raw.replace(/[<>]/g, c => c === '<' ? '&lt;' : '&gt;') + '\n'; continue; }
+    if (/^\s*\|/.test(raw)) {
+      const cells = raw.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      if (/^[\s\-:|]+$/.test(raw.replace(/\|/g, ''))) continue;
+      if (!inTable) { out += '<table>'; inTable = true; }
+      out += '<tr>' + cells.map(c => '<td>' + mdInline(c) + '</td>').join('') + '</tr>';
+      continue;
+    } else if (inTable) { out += '</table>'; inTable = false; }
+    if (/^#{1,4}\s/.test(raw)) { out += '<h3>' + mdInline(raw.replace(/^#+\s*/, '')) + '</h3>'; continue; }
+    if (/^\s*[-*]\s/.test(raw)) { out += '<div style="padding-left:12px">• ' + mdInline(raw.replace(/^\s*[-*]\s/, '')) + '</div>'; continue; }
+    if (!raw.trim()) { out += '<div style="height:6px"></div>'; continue; }
+    out += '<div>' + mdInline(raw) + '</div>';
+  }
+  if (inTable) out += '</table>';
+  return out;
+}
+function mdInline(s) {
+  return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>')
+               .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+}
+
+/* ============================================================
+   启动
+   ============================================================ */
+async function loadBgmList() {
+  const r = await fetch('/api/longimg/assets');
+  const d = await r.json();
+  (d.bgm || []).forEach(u => {
+    const o = document.createElement('option');
+    o.value = u; o.textContent = u.split('/').pop();
+    $('bgmSelect').appendChild(o);
+  });
+  if (!STATE.bgm_path && (d.bgm || []).length) selectBgm(d.bgm[0]);
+}
+async function loadAll() {
+  await checkService();
+  await loadBgmList();
+  pollJobs();
+}
+/* 首屏：示例对话打底，用户可直接改或点「载入示例」 */
+addBlock('peer');
+STATE.blocks[0].text = '我们还是分手吧'; STATE.blocks[0].note = '缺乏安全感';
+addBlock('me'); STATE.blocks[1].text = '认真的？'; STATE.blocks[1].note = '先试探一下';
+addBlock('peer'); STATE.blocks[2].text = '嗯'; STATE.blocks[2].note = '态度冷淡';
+renderBlocks();
+syncJsonFromUi();          /* ★ 建完初始块要再同步一次，否则 JSON 区少最后一条 */
+updateSummaries();         /* 收起态的标题右侧摘要（对方名 / 音乐名） */
+loadCardState();           /* 折叠：读 localStorage 决定每张卡默认开合 */
+bindPaceAdv();
+loadAll(); loadDoc();
+setInterval(pollJobs, 3000);
+window.addEventListener('beforeunload', () => { /* 保留：将来接草稿自动保存 */ });
+</script>
+</body>
+</html>

@@ -879,6 +879,8 @@ let libCategories = [];   // 分类清单（后端下发 [{key,label,folders,can
 let libCat = '';          // 当前筛选分类（''=全部，'video'=视频素材）
 let libVideos = [];       // 视频素材 [{path,name}]
 let libSelSet = new Set(), libBatchMode = false, libUploading = false;
+let libCountBase = '';         // 标题栏「共 N · 显示 M」基础文案，勾选时只改后半段，不重建网格
+let libSearchTimer = null;     // 搜索框防抖
 let libSort = 'new';      // 排序：new=最新在前 old=最早在前 name=按名称 size=按体积
 let libDragPaths = [];    // 正在从网格拖动的图片路径（拖到分类按钮上＝搬过去）
 
@@ -2754,6 +2756,12 @@ function libFiltered() {
   });
 }
 
+/* 视频标签里的列表：以前搜索框对视频无效（永远列全部），这里补上过滤 */
+function libVideosFiltered() {
+  const q = (libQuery || '').toLowerCase();
+  return libVideos.filter(v => !q || (((v.name || '') + ' ' + (v.path || '')).toLowerCase().includes(q)));
+}
+
 function fmtSize(n) {
   if (n < 1024) return n + 'B';
   if (n < 1048576) return (n / 1024).toFixed(0) + 'KB';
@@ -2765,10 +2773,11 @@ function renderLibGrid() {
   if (!grid) return;
   const isVideoTab = libCat === 'video';
   const list = isVideoTab
-    ? libSorted(libVideos.map(v => ({ path: v.path, label: v.name || v.path, name: v.path, size: 0, isVideo: true })))
+    ? libSorted(libVideosFiltered().map(v => ({ path: v.path, label: v.name || v.path, name: v.path, size: 0, isVideo: true })))
     : libSorted(libFiltered());
-  $('libCount').textContent = '共 ' + (isVideoTab ? libVideos.length + ' 个视频' : libFiles.length + ' 张') +
-    ' · 显示 ' + list.length + (isVideoTab ? ' 个' : ' 张') + (libBatchMode ? ' · 已选 ' + libSelSet.size : '');
+  libCountBase = '共 ' + (isVideoTab ? libVideos.length + ' 个视频' : libFiles.length + ' 张') +
+    ' · 显示 ' + list.length + (isVideoTab ? ' 个' : ' 张');
+  $('libCount').textContent = libCountBase + (libBatchMode ? ' · 已选 ' + libSelSet.size : '');
   let h = '';
   list.forEach(f => {
     const sel = libBatchMode ? (libSelSet.has(f.path) ? ' batch-sel' : '') : (libSel === f.path ? ' sel' : '');
@@ -2808,8 +2817,13 @@ function renderLibGrid() {
     }
     el.onclick = () => {
       if (libBatchMode) {
-        if (libSelSet.has(path)) libSelSet.delete(path); else libSelSet.add(path);
-        renderLibGrid();
+        // 只改这一个格子的勾选态：图库常有 2000+ 张，以前每次点选都整格重绘，卡得很难用
+        const wasOn = libSelSet.has(path);
+        if (wasOn) libSelSet.delete(path); else libSelSet.add(path);
+        el.classList.toggle('batch-sel', !wasOn);
+        const cb = el.querySelector('.lib-cb');
+        if (cb) cb.classList.toggle('on', !wasOn);
+        libSyncBatchCount();
       } else {
         libSel = path;
         grid.querySelectorAll('.lib-item').forEach(x => x.classList.toggle('sel', x === el));
@@ -2828,6 +2842,26 @@ function renderLibActionBar() {
   if (!selPath || !btns || !action) return;
   if (libBatchMode) { renderLibBatchBar(); return; }
   if (libRenameMode) { renderLibRename(); return; }
+  // 视频标签下选中的是视频素材（不在 libFiles 里）：给「复制路径 / 删除」，别让选中后什么都没得操作
+  if ((libSel || '').indexOf('/videos/') === 0) {
+    const vp = libSel;
+    selPath.textContent = vp + '（视频素材）';
+    btns.innerHTML = '<button id="libCopy">📋 复制路径</button>' +
+      '<button id="libDelete" class="danger">🗑 删除</button>';
+    action.innerHTML = '';
+    $('libCopy').onclick = () => { copyText(vp); toast('已复制：' + vp); };
+    $('libDelete').onclick = async () => {
+      if (!confirm('确定删除这个视频吗？\n' + vp + '\n\n删除后无法恢复（引用它的场景/剧本会找不到视频）。')) return;
+      const r = await api('/api/gallery/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: vp }) });
+      if (!r.ok) { toast(r.msg || '删除失败'); return; }
+      libSel = null;
+      applyGalleryPayload(r.gallery);
+      renderLibCats();
+      renderLibGrid();
+      toast('已删除');
+    };
+    return;
+  }
   const f = libFiles.find(x => x.path === libSel);
   if (!f || !libSel) {
     selPath.textContent = '未选择图片';
@@ -2883,6 +2917,38 @@ function renderLibActionBar() {
 }
 
 /* ---------- 批量删除模式 ---------- */
+/* 只刷新批量条/标题上的计数，不重建网格（大图库重建一次要好几百毫秒） */
+function libSyncBatchCount() {
+  const n = libSelSet.size;
+  const btn = $('libBatchDel');
+  if (btn) btn.textContent = '删除选中 (' + n + ')';
+  const selPath = $('libSelPath');
+  if (selPath && libBatchMode) selPath.textContent = '批量操作：点选素材勾选，已选 ' + n + ' 个';
+  const count = $('libCount');
+  if (count) count.textContent = libCountBase + (libBatchMode ? ' · 已选 ' + n : '');
+}
+
+/* 批量模式下「当前列表」= 视频标签里是视频，其余是过滤后的图片。
+   以前一律用 libFiltered()（只含图片），在视频标签里点「全选当前列表」会悄悄选中整库图片。 */
+function libBatchPool() {
+  return (libCat === 'video')
+    ? libVideosFiltered().map(v => v.path)
+    : libFiltered().map(f => f.path);
+}
+
+/* 只给屏上已有的格子打勾/去勾，不重建网格 */
+function libMarkAllInDom() {
+  const grid = $('libGrid');
+  if (!grid) return;
+  grid.querySelectorAll('.lib-item').forEach(el => {
+    const p = el.getAttribute('data-path') || '';
+    const on = !!p && libSelSet.has(p);
+    el.classList.toggle('batch-sel', on);
+    const cb = el.querySelector('.lib-cb');
+    if (cb) cb.classList.toggle('on', on);
+  });
+}
+
 function libToggleBatch() {
   libBatchMode = !libBatchMode;
   if (!libBatchMode) libSelSet = new Set();
@@ -2900,7 +2966,7 @@ function renderLibBatchBar() {
   const action = $('libAction');
   if (!selPath || !btns || !action) return;
   const n = libSelSet.size;
-  selPath.textContent = '批量操作：点选图片勾选，已选 ' + n + ' 张';
+  selPath.textContent = '批量操作：点选素材勾选，已选 ' + n + ' 个';
   btns.innerHTML = '';
   action.innerHTML =
     '<div class="lib-rename-row">' +
@@ -2912,8 +2978,8 @@ function renderLibBatchBar() {
       '<button id="libBatchClear">清空选择</button>' +
       '<button id="libBatchDel" class="danger">删除选中 (' + n + ')</button>' +
     '</div>';
-  $('libBatchAll').onclick = () => { libSelSet = new Set(libFiltered().map(f => f.path)); renderLibGrid(); };
-  $('libBatchClear').onclick = () => { libSelSet = new Set(); renderLibGrid(); };
+  $('libBatchAll').onclick = () => { libSelSet = new Set(libBatchPool()); libMarkAllInDom(); libSyncBatchCount(); };
+  $('libBatchClear').onclick = () => { libSelSet = new Set(); libMarkAllInDom(); libSyncBatchCount(); };
   $('libBatchMove').onchange = async (e) => {
     const cat = e.target.value || '';
     e.target.value = '';
@@ -2926,8 +2992,13 @@ function renderLibBatchBar() {
 
 async function libDeleteSelected() {
   const paths = Array.from(libSelSet);
-  if (!paths.length) { toast('请先选择要删除的图片'); return; }
-  if (!confirm('确定删除选中的 ' + paths.length + ' 张图片吗？\n\n删除后无法恢复。')) return;
+  if (!paths.length) { toast('请先选择要删除的素材'); return; }
+  const vids = paths.filter(p => p.indexOf('/videos/') === 0).length;
+  const imgs = paths.length - vids;
+  const what = [];
+  if (imgs) what.push(imgs + ' 张图片');
+  if (vids) what.push(vids + ' 个视频');
+  if (!confirm('确定删除选中的 ' + what.join(' + ') + ' 吗？\n\n删除后无法恢复。')) return;
   const r = await api('/api/gallery/batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'delete', paths: paths }) });
   if (!r.ok) { toast(r.msg || '批量删除失败'); return; }
   libSelSet = new Set();
@@ -2936,7 +3007,7 @@ async function libDeleteSelected() {
   renderLibCats();
   renderLibFolderOptions();
   renderLibGrid();
-  toast('已删除 ' + r.done + ' 张' + (r.failed ? '，失败 ' + r.failed + ' 张' : ''));
+  toast('已删除 ' + r.done + ' 个' + (r.failed ? '，失败 ' + r.failed + ' 个' : ''));
 }
 
 function renderLibRename() {
@@ -2973,6 +3044,7 @@ function applyGalleryPayload(payload) {
   gallery = payload.images || gallery;
   libFiles = payload.files || libFiles;
   libFolders = payload.folders || libFolders;
+  if (payload.videos) libVideos = payload.videos;      // 删/传视频后「🎬 视频」标签要跟着更新
   if (payload.categories) libCategories = payload.categories;
 }
 
@@ -2992,7 +3064,11 @@ function copyText(t) {
 function bindLibEvents() {
   $('libClose').onclick = closeLib;
   $('libMask').onclick = e => { if (e.target === $('libMask')) closeLib(); };
-  $('libSearch').oninput = e => { libQuery = e.target.value; renderLibGrid(); };
+  $('libSearch').oninput = e => {
+    libQuery = e.target.value;
+    if (libSearchTimer) clearTimeout(libSearchTimer);        // 防抖：大图库里每敲一个字就重绘会卡
+    libSearchTimer = setTimeout(() => { libSearchTimer = null; renderLibGrid(); }, 120);
+  };
   $('libFolder').onchange = e => {
     libFolder = e.target.value;
     try { localStorage.setItem('wx-lib-folder', libFolder || ''); } catch (err) { /* 忽略 */ }

@@ -68,7 +68,7 @@
             root.classList.add('sip-open');
             // 停留约 0.4s 展示图片后自动发送
             clearTimeout(sendTimer);
-            sendTimer = setTimeout(doSend, 400);
+            sendTimer = setTimeout(doSend, 320);   // 停留收紧（0.4s→0.32s）
             return true;
         },
 

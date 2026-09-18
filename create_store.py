@@ -129,6 +129,7 @@ def init_db():
             _migrate_v8()
             _migrate_v9()
             _migrate_v10()
+            _migrate_v11()
             _initialized = True
         finally:
             _initializing = False
@@ -439,6 +440,9 @@ def search_references(query, limit=3):
         return []
     scored = []
     for ref in list_references():
+        # 已归档参考（旧自动沉淀等）不参与推荐，只保留在库里供面板回看
+        if (ref.get("kind") or "full") == "archived":
+            continue
         hay_title = (ref.get("title") or "")
         hay_topics = " ".join(ref.get("topics") or []) + " " + " ".join(ref.get("tags") or [])
         hay_text = ref.get("text") or ""
@@ -489,6 +493,7 @@ RULE_KINDS = (
     "max_wait_ratio",       # 紧跟 [等待] 的我方消息占比上限
     "min_burst",            # 实时对白里至少一方连发几条
     "max_emoji_total",      # 整份剧本发出的表情总数上限（含 3D emoji）
+    "min_distinct_emoji",   # 整份剧本至少用几种不同的表情（贴纸+3D emoji 去重）
     "max_time_marks",       # 时间分隔条处数上限
     "max_history_two_sided",  # 历史会话里最多几个会话带「我：」的回复
 )
@@ -516,6 +521,7 @@ _KIND_LABELS = {
     "max_wait_ratio": "紧跟[等待]的我方消息占比上限",
     "min_burst": "至少一方连发几条",
     "max_emoji_total": "整份表情数量上限",
+    "min_distinct_emoji": "至少几种不同表情（贴纸+3D emoji 去重）",
     "max_time_marks": "时间分隔条数量上限",
     "max_history_two_sided": "历史会话带「我：」回复的会话数上限",
 }
@@ -929,6 +935,41 @@ def _migrate_v10():
         create_migrations.run_v10()
     except Exception:  # noqa: BLE001
         pass
+
+
+def _migrate_v11():
+    """一次性：内置「每个图片槽都要写配图注释」的风格规则。
+
+    背景（2026-09-15 用户硬要求）：成稿里的图片槽只有一句「图片=xx」，
+    用户拿着剧本去找照片时看不出「谁发的、要什么效果、去哪找、呼应哪句台词」，
+    常常要通读上下文才敢动手。要求每个图片槽上方自带一行 `#` 注释当找图说明书。
+
+    写成 style（注入提示词）而不是 rule（机械校验）：注释是创作习惯，
+    写多写少没有硬阈值，硬拦只会误伤；校验器侧只出一条非阻断提示。
+    """
+    with _lock:
+        with _db() as conn:
+            cur = conn.execute("INSERT OR IGNORE INTO meta(k,v) VALUES('migrated_v11','1')")
+            if cur.rowcount == 0:
+                return
+            exists = conn.execute(
+                "SELECT 1 FROM skills WHERE prompt_hint LIKE '%配图注释%' LIMIT 1").fetchone()
+            if exists:
+                return
+            now = _now()
+            hint = (
+                "每个图片槽位上方必须紧挨着写一行以 # 开头的「配图注释」（找图说明书），四段式："
+                "# 【照片N·我发/她发｜用途】效果＝画面主体+细节+画面形式 ｜ 找图＝随手拍/网搜关键词 ｜ 呼应＝前后台词。"
+                "朋友圈点图、历史块占位图、粉丝引流固定图同样要注释（写明对应哪个人物第几条动态、"
+                "或为什么不用准备素材）。⚠️ 注释行内禁止出现中文冒号「：」和英文冒号「:」——"
+                "历史块解析会把「xx：yy」当成一条对白凭空上屏，分隔一律用「＝」「｜」。"
+                "注释以 # 开头，运行时会被跳过，不影响成片。"
+            )
+            conn.execute(
+                "INSERT INTO skills(id,type,title,kind,value,prompt_hint,enabled,source_feedback,"
+                "source_note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (_new_id("sk"), "style", "每个图片槽都要写「配图注释」（找图说明书）",
+                 None, None, hint, 1, _json_dump([]), "系统默认规则（用户 0915 定标）", now, now))
 
 
 def _migrate_v6():

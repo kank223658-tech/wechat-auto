@@ -39,8 +39,11 @@
     /* iOS 键盘滑动：与输入框/消息区同用同一时长与缓动，保证「整个输入皮肤」一起弹出。
        实测参考真机键盘：~0.2s 强 ease-out、锐利收尾；对照参考逐帧进度选用 easeOutQuad
        (cubic-bezier(.25,.46,.45,.94))，避免旧 cubic-bezier(.32,.72,0,1) 末端拖尾过长
-       导致的「先冲上、再慢沉」拼接感。 */
-    transition: transform .22s cubic-bezier(.25, .46, .45, .94), height .18s ease, visibility .22s;
+       导致的「先冲上、再慢沉」拼接感。
+       时长 .18s（2026-09-13 由 .22s 收紧对齐）：开/收实际由 keyboard.js _animKb 的
+       rAF 180ms 逐帧驱动，这里的 transition 仅兜底（时长必须与 rAF 一致，否则
+       兜底路径会与输入栏/消息区错拍）。 */
+    transition: transform .18s cubic-bezier(.25, .46, .45, .94), height .18s ease, visibility .18s;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
                  "KBInter", "Helvetica Neue", Arial,
                  "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;

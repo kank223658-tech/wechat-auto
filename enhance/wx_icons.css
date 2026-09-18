@@ -98,14 +98,15 @@
     mask: url('/images/wxic/magnifying_glass_regular.svg') center / contain no-repeat;
 }
 
-/* 聊天头部「···」菜单 */
+/* 聊天头部「···」菜单（内联 data-URL 真三点；biz_item_more_icon.svg 实为
+   「向下箭头」，之前 mask 用它导致聊天页右上角显示成小箭头而非三点） */
 #wx-header .other .icon-chat-group::before,
 #wx-header .other .icon-chat-friends::before {
     content: '' !important;
-    display: inline-block; width: 20px; height: 20px;
+    display: inline-block; width: 32px; height: 20px;
     background: currentColor !important;
-    -webkit-mask: url('/images/wxic/biz_item_more_icon.svg') center / contain no-repeat !important;
-    mask: url('/images/wxic/biz_item_more_icon.svg') center / contain no-repeat !important;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 8'%3E%3Ccircle cx='4' cy='4' r='4'/%3E%3Ccircle cx='16' cy='4' r='4'/%3E%3Ccircle cx='28' cy='4' r='4'/%3E%3C/svg%3E") center / contain no-repeat !important;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 8'%3E%3Ccircle cx='4' cy='4' r='4'/%3E%3Ccircle cx='16' cy='4' r='4'/%3E%3Ccircle cx='28' cy='4' r='4'/%3E%3C/svg%3E") center / contain no-repeat !important;
 }
 
 /* 首页顶部「+」 */

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>长图模式 · 全景盘点（2026-09-16）</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#1f2328; --dim:#6b7280;
+  --blue:#2563eb; --green:#16a34a; --amber:#b45309; --red:#dc2626;
+  --code:#f2f4f7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 24px 72px}
+h1{font-size:26px;margin:0 0 6px}
+h2{font-size:17px;margin:34px 0 10px;padding-left:10px;border-left:4px solid var(--blue)}
+h3{font-size:14px;margin:18px 0 8px;color:#374151}
+p{margin:8px 0}
+.sub{color:var(--dim);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:16px 18px;margin:12px 0}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi b{display:block;font-size:20px;line-height:1.3}
+.kpi span{color:var(--dim);font-size:12px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#f0f2f5;font-weight:600;white-space:nowrap}
+td code,code{background:var(--code);border-radius:4px;padding:1px 5px;
+  font:12px/1.5 ui-monospace,Consolas,monospace}
+.mono{font:12px/1.6 ui-monospace,Consolas,monospace;background:var(--code);
+  border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.flow div{background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;
+  padding:6px 10px;font-size:12.5px}
+.flow i{color:var(--dim);font-style:normal}
+.tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11.5px;
+  border:1px solid var(--line);background:#fafbfc;color:var(--dim);margin-right:4px}
+.ok{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+ul{margin:6px 0 6px 6px;padding-left:18px}
+li{margin:3px 0}
+.note{border-left:3px solid var(--amber);background:#fffbeb;padding:10px 12px;
+  border-radius:0 8px 8px 0;margin:10px 0;font-size:13px}
+.hr{height:1px;background:var(--line);margin:22px 0}
+small{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>🖼 长图模式 · 全景盘点</h1>
+<p class="sub">盘点时间 2026-09-16 13:45（13:55 补「盘符加固」节） · 项目装在 U 盘、本机挂在 <code>F:</code>（盘符随电脑变，见第十三节） · 全部结论来自当前代码与运行时状态，非文档转述</p>
+
+<div class="grid g4" style="margin-top:16px">
+  <div class="kpi"><b>3168 行</b><span>5 个 py + 1 个页面（不含文档）</span></div>
+  <div class="kpi"><b>2 种模式</b><span>wx 微信仿真（推荐） / longimg 上传整图</span></div>
+  <div class="kpi"><b>12 个接口</b><span>8 GET + 4 POST，挂 8000 端口</span></div>
+  <div class="kpi"><b>1920×1080 / 30fps</b><span>libx264 crf18 + AAC 160k</span></div>
+  <div class="kpi"><b>最近成片 28.46s</b><span>14 条消息，854 帧，zoom 1.00~2.57</span></div>
+  <div class="kpi"><b>9 条任务记录</b><span class="ok">7 成功</span> · <span class="bad">2 失败（均已修）</span></div>
+</div>
+
+<h2>一、它是什么</h2>
+<div class="card">
+<p>复刻抖音「直男许诺」类<strong>聊天记录长图视频</strong>的全自动生产线：</p>
+<div class="flow">
+  <div>JSON 对话 / 上传整图</div><i>→</i>
+  <div>正宗微信长图（真微信样式 + DOM 坐标真值）</div><i>→</i>
+  <div>动态镜头（逐句下移 / 换人平移 / 拉近拉远）</div><i>+</i>
+  <div>BGM 强拍卡点</div><i>→</i>
+  <div>横屏成片 MP4</div>
+</div>
+<p class="sub">对标结论（逐帧实测《当女生下定决心要跟你分开该怎么回复》，105.8s / 30fps / 横屏）：
+滚动落点与 BGM 强拍<strong>逐一重合</strong>（4.7 / 8.45 / 10.32 …秒），不是匀速也不是定时器；顶栏属于长图的一部分，会随滚动移出画面。</p>
+</div>
+
+<h2>二、三个入口</h2>
+<table>
+<tr><th>入口</th><th>位置 / 命令</th><th>说明</th></tr>
+<tr><td>工作台（推荐）</td><td>工作流编辑器顶栏 <code>🖼 长图</code> 按钮 → <strong>当前窗口内直接切换</strong>（14:10 起内嵌化，不再弹新标签页）<br><small>editor/index.html:2522 / 6713；页面 <code>editor/longimg.html</code>，顶栏与主编辑器同款品牌栏，左上角「← 返回工作流」切回</small></td><td>软件内功能模块，走 8000 端口</td></tr>
+<tr><td>直接访问</td><td><code>http://localhost:8000/longimg</code></td><td>路由由 <code>longimg_api.handle_get</code> 接管</td></tr>
+<tr><td>命令行</td><td><code>py 长图模式/wx_export.py --config c.json --out-dir D --tag T</code><br><code>py 长图模式/render_longimg.py --wxshot D/wxshot_T.png --bgm m.mp3 --out o.mp4</code></td><td>wx 线两步走；整图线 <code>--longimg 图.png</code>；加 <code>--preview-only</code> 只出 6 宫格关键帧</td></tr>
+</table>
+<p class="sub">接入方式：<code>editor_server.py</code> 在 do_GET / do_POST 开头各调一次 longimg_api，命中即返回（2625 / 3022 行）。</p>
+
+<h2>三、文件分工（长图模式/）</h2>
+<table>
+<tr><th>文件</th><th>行数</th><th>职责与关键内容</th></tr>
+<tr><td><code>chat_canvas.py</code></td><td>279</td><td>JSON → 长图（PIL 绘制）。样式常量全在文件头：1920 基准、泡高 278、字号 100、点评 78、头像 140、顶栏 560。返回 layers[] 含气泡矩形真值 bx/bw/by0/by1</td></tr>
+<tr><td><code>beat_grid.py</code></td><td>94</td><td>scipy 谱通量 onset 检测 → 强拍；<code>plan_step_beats</code> 从强拍挑滚动落点（超 max_step 补拍 / 鼓点不够按中位步距补）</td></tr>
+<tr><td><code>render_longimg.py</code></td><td>887</td><td>CLI 主程序。时间轴 <code>build_timeline</code> / <code>cam_at</code> / <code>x_pos_at</code> / <code>zoom_at</code>；镜头规划 <code>plan_dynamic_camera</code>；开场 <code>opening_pan</code>；取帧 <code>grab_frame</code>（AFFINE+BICUBIC）；外部图探测 <code>bands_from_image</code>/<code>side_by_color</code></td></tr>
+<tr><td><code>wx_export.py</code></td><td>419</td><td>playwright 驱动 8080 的 vue-WeChat 仿真页 <strong>真渲染</strong>微信长图 + 输出 manifest 坐标清单；本文件内含 EXPORT_CSS（顶栏穿膜修复）与 PAGE_JS（点评注入 + Range 量测 tx0/tx1）</td></tr>
+<tr><td><code>longimg_api.py</code></td><td>626</td><td>全部接口 + 静态路由 + 任务表（<code>_runtime/longimg_jobs/</code>）</td></tr>
+<tr><td><code>editor/longimg.html</code></td><td>863</td><td>工作台页面：8 张卡片 + 2 个弹窗，STATE 单源、表格↔JSON 双向同步、任务轮询按签名去重</td></tr>
+<tr><td><code>sample_config.json</code></td><td>31</td><td>「载入示例」数据源（14 条对话 + 片头 2 块 + 超采样 2.0）</td></tr>
+<tr><td><code>JSON格式说明.md</code></td><td>123</td><td>权威字段说明，工作台右下角在线渲染（<code>/api/longimg/format</code>）</td></tr>
+<tr><td><code>README.md</code></td><td>116</td><td>使用说明书 + 对标逆向结论 + 已知边界</td></tr>
+</table>
+
+<h2>四、两种出片模式</h2>
+<div class="grid g2">
+<div class="card">
+<h3 style="margin-top:0">① wx · 微信仿真（默认，推荐）</h3>
+<p>JSON 对话 → <code>wx_export.py</code> 用 playwright 打开 8080 的仿真微信页，按 <code>chat_exact.css</code> 排版整段对话，full_page 截图出<strong>正宗微信样式长图</strong>，同时用 <code>getBoundingClientRect</code> 量出每条消息的气泡/头像/点评行矩形，写成 <code>manifest.json</code>。</p>
+<p>渲染端读清单做<strong>零探测</strong>纯算术取景。坐标真值包含：气泡矩形、头像矩形、点评行底 y、点评文字横向范围 tx0/tx1、结尾 CTA 的 Range 实测矩形。</p>
+<p class="sub">前提：8080 前端必须在跑（<code>_port_open</code> 检查，未运行直接报「前端 8080 未运行」）。</p>
+</div>
+<div class="card">
+<h3 style="margin-top:0">② longimg · 上传整图</h3>
+<p>用户自己拼好的长图 → <strong>像素探测</strong>：<code>bands_from_image</code> 用「暗色文字」判据切内容带（<code>dark = g &lt; 100</code>，覆盖率阈值 0.015，合并 90px），中位数定文字质心 x、2%/98% 分位定水平范围；<code>side_by_color</code> 用<strong>绿泡颜色</strong>判左右（绿像素占比 ≥1.5% 才信颜色，否则退回中点判定）。</p>
+<p>再把头像死区剔掉（R 侧 xhi 收到 0.905W、L 侧 xlo 抬到 0.095W），避免头像照片里的暗像素污染取景范围。</p>
+<p class="sub">精度弱于 wx 线；不上片头逐块滑入；也支持「用最近导出的微信长图」直接复用。</p>
+</div>
+</div>
+
+<h2>五、JSON 字段全表</h2>
+<table>
+<tr><th>层级</th><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><td rowspan="8">顶层</td><td><code>mode</code></td><td>string</td><td><code>wx</code>（默认，旧值 <code>json</code> 自动当 wx）/ <code>longimg</code></td></tr>
+<tr><td><code>bgm_path</code></td><td>string</td><td>必填。工作台填 <code>/longimg-assets/xxx.mp3</code>；命令行可写绝对路径</td></tr>
+<tr><td><code>blocks</code></td><td>array</td><td>wx 模式必填，一条一个气泡</td></tr>
+<tr><td><code>meta</code></td><td>object</td><td>人物设定</td></tr>
+<tr><td><code>ending</code></td><td>object</td><td><code>{"note":"文案","color":"red|yellow|blue"}</code> 结尾 CTA 大字</td></tr>
+<tr><td><code>intro</code></td><td>object</td><td><code>{"blocks":2}</code> 片头按拍滑入条数 0~3</td></tr>
+<tr><td><code>pace</code></td><td>object</td><td>节奏参数（见下）</td></tr>
+<tr><td><code>quality</code> / <code>longimg_opts</code> / <code>fade_out</code> / <code>longimg</code></td><td>—</td><td>超采样倍数（默认 2.0）/ 缩放下限+平移 / 淡出秒数（默认 1.2）/ 整图路径</td></tr>
+<tr><td rowspan="4">meta</td><td><code>peer_name</code></td><td>string</td><td>顶栏中间名字，缺省「朋友」</td></tr>
+<tr><td><code>peer_avatar</code> / <code>my_avatar</code></td><td>string</td><td><code>/images/avatar/xxx.jpg</code>（内置 150 张）或 <code>/longimg-assets/xxx.jpg</code></td></tr>
+<tr><td><code>badge</code></td><td>string</td><td>左上角灰圈数字，默认 99</td></tr>
+<tr><td><code>my_name</code></td><td>string</td><td>传给 <code>__wxConfig.setMe</code>（可选）</td></tr>
+<tr><td rowspan="6">blocks[i]</td><td><code>side</code></td><td>string</td><td><code>peer</code> 她说（左灰泡）/ <code>me</code> 我说（右绿泡）</td></tr>
+<tr><td><code>text</code></td><td>string</td><td>台词；可留空 = 只发图</td></tr>
+<tr><td><code>img</code></td><td>string</td><td>发照片，写页面可访问的 URL；有 img 就按图发（优先于 text）</td></tr>
+<tr><td><code>note</code></td><td>string</td><td>泡下彩色点评行，留空不显示。<strong>不要写冒号</strong></td></tr>
+<tr><td><code>note_color</code></td><td>string</td><td>blue / yellow / red；默认她=蓝、我=黄</td></tr>
+<tr><td><code>time</code></td><td>string</td><td>写则在消息前插微信时间分隔条，如 <code>"昨天 21:30"</code></td></tr>
+<tr><td rowspan="4">pace</td><td><code>glide</code></td><td>0.36</td><td>一次镜头位移时长（秒）</td></tr>
+<tr><td><code>min_gap</code></td><td>1.15</td><td>两次挪镜头最少间隔（同时喂给鼓点检测）</td></tr>
+<tr><td><code>tail_hold</code></td><td>2.2</td><td>结尾（最后一句+CTA）停住秒数</td></tr>
+<tr><td><code>max_step</code> / <code>open_hold_beats</code></td><td>3.5 / 2</td><td>单步最长等几拍才补滑；开场静止撑几拍（动态镜头默认 2 拍，第一步落第 3 拍）</td></tr>
+</table>
+
+<h2>六、镜头算法（现行 v3，坐标真值驱动）</h2>
+<div class="card">
+<table>
+<tr><th>规则</th><th>实现</th></tr>
+<tr><td><strong>逐句下移（句数定标）</strong></td><td>取景集 = 第 k..i 句，同侧连发第 1 句框 1 句、第 2 句拉远到 2 句同框、第 3 句 3 句，之后滑动窗口始终最近 3 句（<code>MAX_N=3</code>，<code>run_start</code> 标记同侧连发起点）</td></tr>
+<tr><td><strong>换人换边</strong></td><td>发言人变侧立刻横移到那一侧，句数从 1 重数</td></tr>
+<tr><td><strong>头像永远完整</strong></td><td>锚定头像外缘 + <code>OUT_PAD=0.04W</code> 外留白；装不下自动降倍率。清单无头像真值时按微信皮肤常量反推（62.6px 头像 / 18.3px 间距）</td></tr>
+<tr><td><strong>底边收紧</strong></td><td>窗口底边钉在当前内容底（泡 or 点评行下缘）；下一条紧贴时 <code>bot_m=0</code>（一个像素不露），否则留 <code>BREATH*avg_h</code> 呼吸。多余高度全给上方已读内容</td></tr>
+<tr><td><strong>长蓝字取景</strong></td><td>点评文字横向范围（tx0/tx1）并入宽度需求 <code>req_w</code>：短泡配长蓝字时自动拉远装下，镜头上移，底边收紧兜住</td></tr>
+<tr><td><strong>缩放呼吸</strong></td><td>缩放用 <code>zglide = min(glide*1.8, 下一步间隔-0.2)</code>，比位移更缓 —— 移动干脆、缩放像呼吸拖尾</td></tr>
+<tr><td><strong>结尾全景</strong></td><td>最后一句：前一句 + 当前句 + 点评 + CTA 完整同框，横向居中于内容整体</td></tr>
+<tr><td><strong>开场滑现</strong></td><td><code>opening_pan</code>：起点倍率 = 落定 ×1.22 并放大，首句泡被画面缘切掉 30%（L 侧切左缘 → 右→左滑；R 侧反之），匀速推到落定，约 0.7s 泡滑完整。<strong>第一句话「慢慢出现」而不是开局就在</strong>。第一滑 glide 拉到 ≥0.9s</td></tr>
+<tr><td><strong>倍率边界</strong></td><td><code>Z_MAX=4.2</code>；最小倍率受滑杆 <code>zoom</code> 下限约束（默认 1.0）；高度下限 1920/9、宽度下限 1920/6 等比保护</td></tr>
+<tr><td><strong>pan 模式</strong></td><td><code>side</code>=跟人走（推荐）；<code>center</code>=不横移只缩放（wx 线固定 side）</td></tr>
+</table>
+</div>
+
+<h2>七、鼓点与时间轴</h2>
+<div class="card">
+<ul>
+<li><strong>强拍检测</strong>：<code>scipy.signal.spectrogram</code>（nfft 1024 / hop 512）→ log1p 压缩 → 正半波谱通量 → 5 点平滑 → <code>find_peaks(distance=min_gap)</code>；掐掉前 0.5s 不稳点。</li>
+<li><strong>落点规划</strong>：<code>plan_step_beats</code> 从强拍池里取 n_steps 个；相邻间隔超 <code>max_step</code> 等分补拍（音乐空拍也继续走）；鼓点不够按中位步距续补；兜底 1.9s 均铺（对标实测平均步距≈1.88s）。</li>
+<li><strong>片头</strong>：前 <code>intro.blocks</code> 条消息按强拍从侧边滑入（ease_out_cubic + 55% 屏宽位移），半秒滑完。</li>
+<li><strong>开场静止</strong>：动态镜头默认撑 2 拍，第一步落在第 3 拍。</li>
+<li><strong>收尾</strong>：<code>total = min(bgm_len, 最后落点 + tail_hold)</code>；落点若越过音乐尾部，整体前移保住淡出。BGM 不够长自动循环补齐，结尾按 <code>fade_out</code> 线性淡出。</li>
+<li>实测日志样例：<code>[鼓点] 强拍 64 个，前 8 个 [1.63, 2.82, 4.7, 6.58, 8.45, 10.32, 12.2, 14.08]</code> —— 与对标视频落点完全一致。</li>
+</ul>
+</div>
+
+<h2>八、渲染管线</h2>
+<table>
+<tr><th>环节</th><th>实现</th></tr>
+<tr><td>画面来源</td><td>① PIL 画布（JSON 直出，支持 s 倍超采样）② 微信仿真截图（wx 线，超出 1920 宽时 LANCZOS 缩回）③ 上传整图</td></tr>
+<tr><td>取帧</td><td><code>grab_frame</code>：一次 <code>Image.AFFINE</code>（BICUBIC）同时完成取窗+缩放，亚像素中心不跳帧；<code>k = src_scale / z</code>，cx/cy 夹在边界内</td></tr>
+<tr><td>超采样</td><td>默认 2.0（3840 宽长图，拉近后文字锐利）；长图 >550MB 内存自动降档（最多 4 次尝试）</td></tr>
+<tr><td>编码</td><td>rawvideo 管道喂 ffmpeg：libx264 / preset medium / crf 18 / yuv420p / +faststart；1920×1080 / 30fps</td></tr>
+<tr><td>音频</td><td><code>sound_engine.load_audio_float</code> 解码 → 单声道 44.1kHz → 循环补齐到成片时长 → 结尾淡出 → 与视频 mux 成 AAC 160k</td></tr>
+<tr><td>产物</td><td><code>vue-WeChat/public/videos/longimg/</code>（成片 mp4 + wxshot png + manifest.json + preview.jpg）</td></tr>
+</table>
+
+<h2>九、API 一览（挂 8000）</h2>
+<table>
+<tr><th>方法</th><th>路径</th><th>作用</th></tr>
+<tr><td>GET</td><td><code>/longimg</code></td><td>工作台页面</td></tr>
+<tr><td>GET</td><td><code>/longimg-assets/*</code></td><td>上传素材（长图 / BGM / 头像），带 <code>..</code> 越权拦截</td></tr>
+<tr><td>GET</td><td><code>/api/longimg/assets</code></td><td>素材列表（images / bgm 两类）</td></tr>
+<tr><td>GET</td><td><code>/api/longimg/photos?offset&limit</code></td><td>气泡里能用的照片：上传素材 + 内置 <code>sets2</code> 图集，分页（每页 12~120）</td></tr>
+<tr><td>GET</td><td><code>/api/longimg/avatars</code></td><td>内置头像库（<code>images/avatar</code>，150 张）</td></tr>
+<tr><td>GET</td><td><code>/api/longimg/exported</code></td><td>最近导出的微信长图（取最新 40 张，供复用）</td></tr>
+<tr><td>GET</td><td><code>/api/longimg/jobs</code></td><td>任务列表（按产物文件自动刷新状态，返回最新 30 条，running 带 8 行日志尾巴）</td></tr>
+<tr><td>GET</td><td><code>/api/longimg/sample</code> · <code>/format</code></td><td>示例配置 / JSON 格式说明（读 md 原文）</td></tr>
+<tr><td>POST</td><td><code>/api/longimg/upload</code></td><td>原始二进制 + <code>X-Longimg-Kind: image|bgm</code>；文件名先 unquote（防中文乱码），同名自动加序号；单文件 ≤200MB</td></tr>
+<tr><td>POST</td><td><code>/api/longimg/wxshot</code></td><td>同步导长图（仅 wx），返回 url / 条数 / dsf / 尺寸</td></tr>
+<tr><td>POST</td><td><code>/api/longimg/preview</code></td><td>同步出关键帧 6 宫格（wx 线先导长图，超时 240s；整图线 180s）</td></tr>
+<tr><td>POST</td><td><code>/api/longimg/render</code></td><td>异步提交渲染任务（子进程链、日志落 <code>_runtime/longimg_jobs/&lt;id&gt;.log</code>、进度看列表）</td></tr>
+</table>
+
+<h2>十、工作台可调项</h2>
+<table>
+<tr><th>区</th><th>控件</th><th>取值</th></tr>
+<tr><td>① 内容来源</td><td>JSON 对话 / 上传整张长图 两个页签</td><td>加她说/我说、载入示例、导入导出 JSON、清空；表格列=说话人/台词/点评行/配图/操作。整图页签：上传、用最近导出的、缩略图</td></tr>
+<tr><td>② 人物与头像</td><td>对方名字 / 角标 / 双头像</td><td>头像可从内置库点选或上传</td></tr>
+<tr><td>③ 背景音乐</td><td>上传 / 下拉选择 / 试听</td><td>步进会卡在它的鼓点上，必填</td></tr>
+<tr><td>④ 节奏参数</td><td>片头滑入条数 0~4 ｜ 最快步距 0.8~2.5s ｜ 结尾停留 1.0~4.5s ｜ 缩放下限 1.0~2.5x ｜ 音乐淡出 0~3.0s ｜ 画质 1.0~2.0x</td><td>与 JSON 的 intro/pace/zoom/fade_out/quality 一一对应</td></tr>
+<tr><td>⑤ JSON 配置</td><td>可编辑文本框 + 表格同步 / 应用 / 复制</td><td>表格↔JSON 双向同步</td></tr>
+<tr><td>⑥ 预览</td><td>🖼 只看长图（10~30s）/ 🎞 关键帧预览（5~20s）</td><td>确认排版再出片</td></tr>
+<tr><td>⑦ 出片</td><td>⏺ 生成视频 + 实时估时</td><td>估算口径 = 句数 ×1.6~2.4 秒</td></tr>
+<tr><td>⑧ 任务</td><td>卡片列表（状态 / 耗时 / 在线播放 / 下载 / 看日志）</td><td>轮询按签名去重，避免重建 DOM 打断播放</td></tr>
+<tr><td>右下角</td><td>📖 JSON 格式说明</td><td>在线渲染 JSON格式说明.md</td></tr>
+</table>
+
+<h2>十一、当前运行时状态（实测）</h2>
+<div class="card">
+<p><span class="tag ok">8000 监听中</span><span class="tag ok">8080 监听中</span> — 两个服务都在跑，wx 线与工作台均可用。</p>
+<p><strong>成片目录</strong> <code>vue-WeChat/public/videos/longimg/</code> 现有产物（最新在上）：</p>
+<table>
+<tr><th>文件</th><th>大小</th><th>时间</th></tr>
+<tr><td>长图_0916_1127_微信.mp4 <small>（14 条消息 / 28.46s / 854 帧 / zoom 1.00~2.57）</small></td><td>6.2 MB</td><td>09-16 11:28</td></tr>
+<tr><td>wxshot_wx0916_112702.png + manifest.json</td><td>1.2 MB</td><td>09-16 11:27</td></tr>
+<tr><td>长图_0916_1126_wx.preview.jpg</td><td>283 KB</td><td>09-16 11:27</td></tr>
+<tr><td>长图_0915_1856_JSON.mp4（旧 JSON 线，17.51s）等 5 个 mp4 + 6 张 preview.jpg</td><td>2.3 MB 级</td><td>09-15 17:45~18:57</td></tr>
+</table>
+<p><strong>素材库</strong> <code>vue-WeChat/public/longimg/</code> 16 个文件：<code>fake_long*.png</code>×9、<code>ref_bgm*.wav</code>×7 —— 目前<strong>只有测试素材，还没有真实业务素材</strong>。</p>
+<p><strong>任务记录</strong> <code>_runtime/longimg_jobs/</code>：9 条日志 / 19 个 json。历史失败 2 条，原因都已定位并修复：</p>
+<ul>
+<li><code>li09151741…</code>：<code>render_blocks() got an unexpected keyword extra_bottom</code> —— chat_canvas 签名变更时的调用不同步（已修）。</li>
+<li><code>li09161123…</code>：<code>[错误] 前端 8080 未运行</code> → 长图没导出 → 渲染读 manifest 报 FileNotFoundError（链路的前置检查已能提前拦住）。</li>
+</ul>
+</div>
+
+<h2>十二、需要留意的点</h2>
+<div class="note">
+<strong>⚠️ 项目装在 U 盘里，盘符随电脑变</strong>（这台是 <code>F:</code>，之前是 <code>G:</code>，换机还可能变）。凡是<strong>落盘存了绝对路径</strong>的地方，换电脑后都会指向不存在的文件。原报告把 jobs.json 里那两条 G 盘记录判成「历史残留」，定性不准——那是盘符漂移的必然结果。<strong>已加固（2026-09-16 13:55）</strong>：落盘一律存项目相对路径，读取时统一还原成本机绝对路径，旧记录里的失效盘符会自动按当前 ROOT 修复（详见文末「盘符加固」节）。
+</div>
+<div class="note">
+<strong>⚠️ 文档与代码有版本落差。</strong>README 写的是「动态镜头语言 v1.4」，实际 <code>plan_dynamic_camera</code> 已到 v3（含长蓝字取景、底边收紧紧贴分支、开场滑现 opener_zoom 1.22 / cut 0.30，对应 README 里没有的 v3.8~v3.11 改动）；README 的「二、三种用法」标题下编号重复（出现两个「3.」）。功能本身没问题，是文档没跟上。
+</div>
+<div class="card">
+<h3 style="margin-top:0">已知边界（README 记录 + 代码印证）</h3>
+<ul>
+<li><strong>emoji</strong>：PIL 画布线（chat_canvas）不渲染彩色 emoji，台词里先别放；wx 线走真微信页面，理论上不受此限。</li>
+<li><strong>整图模式</strong>无片头逐块滑入（auto 分块只做滚动），要卡点片头请走 JSON / wx 线。</li>
+<li><strong>无配音轨</strong>，目前只有 BGM；<code>beat_grid</code> 的强拍检测可复用于后续配音对齐。</li>
+<li><strong>wx 线强依赖 8080</strong>：导长图是 playwright 驱动真前端排版，前端没跑就出不了图。</li>
+<li><strong>调参建议</strong>：镜头按句数定标，增删句子会改变所有落点 —— 每次只改一个变量，先「关键帧预览」再出片。</li>
+</ul>
+</div>
+
+<h2>十三、盘符加固（2026-09-16 13:55 补）</h2>
+<div class="card">
+<p><strong>背景</strong>：项目主要装在 U 盘里，盘符随电脑变（这台是 F:，之前是 G:）。任何写进文件的<strong>绝对路径</strong>都会在换机后失效。全项目扫描 521 个文件（排除 <code>_归档_临时文件</code> / <code>_工作文件</code> / <code>_probe_tmp</code> / <code>node_modules</code> / <code>.git</code>）后，修掉以下 6 处。</p>
+<table>
+<tr><th>文件</th><th>问题</th><th>修法</th></tr>
+<tr><td><code>start_editor.bat</code></td><td><code>cd /d G:\weixin-auto</code> —— 换电脑后这个启动脚本直接跑不起来</td><td>改 <code>cd /d "%~dp0"</code>（与 <code>启动.bat</code> 同款写法）</td></tr>
+<tr><td><code>长图模式/longimg_api.py</code></td><td>任务的 <code>out_path</code>/<code>cfg</code> 以绝对路径落盘 → 换盘后 <code>_refresh_job</code> 判产物永远不存在，任务状态卡死</td><td>新增 <code>_rel()/_abs()</code>：落盘存相对项目根；读盘还原本机绝对路径；任务列表每次访问顺手把旧记录迁成相对（旧盘符自愈）</td></tr>
+<tr><td><code>长图模式/wx_export.py</code></td><td>manifest 的 <code>image</code> 写 <code>os.path.abspath()</code></td><td>改存项目相对路径（渲染端本就不读该字段，零影响）</td></tr>
+<tr><td><code>main.py</code> ×2</td><td>调试探针写死 <code>g:\.cursor\debug-189770.log</code>（<code>#region agent log</code>，默认关闭且有 try 兜底）</td><td>改基于 <code>__file__</code> 的项目内路径</td></tr>
+<tr><td><code>准备制作界面/build_assets.py</code></td><td><code>BASE = r'F:\weixin-auto\准备制作界面'</code> 写死盘符</td><td>改 <code>os.path.dirname(os.path.abspath(__file__))</code></td></tr>
+<tr><td><code>_probe_tmp/_gen_batch_15_kickoffs.py</code></td><td>开工包生成器把盘符写进产出的任务书文案（<code>cd "G:\weixin-auto" && py …</code>）</td><td>输出目录改基于 <code>__file__</code>；文案改成「在项目根目录下执行」，不再带盘符</td></tr>
+</table>
+<p><strong>验证</strong>：5 个 py 全部 <code>py_compile</code> 通过；<code>_rel/_abs</code> 行为实测——相对路径→本机绝对（文件存在）、<code>G:\weixin-auto\…</code> 失效路径→自动还原到当前盘符的真实文件、web 路径（<code>/videos/…</code>）不被误改、空值不崩；6 个文件盘符残留归零。</p>
+<p class="warn">⚠️ <strong>需要重启 8000 服务才生效</strong>（<code>longimg_api</code> 是导入态）。建议双杀 <code>启动.bat</code>/<code>start_editor.bat</code> 重启——由编辑器自己拉起的进程更稳（后台起的会被系统周期性回收）。重启后第一次打开长图工作台，jobs.json 里的旧盘符记录会自动迁移成相对路径。</p>
+</div>
+<div class="card">
+<h3 style="margin-top:0">同批扫描出、但<strong>未改</strong>的盘符（都是已完成使命的历史产物，不影响运行）</h3>
+<ul>
+<li><code>剧本库\_inprogress\</code> 下 27 个任务书/开工包 md（十五连2 ×15、批量陌生女生 ×11、生理期重写 ×1）——文案里的旧盘符；需要的话可批量改成相对写法（生成器已修，以后新批次不会再带盘符）。</li>
+<li><code>editor\_redesign\*.py</code>（19 个）、<code>xhs_downloads\_*.py</code>（5 个）、根目录 <code>_test_intro_*.py</code>/<code>_gen_img_list.py</code>——一次性改造脚本，跑完了。</li>
+<li><code>准备制作界面\_chk.py</code>、<code>剧本\视频转剧本_skill.md</code>、<code>表情包功能说明书.md</code>、<code>准备制作界面\片头动画说明书…md</code>——文档/检查脚本里的举例路径。</li>
+<li><code>vue-WeChat\public\videos\longimg\wxshot_*.manifest.json</code> ×3——旧产物，下次导出即覆盖。</li>
+</ul>
+</div>
+
+<div class="hr"></div>
+<p class="sub">本报告由代码实读 + 运行时状态核对生成，涉及的 5 个 py / 1 个页面 / 2 个文档均为当前磁盘版本（render_longimg.py 09-16 12:19、wx_export.py 09-16 12:05、longimg_api.py 09-16 11:24、longimg.html 09-16 11:30）；第十三节为 13:55 盘符加固后补；14:10 长图工作台内嵌化（同窗口切换 + 品牌栏统一），E2E 验证见 _工作文件/_e2e_embed.txt。</p>
+
+</div>
+</body>
+</html>

@@ -648,54 +648,78 @@ body.wx-on-moments #ios-statusbar { background: transparent !important; }
 }
 
 /* ============================================================
-   八、底部评论输入条（照搬聊天页打字框，几何与 chat_exact.css 一致）
+   八、底部评论输入条 —— 与聊天页打字框**同一套**（几何 / 配色 / 多行增高）
    ------------------------------------------------------------
-   与聊天输入栏同款：86px 高黑条 + 61px 高 #2c2c2c 圆角输入框（chat-box-base），
-   右侧 😊/🖼 两枚白色线性图标（482/543 与聊天表情/加号同槽位）。
-   无条内发送钮 —— 发送=键盘右下蓝键；组合态绿色下划线拼音由 keyboard.js
-   覆盖层(.wxkb-compose, 同 #2c2c2c 底)绘制，placeholder「发表评论:」。
-   本条固定定位在 513px 整图键盘正上方（bottom:513px），.in/.out 滑入滑出。
+   逐帧实测（参考 _ref_comment_kb，592x1280 → 600x1300 画布，比例 ×1.0169）：
+     输入条  顶 692 → 画布 703.6，底 = 键盘顶 787，高 83.4，整块 #1b1b1b
+     输入框  顶 703 → 714.9，底 762 → 774.9（高 61）
+             左 12.5 → 12.7，右 457 → 464.8（宽 452.1）
+             上下空隙 11.3 / 11.1（对称，与聊天页同款"浮起"）
+             底色 #2c2c2c（与聊天 .chat-way 同一档）、无亮边
+     文字    左起 26.4（= 框左 12.7 + 内边距 13.7），单行垂直居中（字形顶距框顶 ≈20.4）
+     图标    482 / 543（与聊天表情 / 加号同槽），顶 724.2、41x41
+   多行增高与聊天页**同一模型**（--cmt-grow 驱动，见 moments_extra.js）：
+     条底贴键盘顶不动 → 条向上长；框底固定 774.9 → 框向上长；两侧图标钉死不随之上移。
+   无条内发送钮 —— 发送 = 键盘右下蓝键；Enter 由 main.py 提交（不进换行）。
    ============================================================ */
 #commentBar {
     position: fixed !important;
     left: 0 !important; right: 0 !important; bottom: 513px !important;
-    height: 86px !important;
+    height: calc(83.4px + var(--cmt-grow, 0px)) !important;
     display: block !important;
-    background: #000 !important;
+    background: #1c1c1c !important;      /* 参考条底 27→实测 ≈28（#1c1c1c），原先写 #000 明显偏黑 */
     z-index: 2147483000 !important;
+    transition: height .22s cubic-bezier(.25, .46, .45, .94),
+                transform .22s cubic-bezier(.25, .46, .45, .94) !important;
 }
-/* 输入框容器：与聊天 .chat-way 同几何（去语音钮后左移到 16px，宽 449 到 465） */
+/* 输入框容器：与聊天 .chat-way 同几何（无语音钮，故左缘 12.7、宽 452.1 到 464.8） */
 #commentBar .cb-way {
     position: absolute !important;
-    left: 16px !important;
-    top: 12px !important;
-    width: 449px !important;
-    height: 61px !important;
+    left: 12.7px !important;
+    top: 11.3px !important;
+    width: 452.1px !important;
+    height: calc(61px + var(--cmt-grow, 0px)) !important;
     background: #2c2c2c !important;
     border-radius: 6px !important;
     overflow: hidden !important;
+    transition: height .22s cubic-bezier(.25, .46, .45, .94) !important;
 }
-#commentBar input {
+/* 输入区：<textarea> 才能换行（原 <input> 永不换行 → 多行增高无从谈起）
+   ⚠ 不可用 inset:0 / height:100% —— 上下同时钉死后 height:auto 也缩不回去，
+     量 scrollHeight 会永远 ≥ 当前高度 → grow 只增不减（实测清空文字都不回落）。
+     与聊天 .chat-txt 同款：只钉 left/top/width，高度用 calc(基线+--cmt-grow)。 */
+#commentBar textarea {
     position: absolute !important;
-    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
-    height: 61px !important;
-    padding: 11px 20px !important;
+    height: calc(61px + var(--cmt-grow, 0px)) !important;
+    /* 单行：上内边距 14.2 → 文字垂直居中（参考字形顶距框顶 ≈20.4）；
+       多行：JS 把 --cmt-pt 压到 10.5（与聊天页同款，逐行 +31）。 */
+    padding: var(--cmt-pt, 14.2px) 20px 13px 13.7px !important;
     border: none !important;
     border-radius: 5px !important;
     background: transparent !important;
     color: #d5d5d5 !important;
+    font-family: inherit !important;
     font-size: 24px !important;
-    line-height: 38px !important;
+    line-height: 31px !important;
     box-sizing: border-box !important;
     outline: none !important;
+    resize: none !important;
+    overflow-y: hidden !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
     caret-color: #07c160 !important;
+    transition: height .22s cubic-bezier(.25, .46, .45, .94),
+                padding-top .22s cubic-bezier(.25, .46, .45, .94) !important;
 }
-#commentBar input::placeholder { color: #6e6e6e !important; }
+#commentBar textarea::placeholder { color: #6e6e6e !important; }
 /* 右侧图标：与聊天表情/加号同槽（482/543，41px），白色线性 SVG */
 #commentBar .cb-ico {
     position: absolute !important;
-    top: 22px !important;
+    top: 20.6px !important;
     width: 41px !important;
     height: 41px !important;
     pointer-events: none !important;

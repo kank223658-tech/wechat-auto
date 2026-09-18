@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>截图工作台 · JSON → 微信聊天截图</title>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f4f5f7; --panel:#ffffff; --panel2:#f2f3f6; --panel3:#e9ebef; --field:#f7f8fa;
+  --line:rgba(17,24,39,.08); --line-strong:rgba(17,24,39,.16);
+  --txt:#1c1e22; --dim:#5c616b; --dim2:#9095a0;
+  --acc:#0aac5f; --acc-strong:#0a9d57; --acc-soft:rgba(10,172,95,.10); --acc-border:rgba(10,172,95,.38);
+  --acc2:#b9791e; --ok:#0aac5f; --bad:#d54941; --r:14px; --topbar-h:58px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);
+  font:14px/1.6 "PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;padding:0 0 60px}
+a{color:var(--acc-strong);text-decoration:none}
+.top{position:sticky;top:0;z-index:50;height:var(--topbar-h);
+  background:rgba(255,255,255,.82);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line);padding:0 16px;display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:#0f1115;letter-spacing:.2px}
+.brand-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;
+  color:#fff;font-weight:800;background:linear-gradient(145deg,#17d377,#0aa257);
+  box-shadow:0 6px 16px rgba(10,172,95,.28),inset 0 1px 0 rgba(255,255,255,.25)}
+.brand-sub{display:block;margin-top:1px;color:var(--dim2);font-size:11px;font-weight:400;letter-spacing:.4px}
+.spacer{flex:1}
+.steps{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 22px 0;padding:10px 14px;
+  background:var(--panel);border:1px solid var(--acc-border);border-radius:var(--r);box-shadow:0 6px 20px rgba(10,172,95,.08)}
+.steps-t{font-size:13px;font-weight:600;color:var(--acc-strong)}
+.step{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.step b{width:18px;height:18px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;display:grid;place-items:center}
+.step small{color:var(--dim2);font-size:11px}
+.steps-note{margin-left:auto;font-size:12px;color:var(--dim)}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;padding:16px 22px 0;align-items:start}
+@media(max-width:1200px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;
+  box-shadow:0 6px 20px rgba(17,24,39,.06)}
+.card h2{font-size:15px;margin-bottom:10px;color:var(--acc-strong);display:flex;align-items:center;gap:8px}
+.card h2 .tag{font-size:11px;color:var(--dim);font-weight:normal;border:1px solid var(--line);border-radius:99px;padding:1px 8px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim)}
+input[type=text],input[type=number],select,textarea{background:var(--field);border:1px solid var(--line-strong);
+  border-radius:8px;color:var(--txt);padding:7px 10px;font-size:13px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--acc-border)}
+textarea{width:100%;min-height:300px;font-family:Consolas,monospace;font-size:12px;line-height:1.55}
+button{height:34px;background:var(--panel2);border:1px solid var(--line-strong);color:var(--txt);
+  border-radius:9px;padding:0 14px;cursor:pointer;font-size:13px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+button:hover{border-color:var(--acc-border)}
+button.primary{background:linear-gradient(180deg,#17d377,#0aa257);border-color:transparent;color:#fff;font-weight:600;height:40px;font-size:14px}
+button.mini{height:26px;padding:0 8px;font-size:12px;border-radius:7px}
+button.warn{background:rgba(213,73,65,.10);border-color:rgba(213,73,65,.35);color:var(--bad)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.7}
+.chip{font-size:12px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px}
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.role{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--panel2)}
+.role .hd{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:8px}
+.role img{width:52px;height:52px;border-radius:50%;object-fit:cover;border:1px solid var(--line-strong);background:#fff}
+.role .nm{font-size:12px;color:var(--dim);margin:6px 0}
+.role select,.role input{width:100%;font-size:12px;padding:5px 8px}
+.role .btns{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.quick{border:1px dashed var(--line-strong);border-radius:10px;padding:10px;margin-top:10px}
+.quick select{font-size:12px}
+.preview img{max-width:100%;border-radius:10px;border:1px solid var(--line);display:block;margin-top:8px;cursor:zoom-in}
+.lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:8px}
+.lib .it{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#101010}
+.lib .it img{width:100%;height:130px;object-fit:cover;object-position:top;display:block;cursor:pointer}
+.lib .it .nm{font-size:10px;color:var(--dim);padding:3px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--panel2)}
+.lib .it .del{position:absolute;right:3px;top:3px;height:20px;padding:0 6px;font-size:11px;border-radius:6px;opacity:.85}
+.modal{position:fixed;inset:0;background:rgba(17,24,39,.42);display:none;align-items:center;justify-content:center;z-index:200}
+.modal.on{display:flex}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(880px,92vw);
+  max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.modal .hd{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.modal .bd{padding:14px 16px;overflow:auto}
+.avs{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:8px}
+.avs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:50%;border:1px solid var(--line);cursor:pointer}
+.avs img:hover{border-color:var(--acc)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.thumbs img{width:100%;height:100px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer}
+.thumbs img:hover{border-color:var(--acc)}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(17,24,39,.9);color:#fff;
+  padding:9px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:300}
+.toast.on{opacity:1}
+.toast.bad{background:rgba(180,45,40,.94)}
+.md{font-size:12.5px;color:var(--dim);max-height:420px;overflow:auto;white-space:pre-wrap;font-family:Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand" title="微信聊天截图生成器">
+    <div class="brand-mark">截</div>
+    <div>截图工作台
+      <span class="brand-sub">JSON 对话 → 正宗微信聊天截图 PNG</span>
+    </div>
+  </div>
+  <button type="button" onclick="location.href='/'">← 返回工作流</button>
+  <button type="button" onclick="location.href='/longimg'">🖼 长图工作台</button>
+  <span class="spacer"></span>
+  <span class="chip" id="svc">检测中…</span>
+  <button type="button" onclick="showDoc()">📖 JSON 格式说明</button>
+</div>
+
+<div class="steps">
+  <span class="steps-t">三步出图</span>
+  <span class="step"><b>1</b>选角色<small>人设/头像</small></span>
+  <span class="step"><b>2</b>写对话<small>JSON 或快速添加</small></span>
+  <span class="step"><b>3</b>生成截图<small>右侧预览下载</small></span>
+  <span class="steps-note">整个流程复用软件里的仿真微信页面排版，出的是真微信样式的图</span>
+</div>
+
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>① 角色 <span class="tag">选人设或自己传头像</span></h2>
+      <div class="roles">
+        <div class="role" id="roleAoi">
+          <div class="hd"><span id="dotAoi" style="color:#56B4EB">●</span>对方（她说）</div>
+          <img id="avAoi" src="" alt="对方头像">
+          <div class="nm">人设 / 名字</div>
+          <select id="selAoi" onchange="pickPreset('peer', this.value)"></select>
+          <input type="text" id="nmAoi" placeholder="自定义名字" onchange="setName('peer', this.value)">
+          <div class="btns">
+            <button type="button" class="mini" onclick="openAvatars('peer')">换头像</button>
+            <button type="button" class="mini" onclick="openAssets('avatar','peer')">内置头像库</button>
+          </div>
+        </div>
+        <div class="role" id="roleMe">
+          <div class="hd"><span style="color:#0aac5f">●</span>我（我说）</div>
+          <img id="avMe" src="" alt="我的头像">
+          <div class="nm">人设 / 名字</div>
+          <select id="selMe" onchange="pickPreset('me', this.value)"></select>
+          <input type="text" id="nmMe" placeholder="自定义名字（可留空）" onchange="setName('me', this.value)">
+          <div class="btns">
+            <button type="button" class="mini" onclick="openAvatars('me')">换头像</button>
+            <button type="button" class="mini" onclick="openAssets('avatar','me')">内置头像库</button>
+          </div>
+        </div>
+      </div>
+      <div class="hint">人设下拉里的「人设」来自软件的人物预设库（含 wxid/地区/签名），选它＝名字和头像一起填好；也可以只改名字、只换头像。</div>
+    </div>
+
+    <div class="card">
+      <h2>② 对话 JSON <span class="tag">一条消息一个对象</span></h2>
+      <textarea id="json" spellcheck="false" oninput="onJsonInput()"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button type="button" onclick="loadSample()">载入示例</button>
+        <button type="button" onclick="importJson()">导入 JSON 文件</button>
+        <button type="button" onclick="exportJson()">导出 JSON</button>
+        <button type="button" onclick="formatJson()">格式化</button>
+      </div>
+      <div class="quick">
+        <div class="row" style="margin:0">
+          <select id="qWho"><option value="peer">她说（左）</option><option value="me">我说（右）</option></select>
+          <select id="qKind" onchange="onQuickKind()">
+            <option value="text">文字</option>
+            <option value="image">图片</option>
+            <option value="emoji">表情</option>
+            <option value="voice">语音</option>
+            <option value="link">链接卡</option>
+          </select>
+          <input type="text" id="qText" placeholder="内容（文字；图片/表情填素材名或点右边选）" style="flex:1;min-width:180px">
+          <button type="button" class="mini" id="qPick" style="display:none" onclick="openQuickPick()">选素材</button>
+          <button type="button" onclick="quickAdd()">＋ 添加到对话</button>
+        </div>
+        <div class="hint">图片/表情可以直接写素材名（如 <kbd>s011_01.jpg</kbd>、<kbd>哭泣猫咪</kbd>、<kbd>偷笑</kbd>），软件会在内置素材库里找；链接卡只填标题即可。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>③ 出图选项 <span class="tag">都可以不动</span></h2>
+      <div class="row">
+        <label class="f">未读角标<input type="text" id="optBadge" style="width:90px" placeholder="1"></label>
+        <label class="f">聊天背景<select id="optBg" style="max-width:220px"></select></label>
+        <label class="f">出图倍率<select id="optScale">
+          <option value="">自动</option><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option>
+        </select></label>
+        <label class="f">文件名<input type="text" id="optName" style="width:140px" placeholder="shot_日期时间"></label>
+      </div>
+      <div class="row">
+        <label class="f"><span>截图模式</span></label>
+        <label style="font-size:13px"><input type="radio" name="optMode" id="optModeShort" checked> 短截图（只出聊天部分）</label>
+        <label style="font-size:13px"><input type="radio" name="optMode" id="optModeFull"> 全屏（带状态栏+顶栏）</label>
+        <label style="font-size:13px"><input type="checkbox" id="optTrim"> 裁掉底部多余空白</label>
+      </div>
+      <div class="hint">短截图 = 默认，只出聊天气泡区域，最适合发帖配图；勾「全屏」出完整手机屏（iOS 状态栏 + 微信顶栏）。切换模式会自动带上对应的底部裁剪默认值，仍可手动改。</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>④ 生成截图 <span class="tag">约 10~30 秒</span></h2>
+      <div class="row">
+        <button type="button" class="primary" id="btnGen" onclick="doRender()">🖼 生成截图</button>
+        <span class="chip" id="genState">待生成</span>
+      </div>
+      <div class="preview" id="preview"></div>
+      <div class="hint" id="genHint">出图靠软件里的仿真微信页面排版，所以前端（8080）要在跑——点过「启动」或跑过软件就会自动拉起来。</div>
+    </div>
+
+    <div class="card">
+      <h2>⑤ 截图库 <span class="tag">最近 60 张</span></h2>
+      <div class="row"><button type="button" class="mini" onclick="loadList()">刷新</button>
+        <span class="hint" style="margin:0">点图看大图；「复跑」把当时的 JSON 填回左侧再出一张。</span></div>
+      <div class="lib" id="lib"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <div class="hd"><b id="mTitle">选择</b><span class="spacer"></span>
+      <button type="button" onclick="closeModal()">关闭</button></div>
+    <div class="bd" id="mBody"></div>
+  </div>
+</div>
+<div class="modal" id="docModal">
+  <div class="box">
+    <div class="hd"><b>JSON 格式说明</b><span class="spacer"></span>
+      <button type="button" onclick="document.getElementById('docModal').classList.remove('on')">关闭</button></div>
+    <div class="bd"><div class="md" id="docBody">载入中…</div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DEFAULT_CFG = {
+  people: {peer: "", me: ""},
+  messages: [{from: "peer", text: "在干嘛呢"}],
+  options: {badge: "1", wallpaper: "default", chrome: {statusbar: true, header: true}, scale: 2}
+};
+let CFG = JSON.parse(JSON.stringify(DEFAULT_CFG));
+let PICK_TARGET = null;      // {type:'avatar'|'asset', role, kind}
+let QUICK_ASSET = "";
+
+function $(id){ return document.getElementById(id); }
+function toast(msg, ok){
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast on" + (ok === false ? " bad" : "");
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>{ t.className = "toast"; }, 2600);
+}
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------------- CFG 与 JSON 文本框双向 ---------------- */
+function syncJson(){
+  $("json").value = JSON.stringify(CFG, null, 1);
+  renderRoles();
+  renderOptions();
+}
+function onJsonInput(){
+  try {
+    const v = JSON.parse($("json").value);
+    if (v && typeof v === "object") { CFG = v; renderRoles(); renderOptions(); }
+    $("json").style.borderColor = "";
+  } catch(e){ $("json").style.borderColor = "rgba(213,73,65,.6)"; }
+}
+function formatJson(){
+  try { CFG = JSON.parse($("json").value); syncJson(); toast("已格式化"); }
+  catch(e){ toast("JSON 有语法错误：" + e.message, false); }
+}
+
+/* ---------------- 角色 ---------------- */
+let PEOPLE = {groups:{}, presets:[]};
+async function loadPeople(){
+  try {
+    const d = await (await fetch("/api/shot/people")).json();
+    if (d && d.ok) PEOPLE = d;
+  } catch(e){}
+  const opts = [];
+  opts.push('<option value="">— 人设库 —</option>');
+  (PEOPLE.presets || []).forEach(p => {
+    opts.push('<option value="preset:' + esc(p.key) + '">' + esc(p.name) +
+              (p.area ? ' · ' + esc(p.area) : '') + '</option>');
+  });
+  Object.keys(PEOPLE.groups || {}).forEach(g => {
+    opts.push('<option value="">— ' + esc(g) + ' —</option>');
+    (PEOPLE.groups[g] || []).forEach(it => {
+      opts.push('<option value="people:' + esc(it.name) + '">' + esc(it.name) + '</option>');
+    });
+  });
+  $("selAoi").innerHTML = opts.join("");
+  $("selMe").innerHTML = '<option value="">— 人设库 —</option>' +
+    (PEOPLE.presets || []).map(p => '<option value="preset:' + esc(p.key) + '">' + esc(p.name) + '</option>').join("") +
+    Object.keys(PEOPLE.groups || {}).map(g =>
+      '<option value="">— ' + esc(g) + ' —</option>' +
+      (PEOPLE.groups[g] || []).map(it => '<option value="people:' + esc(it.name) + '">' + esc(it.name) + '</option>').join("")
+    ).join("");
+}
+function roleData(role){
+  if (!CFG.people || typeof CFG.people !== "object") CFG.people = {};
+  let v = CFG.people[role];
+  if (v && typeof v === "object") return v;
+  return {name: typeof v === "string" ? v : "", avatar: ""};
+}
+function setRole(role, data){
+  CFG.people = CFG.people && typeof CFG.people === "object" ? CFG.people : {};
+  CFG.people[role] = {name: data.name || "", avatar: data.avatar || ""};
+  syncJson();
+}
+function renderRoles(){
+  const a = roleData("peer"), m = roleData("me");
+  $("avAoi").src = a.avatar || "/images/avatar/dygirl_01.jpg";
+  $("avMe").src  = m.avatar || "/images/avatar/2_20260831_184618_874.jpg";
+  if (document.activeElement !== $("nmAoi")) $("nmAoi").value = a.name || "";
+  if (document.activeElement !== $("nmMe"))  $("nmMe").value  = m.name || "";
+}
+async function pickPreset(role, val){
+  if (!val) return;
+  const [kind, ...rest] = val.split(":");
+  const key = rest.join(":");
+  let data = {name: key, avatar: ""};
+  if (kind === "preset"){
+    const p = (PEOPLE.presets || []).find(x => x.key === key);
+    if (p) data = {name: p.name, avatar: p.avatar};
+  } else {
+    for (const g of Object.keys(PEOPLE.groups || {})){
+      const it = (PEOPLE.groups[g] || []).find(x => x.name === key);
+      if (it){ data = {name: it.name, avatar: it.avatar}; break; }
+    }
+  }
+  setRole(role, data);
+  toast("已选：" + data.name, true);
+}
+function setName(role, name){
+  const cur = roleData(role);
+  setRole(role, {name: name.trim(), avatar: cur.avatar});
+}
+
+/* ---------------- 选项 ---------------- */
+function curMode(){
+  return $("optModeFull").checked ? "full" : "short";
+}
+function renderOptions(){
+  const o = CFG.options && typeof CFG.options === "object" ? CFG.options : (CFG.options = {});
+  const ch = o.chrome && typeof o.chrome === "object" ? o.chrome : {};
+  // 模式判定：mode 优先；旧写法（chrome 两项都开着）视作全屏，其余都是短截图
+  let mode = o.mode === "full" ? "full"
+           : (!o.mode && ch.statusbar === true && ch.header === true) ? "full" : "short";
+  $("optModeShort").checked = mode !== "full";
+  $("optModeFull").checked = mode === "full";
+  $("optBadge").value = o.badge == null ? "" : o.badge;
+  $("optScale").value = o.scale ? String(o.scale) : "";
+  $("optName").value = o.filename || "";
+  $("optTrim").checked = "trim" in o ? !!o.trim : (mode === "short");
+  if (!$("optBg").dataset.filled){ $("optBg").value = o.wallpaper || "default"; }
+}
+function bindOptions(){
+  $("optBadge").oninput = () => setOpt("badge", $("optBadge").value.trim());
+  $("optScale").onchange = () => setOpt("scale", $("optScale").value ? parseInt($("optScale").value,10) : undefined);
+  $("optName").oninput = () => setOpt("filename", $("optName").value.trim());
+  $("optModeShort").onchange = $("optModeFull").onchange = () => {
+    const full = curMode() === "full";
+    // short 是默认值：JSON 里省略 mode；full 才显式写
+    setOpt("mode", full ? "full" : undefined);
+    // 清掉旧的 chrome 写法，模式语义以 mode 为准
+    if (CFG.options && CFG.options.chrome) delete CFG.options.chrome;
+    // 切模式时同步底部裁剪默认值（短截图=裁，全屏=不裁）
+    $("optTrim").checked = !full;
+    setOpt("trim", !full);
+    if (!full) delete CFG.options.trim;
+    $("json").value = JSON.stringify(CFG, null, 1);
+  };
+  $("optTrim").onchange = () => setOpt("trim", $("optTrim").checked);
+  $("optBg").onchange = () => setOpt("wallpaper", $("optBg").value);
+}
+function setOpt(k, v){
+  CFG.options = CFG.options && typeof CFG.options === "object" ? CFG.options : {};
+  if (v === undefined) delete CFG.options[k]; else CFG.options[k] = v;
+  $("json").value = JSON.stringify(CFG, null, 1);
+}
+async function loadBgs(){
+  try {
+    const d = await (await fetch("/api/shot/bgs")).json();
+    const items = (d && d.items) || [];
+    $("optBg").innerHTML = '<option value="default">默认（深色）</option>' +
+      items.map(u => '<option value="' + esc(u) + '">' + esc(u.split("/").pop()) + '</option>').join("");
+    $("optBg").dataset.filled = "1";
+    $("optBg").value = (CFG.options && CFG.options.wallpaper) || "default";
+    if (!$("optBg").value) $("optBg").value = "default";
+  } catch(e){}
+}
+
+/* ---------------- 快速添加 ---------------- */
+function onQuickKind(){
+  const k = $("qKind").value;
+  $("qPick").style.display = (k === "image" || k === "emoji") ? "" : "none";
+  $("qText").placeholder = k === "voice" ? "语音秒数，如 6"
+    : (k === "link" ? "链接卡标题，如 花艺课报名"
+    : (k === "text" ? "台词内容" : "素材名，或点右边「选素材」"));
+}
+function quickAdd(){
+  const who = $("qWho").value, kind = $("qKind").value, txt = $("qText").value.trim();
+  const msg = {from: who};
+  if (kind === "text"){
+    if (!txt) return toast("先写台词", false);
+    msg.text = txt;
+  } else if (kind === "voice"){
+    msg.voice = Math.max(1, parseInt(txt, 10) || 1);
+  } else if (kind === "link"){
+    if (!txt) return toast("写个链接卡标题", false);
+    msg.link = {title: txt};
+  } else {
+    const src = QUICK_ASSET || txt;
+    if (!src) return toast("选个素材或填素材名", false);
+    msg[kind] = src;
+  }
+  if (!Array.isArray(CFG.messages)) CFG.messages = [];
+  CFG.messages.push(msg);
+  QUICK_ASSET = "";
+  $("qText").value = "";
+  syncJson();
+  toast("已添加", true);
+}
+function openQuickPick(){
+  openAssets($("qKind").value, null, (url) => { QUICK_ASSET = url; $("qText").value = url; });
+}
+async function loadSample(){
+  try {
+    const d = await (await fetch("/api/shot/sample")).json();
+    if (d && d.ok){ CFG = d.config; syncJson(); toast("已载入示例"); return; }
+  } catch(e){}
+  CFG = JSON.parse(JSON.stringify(DEFAULT_CFG)); syncJson();
+}
+
+/* ---------------- 素材选择 ---------------- */
+function closeModal(){ $("modal").classList.remove("on"); }
+async function openAvatars(role){
+  PICK_TARGET = {type: "avatar", role: role || null};
+  const d = await (await fetch("/api/shot/avatars")).json();
+  const items = (d && d.items) || [];
+  $("mTitle").textContent = "选头像（内置 " + items.length + " 张）";
+  $("mBody").innerHTML = '<div class="avs">' + items.map(u =>
+    '<img src="' + esc(u) + '" loading="lazy" onclick="chooseAvatar(\'' + esc(u) + '\')">').join("") + '</div>';
+  $("modal").classList.add("on");
+}
+async function openAssets(kind, role, cb){
+  PICK_TARGET = {type: "asset", kind: kind, cb: cb || null, role: role || null};
+  const map = {avatar: "avatar", image: "photo", photo: "photo", emoji: "sticker", sticker: "sticker", link: "link"};
+  const k = map[kind] || "photo";
+  const d = await (await fetch("/api/shot/assets?kind=" + k + "&limit=120")).json();
+  const items = (d && d.items) || [];
+  $("mTitle").textContent = "选素材（" + items.length + " / " + ((d && d.total) || 0) + "）";
+  $("mBody").innerHTML = '<div class="thumbs">' + items.map(u =>
+    '<img src="' + esc(u) + '" loading="lazy" onclick="chooseAsset(\'' + esc(u) + '\')">').join("") + '</div>';
+  $("modal").classList.add("on");
+}
+function chooseAvatar(url){
+  const t = PICK_TARGET || {};
+  if (t.role){ const cur = roleData(t.role); setRole(t.role, {name: cur.name, avatar: url}); }
+  else if (CFG.people && CFG.people.peer !== undefined){ const cur = roleData("peer"); setRole("peer", {name: cur.name, avatar: url}); }
+  closeModal(); toast("头像已换", true);
+}
+function chooseAsset(url){
+  const t = PICK_TARGET || {};
+  if (t.cb) t.cb(url);
+  else { $("qText").value = url; QUICK_ASSET = url; }
+  closeModal();
+}
+
+/* ---------------- 出图 ---------------- */
+async function doRender(){
+  let cfg;
+  try { cfg = JSON.parse($("json").value); }
+  catch(e){ return toast("JSON 语法错误：" + e.message, false); }
+  CFG = cfg;
+  $("btnGen").disabled = true;
+  $("genState").textContent = "出图中…";
+  $("genHint").textContent = "正在驱动仿真微信页面排版并截图，10~30 秒，别关页面。";
+  const t0 = Date.now();
+  try {
+    const r = await fetch("/api/shot/render", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(cfg)
+    });
+    const d = await r.json();
+    if (!d.ok){
+      $("genState").textContent = "失败";
+      $("genHint").textContent = d.msg || "出图失败";
+      return toast("出图失败", false);
+    }
+    const sec = ((Date.now() - t0) / 1000).toFixed(1);
+    $("genState").textContent = "完成 " + sec + "s";
+    $("preview").innerHTML = '<img src="' + esc(d.url) + '" onclick="window.open(this.src)">';
+    $("genHint").innerHTML = '成品：<b>' + esc(d.name) + '</b>' +
+      (d.width ? '（' + d.width + '×' + d.height + '）' : '') +
+      ' · <a href="' + esc(d.url) + '" download>下载</a>' +
+      (d.log ? '<br><span style="color:var(--dim2)">' + esc(d.log.split("\n").slice(-2).join(" ")) + '</span>' : '');
+    toast("出图完成", true);
+    loadList();
+  } catch(e){
+    $("genState").textContent = "失败";
+    $("genHint").textContent = String(e);
+    toast("网络错误：" + e, false);
+  } finally {
+    $("btnGen").disabled = false;
+  }
+}
+async function loadList(){
+  try {
+    const d = await (await fetch("/api/shot/list")).json();
+    const items = (d && d.items) || [];
+    $("lib").innerHTML = items.map(it =>
+      '<div class="it"><button class="del mini warn" onclick="delShot(\'' + esc(it.name) + '\')">删</button>' +
+      '<img src="' + esc(it.url) + '?v=' + Math.round(it.mtime) + '" onclick="reuse(\'' + esc(it.name) + '\')" title="点击复跑">' +
+      '<div class="nm">' + esc(it.name.replace(/\.png$/,"")) + '</div></div>').join("") ||
+      '<div class="hint">还没有截图</div>';
+  } catch(e){}
+}
+async function reuse(name){
+  try {
+    const r = await fetch("/shots/" + encodeURIComponent(name.replace(/\.png$/, ".source.json")));
+    if (!r.ok) return toast("这张图没有源 JSON（老图）", false);
+    CFG = await r.json();
+    syncJson();
+    toast("已把当时的 JSON 填回来，可直接再出一张", true);
+    window.scrollTo({top: 0, behavior: "smooth"});
+  } catch(e){ toast("读取源 JSON 失败", false); }
+}
+async function delShot(name){
+  if (!confirm("删除 " + name + "？")) return;
+  await fetch("/api/shot/delete", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: name})});
+  loadList();
+}
+async function showDoc(){
+  $("docModal").classList.add("on");
+  try {
+    const d = await (await fetch("/api/shot/format")).json();
+    $("docBody").textContent = (d && d.text) || "（没有说明文件）";
+  } catch(e){ $("docBody").textContent = "读取失败"; }
+}
+
+/* ---------------- 启动 ---------------- */
+async function boot(){
+  bindOptions();
+  await loadPeople();
+  await loadBgs();
+  await loadSampleInit();
+  loadList();
+  try {
+    const d = await (await fetch("/api/shot/list")).json();
+    $("svc").textContent = d && d.ok ? "服务正常" : "服务异常";
+  } catch(e){ $("svc").textContent = "服务未启动"; }
+}
+async function loadSampleInit(){
+  try {
+    const d = await (await fetch("/api/shot/sample")).json();
+    CFG = (d && d.ok) ? d.config : JSON.parse(JSON.stringify(DEFAULT_CFG));
+  } catch(e){ CFG = JSON.parse(JSON.stringify(DEFAULT_CFG)); }
+  syncJson();
+}
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeModal(); $("docModal").classList.remove("on"); }
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); doRender(); }
+});
+boot();
+</script>
+</body>
+</html>

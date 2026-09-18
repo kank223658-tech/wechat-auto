@@ -96,13 +96,35 @@
 .wxp-slot::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--wxp-line-strong); }
 .wxp-slot.empty { border-color: var(--wxp-amber-line); background: var(--wxp-amber-soft); }
 .wxp-slot.empty::before { background: #e9a23b; }
+/* optional 槽（如链接卡片封面留空＝运行时按标题自动配图）：不染成"必须配"的琥珀色 */
+.wxp-slot.empty.opt { border-color: var(--wxp-line); background: var(--wxp-bg); }
+.wxp-slot.empty.opt::before { background: var(--wxp-line-strong); }
 .wxp-slot.filled { border-color: var(--wxp-accent-line); }
 .wxp-slot.filled::before { background: var(--wxp-accent); }
 .wxp-slot-no { flex: 0 0 38px; text-align: center; background: var(--wxp-panel-2); color: var(--wxp-text-2); border: 1px solid var(--wxp-line); border-radius: 7px; font-size: 12px; font-weight: 600; padding: 4px 0; }
 .wxp-slot-info { flex: 1; min-width: 0; font-size: 12px; color: var(--wxp-text-2); }
 .wxp-slot-info .wxp-desc { display: block; color: var(--wxp-text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 配图注释（剧本里图片槽上方的 # 行，解析后带进 step.note）：回答「这张图是干嘛的」——
+   要什么效果、去哪找、呼应哪句台词。以前只存在于剧本 txt 里，离线解析完就看不见了。 */
+.wxp-slot-info .wxp-note { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 3px; font-size: 11px; line-height: 1.45; font-weight: 400; color: var(--wxp-text-2); white-space: normal; }
+/* 系统自动出图说明（如「运行时按主页动态自动取图，无需准备」）：单独一行高亮，别和注释混在一起 */
+.wxp-slot-info .wxp-autonote { display: block; margin-top: 4px; font-size: 11px; line-height: 1.45; font-weight: 600; color: var(--wxp-accent); white-space: normal; }
+/* 「不用配图的图」区：点开朋友圈图等没有配图槽的注释，单独列出来（默认折叠） */
+.wxp-notewrap { border: 1px dashed var(--wxp-line-strong); border-radius: 9px; padding: 7px 10px; margin-top: 8px; background: var(--wxp-panel); }
+.wxp-note-head { cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--wxp-text-2); }
+.wxp-note-head .wxp-caret { margin-left: auto; font-size: 10px; color: var(--wxp-muted); }
+.wxp-notelist { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.wxp-noterow { font-size: 11px; line-height: 1.5; color: var(--wxp-text-2); border-left: 2px solid var(--wxp-line-strong); padding-left: 7px; }
+.wxp-noterow b { color: var(--wxp-text); font-weight: 600; }
 .wxp-slot-tag { flex: none; font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; background: var(--wxp-amber-soft); color: var(--wxp-amber); border: 1px solid var(--wxp-amber-line); }
 .wxp-slot-tag.ok { background: var(--wxp-accent-soft); color: var(--wxp-accent); border-color: var(--wxp-accent-line); }
+.wxp-slot-tag.opt { background: var(--wxp-panel-2); color: var(--wxp-muted); border-color: var(--wxp-line); }
+/* 「系统自动出图」槽：槽位本身没配图，但运行时能按名字/主页动态自动取到图（表情短名、朋友圈点图、
+   链接封面）。缩略图直接显示解析出来的真图 + 标注来源，用户不必再上传，也不会误报「待配图」。 */
+.wxp-slot.auto { border-color: var(--wxp-accent-line); }
+.wxp-slot.auto::before { background: var(--wxp-accent); }
+.wxp-slot-tag.auto { background: var(--wxp-accent-soft); color: var(--wxp-accent); border-color: var(--wxp-accent-line); }
+.wxp-slot-thumb.auto { border-color: var(--wxp-accent-line); }
 .wxp-slot-thumb { flex: 0 0 44px; height: 44px; border-radius: 8px; background: var(--wxp-panel-2); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--wxp-line-strong); }
 .wxp-slot-thumb img { max-width: 100%; max-height: 100%; object-fit: cover; }
 .wxp-slot-thumb .wxp-nopic { font-size: 11px; color: var(--wxp-muted); }
@@ -141,11 +163,17 @@
 .wxp-focusthumb .wxp-fdot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--wxp-accent); border: 2px solid #ffffff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
 .wxp-focusthumb .wxp-fempty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--wxp-muted); }
 .wxp-focuswrap .wxp-focuscap { font-size: 10px; color: var(--wxp-muted); max-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wxp-sliderwrap { display: flex; align-items: center; gap: 8px; min-width: 210px; flex: 1; }
+.wxp-sliderwrap { display: flex; align-items: center; gap: 8px; min-width: 320px; flex: 1; }
 .wxp-sliderwrap .wxp-slabel { font-size: 12px; color: var(--wxp-text-2); flex: 0 0 auto; }
-.wxp-sliderwrap input[type=range] { flex: 1; min-width: 100px; accent-color: var(--wxp-accent); cursor: pointer; }
-.wxp-sliderwrap .wxp-sval { font-size: 11px; font-weight: 600; color: var(--wxp-accent); background: var(--wxp-accent-soft); border: 1px solid var(--wxp-accent-line); border-radius: 999px; padding: 2px 8px; flex: 0 0 auto; min-width: 56px; text-align: center; }
-.wxp-sliderwrap .wxp-sval.dim { color: var(--wxp-muted); background: var(--wxp-panel-2); border-color: var(--wxp-line); font-weight: 500; }
+.wxp-sliderwrap input[type=range] { flex: 1; min-width: 90px; accent-color: var(--wxp-accent); cursor: pointer; }
+/* 数值框：滑杆只能拖到 step 的整数倍（旧版 0.5 一档，输不进 0.2），
+   所以每个滑杆配一个可自由输入的方框 —— 输 0.2 就真的是 0.2 秒。 */
+.wxp-sliderwrap .wxp-numwrap { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+.wxp-sliderwrap .wxp-num { width: 58px; text-align: right; background: var(--wxp-field); color: var(--wxp-text); border: 1px solid var(--wxp-line-strong); border-radius: 7px; padding: 3px 6px; font: inherit; font-size: 12px; font-weight: 600; }
+.wxp-sliderwrap .wxp-num.dim { color: var(--wxp-muted); font-weight: 500; }
+.wxp-sliderwrap .wxp-num:focus { outline: none; border-color: var(--wxp-accent); box-shadow: 0 0 0 2px var(--wxp-accent-soft); }
+.wxp-sliderwrap .wxp-numunit { font-size: 11px; color: var(--wxp-muted); min-width: 13px; }
+.wxp-openhint { flex: 1 1 100%; font-size: 11px; color: var(--wxp-muted); line-height: 1.5; }
 .wxp-dropbar { border: 1px dashed var(--wxp-line-strong); border-radius: 9px; color: var(--wxp-muted); text-align: center; padding: 10px; font-size: 12px; margin: 8px 12px 12px; background: var(--wxp-panel); }
 .wxp-dropbar.drag { border-color: var(--wxp-accent); color: var(--wxp-accent); background: var(--wxp-accent-soft); }
 .wxp-header-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 12px 10px; }
@@ -192,6 +220,9 @@
 .wxp-bulk button.danger { color: var(--wxp-red); border-color: rgba(213, 73, 65, .4); }
 .wxp-bulk button.danger:hover { background: #fdf3f2; color: var(--wxp-red); }
 .wxp-item.marked { border-color: var(--wxp-accent); box-shadow: inset 0 0 0 2px var(--wxp-accent); }
+/* 图片多时（>200 张）只渲染视口内的格子：勾选/删除后重绘不再被 2000+ 个 DOM 拖住。
+   不支持的浏览器会忽略这两条，行为与以前一致。 */
+.wxp-grid.wxp-long .wxp-item { content-visibility: auto; contain-intrinsic-size: 96px 92px; }
 .wxp-item[draggable="true"] { cursor: grab; }
 .wxp-item[draggable="true"]:active { cursor: grabbing; }
 .wxp-item .wxp-check { position: absolute; left: 4px; top: 3px; width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--wxp-line-strong); background: #ffffff; display: none; align-items: center; justify-content: center; font-size: 11px; line-height: 1; color: #ffffff; z-index: 2; }
@@ -240,6 +271,16 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
     }
 
     function listImages() { return galleryCache.slice(); }
+
+    /* 写操作（删/移/改名/命名）的响应里已经带回最新图库，直接采纳，
+       不必再发一次 GET（每次 GET 都要后端全盘扫一遍，图多时要 1 秒以上） */
+    function applyGalleryPayload(p) {
+        if (!p || typeof p !== 'object') return;
+        if (p.files) galleryFiles = p.files;
+        if (p.images) galleryCache = p.images;
+        if (p.videos) galleryVideos = p.videos;
+        if (p.categories) galleryCategories = p.categories;
+    }
 
     function galleryFolders() {
         const set = [];
@@ -498,6 +539,17 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             !q || (((v.name || '') + ' ' + (v.path || '')).toLowerCase().includes(q)));
     }
 
+    /* 搜索防抖：大图库里每敲一个字就整格重绘会明显卡，停 120ms 后再渲染 */
+    let pickerSearchTimer = null;
+    function queuePickerSearch(v) {
+        pickerQuery = v;
+        if (pickerSearchTimer) clearTimeout(pickerSearchTimer);
+        pickerSearchTimer = setTimeout(() => { pickerSearchTimer = null; renderPickerGrid(); }, 120);
+    }
+    function flushPickerSearch() {
+        if (pickerSearchTimer) { clearTimeout(pickerSearchTimer); pickerSearchTimer = null; renderPickerGrid(); }
+    }
+
     /* 渲染分类筛选 chips（全部 / 各分类 / 🎬视频），按钮上带张数，还可当拖拽搬运的目标 */
     function renderPickerCats() {
         const box = document.getElementById('wxp-cats');
@@ -590,8 +642,10 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             ? pickerSorted(pickerVideos().map(v => ({ path: v.path, label: v.name || v.path, name: v.path, isVideo: true })))
             : pickerSorted(pickerFiltered());
         const found = document.getElementById('wxp-found');
-        if (found) found.textContent = '匹配 ' + list.length + (isVideoTab ? ' 个视频' : ' 张' +
-            (pickerMarked.length ? ' · 已选 ' + pickerMarked.length : ''));
+        foundBase = '匹配 ' + list.length + (isVideoTab ? ' 个视频' : ' 张');
+        if (found) found.textContent = foundBase + (pickerMarked.length ? ' · 已选 ' + pickerMarked.length : '');
+        // 大列表关掉屏外格子的渲染（见 .wxp-grid.wxp-long）
+        grid.classList.toggle('wxp-long', list.length > 200);
         let h = isVideoTab ? '' :
             '<div class="wxp-item" data-val=""><div class="wxp-thumb wxp-clear">无</div><span class="wxp-name">清除</span></div>';
         list.forEach(f => {
@@ -601,7 +655,7 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             const tagCls = f.isVideo ? ' wxp-tag-ic' : (f.category === 'icon' ? ' wxp-tag-ic' : ' wxp-tag-im');
             const thumb = f.isVideo
                 ? '<div class="wxp-thumb"><span style="font-size:26px">🎬</span><span class="wxp-tag' + tagCls + '">' + tag + '</span></div>'
-                : '<div class="wxp-thumb"><img src="' + escAttr(f.path) + '" alt="" draggable="false" onerror="this.style.opacity=.25">' +
+                : '<div class="wxp-thumb"><img src="' + escAttr(f.path) + '" alt="" draggable="false" loading="lazy" decoding="async" onerror="this.style.opacity=.25">' +
                     '<span class="wxp-tag' + tagCls + '">' + tag + '</span></div>';
             h += '<div class="wxp-item' + sel + marked + '" data-val="' + escAttr(f.path) + '" title="' +
                 escAttr(f.path + (f.size ? '\n' + fmtSize(f.size) : '')) + '" draggable="true">' +
@@ -663,20 +717,57 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         return b + 'B';
     }
 
-    /* ---- 多选 / 批量 ---- */
+    /* ---- 多选 / 批量 ----
+       注意：勾选只改「那一个格子」的类名，不再重建整个网格。
+       图库动辄 2000+ 张，以前点一下重绘 2000 个 DOM，多选时明显卡顿。 */
+    let foundBase = '';          // 「匹配 N 张」基础文案，避免只为了改计数就重绘网格
+
     function setBulkMode(on) {
         pickerBulkMode = !!on;
         if (!on) { pickerMarked = []; pickerLastIdx = -1; }
         document.body.classList.toggle('wxp-bulkmode', pickerBulkMode);
         const b = document.getElementById('wxp-multibtn');
         if (b) b.classList.toggle('on', pickerBulkMode);
+        if (!pickerBulkMode) clearMarkedDom();
+        updateMarkCount();
+        renderBulkBar();   // 批量条随模式显隐（Ctrl/Shift 直接进多选时也要能出来）
     }
-    function toggleMark(val, idx, range) {
+    /* 只把已勾选格子的 marked 类去掉（不重建网格） */
+    function clearMarkedDom() {
+        const grid = document.getElementById('wxp-grid');
+        if (!grid) return;
+        Array.prototype.forEach.call(grid.querySelectorAll('.wxp-item.marked'),
+            el => el.classList.remove('marked'));
+    }
+    /* 按路径找格子（data-val 里可能有特殊字符，先试属性选择器，失败再逐个比对） */
+    function pickerItemEl(val) {
+        const grid = document.getElementById('wxp-grid');
+        if (!grid) return null;
+        try {
+            return grid.querySelector('.wxp-item[data-val="' + CSS.escape(val) + '"]');
+        } catch (e) { /* CSS.escape 不可用时走下面的逐个比对 */ }
+        let hit = null;
+        Array.prototype.forEach.call(grid.querySelectorAll('.wxp-item'), el => {
+            if (!hit && el.getAttribute('data-val') === val) hit = el;
+        });
+        return hit;
+    }
+    /* 只刷新「已选 N 张」这类计数，不碰网格 */
+    function updateMarkCount() {
+        const n = pickerMarked.length;
+        const nb = document.getElementById('wxp-bulkn');
+        if (nb) nb.textContent = String(n);
+        const found = document.getElementById('wxp-found');
+        if (found && foundBase) found.textContent = foundBase + (n ? ' · 已选 ' + n : '');
+    }
+    function toggleMark(val, idx) {
         if (!val) return;
         const i = pickerMarked.indexOf(val);
         if (i >= 0) pickerMarked.splice(i, 1); else pickerMarked.push(val);
         pickerLastIdx = idx;
-        renderPickerGrid(); renderBulkBar();
+        const el = pickerItemEl(val);
+        if (el) el.classList.toggle('marked', i < 0);
+        updateMarkCount();
     }
     function renderBulkBar() {
         const bar = document.getElementById('wxp-bulk');
@@ -686,7 +777,7 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         if (!pickerBulkMode) { bar.style.display = 'none'; return; }
         bar.style.display = 'flex';
         const n = pickerMarked.length;
-        bar.innerHTML = '<span>已选 <b>' + n + '</b> 张</span>' +
+        bar.innerHTML = '<span>已选 <b id="wxp-bulkn">' + n + '</b> 张</span>' +
             '<select id="wxp-bulkmove"><option value="">📂 整批移到分类…</option>' +
               uploadableCats().map(c => '<option value="' + escAttr(c.key) + '">' + escAttr(c.label) + '</option>').join('') +
             '</select>' +
@@ -704,18 +795,30 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         const del = document.getElementById('wxp-bulkdel');
         if (del) del.onclick = () => {
             if (!pickerMarked.length) { alert('还没有选中图片。'); return; }
-            if (!confirm('确定删除选中的 ' + pickerMarked.length + ' 张图片吗？\n\n删掉后无法恢复。')) return;
+            const targets = pickerMarked.slice();
+            const pics = targets.filter(p => !String(p).startsWith('/videos/'));
+            const vids = targets.filter(p => String(p).startsWith('/videos/'));
+            const what = [];
+            if (pics.length) what.push(pics.length + ' 张图片');
+            if (vids.length) what.push(vids.length + ' 个视频');
+            if (!confirm('确定删除选中的 ' + what.join(' + ') + ' 吗？\n\n删掉后无法恢复。')) return;
+            // 立刻从画面挪走（不用等后端扫完整库），失败再回滚重绘
+            const grid = document.getElementById('wxp-grid');
+            if (grid) {
+                Array.prototype.forEach.call(grid.querySelectorAll('.wxp-item.marked'), el => el.remove());
+            }
+            pickerMarked = []; pickerSel = '';
+            updateMarkCount(); renderBulkBar(); updatePickerPreview();
             fetch('/api/gallery/batch', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ op: 'delete', paths: pickerMarked.slice() })
+                body: JSON.stringify({ op: 'delete', paths: targets })
             }).then(r => r.json()).then(r => {
-                if (!r || !r.ok) { alert((r && r.msg) || '批量删除失败'); return; }
-                pickerMarked = []; pickerSel = '';
-                return refreshPickerAfterApi().then(() => {
-                    renderPickerCats(); renderBulkBar(); updatePickerPreview();
-                    if (r.failed) alert('有 ' + r.failed + ' 张没删成功。');
-                });
-            }).catch(() => alert('批量删除失败，请检查编辑器服务是否运行'));
+                if (!r || !r.ok) { alert((r && r.msg) || '批量删除失败'); return refreshPickerAfterApi(); }
+                // 后端已经带回了最新的图库数据，直接用，省掉一次 GET+全盘扫描
+                applyGalleryPayload(r.gallery);
+                renderPickerAll();
+                if (r.failed) alert('有 ' + r.failed + ' 个没删成功。');
+            }).catch(() => { alert('批量删除失败，请检查编辑器服务是否运行'); return refreshPickerAfterApi(); });
         };
         const all = document.getElementById('wxp-bulkall');
         if (all) all.onclick = () => {
@@ -723,12 +826,20 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
                 ? pickerVideos().map(v => v.path)
                 : pickerSorted(pickerFiltered()).map(f => f.path);
             pickerMarked = list.slice();
-            renderPickerGrid(); renderBulkBar();
+            // 只给屏上的格子打勾（不重建 2000+ 个 DOM）
+            const grid = document.getElementById('wxp-grid');
+            if (grid) {
+                Array.prototype.forEach.call(grid.querySelectorAll('.wxp-item[data-val]'), el => {
+                    const v = el.getAttribute('data-val') || '';
+                    el.classList.toggle('marked', !!v && pickerMarked.indexOf(v) >= 0);
+                });
+            }
+            updateMarkCount(); renderBulkBar();
         };
         const none = document.getElementById('wxp-bulknone');
-        if (none) none.onclick = () => { pickerMarked = []; renderPickerGrid(); renderBulkBar(); };
+        if (none) none.onclick = () => { pickerMarked = []; clearMarkedDom(); updateMarkCount(); renderBulkBar(); };
         const exit = document.getElementById('wxp-bulkexit');
-        if (exit) exit.onclick = () => { setBulkMode(false); renderPickerGrid(); renderBulkBar(); };
+        if (exit) exit.onclick = () => { setBulkMode(false); renderBulkBar(); };
     }
 
     /* 把若干张图搬到指定分类（批量接口；会自动同步剧本/场景里的路径引用） */
@@ -751,12 +862,11 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             else if (moved.length > 1 && moved.some(m => m.path === pickerSel)) pickerSel = '';
             pickerMarked = [];
             setBulkMode(false);
-            return refreshPickerAfterApi().then(() => {
-                renderPickerCats(); renderBulkBar(); updatePickerPreview();
-                const found = document.getElementById('wxp-found');
-                if (found && !failed.length) found.textContent = '已把 ' + moved.length + ' 张搬到「' + up.label + '」';
-                if (failed.length) alert('有 ' + failed.length + ' 张没搬成功：\n' + failed.slice(0, 5).map(f => f.msg).join('\n'));
-            });
+            applyGalleryPayload(r.gallery);       // 响应里已带回最新图库，不用再 GET 一次
+            renderPickerAll();
+            const found = document.getElementById('wxp-found');
+            if (found && !failed.length) found.textContent = '已把 ' + moved.length + ' 张搬到「' + up.label + '」';
+            if (failed.length) alert('有 ' + failed.length + ' 张没搬成功：\n' + failed.slice(0, 5).map(f => f.msg).join('\n'));
         }).catch(() => alert('移动失败，请检查编辑器服务是否运行'));
     }
 
@@ -780,15 +890,20 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             if (lab) { lab.value = ''; lab.disabled = false; }
             if (target) target.textContent = pickerCurrent || '';
         }
-        setPickerActionEnabled(!!pickerSel && !isVideo);
+        setPickerActionEnabled(!!pickerSel, isVideo);
         const mv = document.getElementById('wxp-move');
         if (mv) { mv.disabled = isVideo || !pickerSel; mv.style.opacity = (isVideo || !pickerSel) ? '.45' : ''; }
     }
 
-    function setPickerActionEnabled(on) {
-        ['wxp-labelok', 'wxp-copypath', 'wxp-del'].forEach(id => {
+    /* 底部按钮可用性。isVideo：视频素材可以复制路径/删除，但不能「命名」（命名是图片的展示名元数据） */
+    function setPickerActionEnabled(on, isVideo) {
+        [['wxp-labelok', !isVideo], ['wxp-copypath', true], ['wxp-del', true]].forEach(([id, allowed]) => {
             const b = document.getElementById(id);
-            if (b) { b.disabled = !on; b.style.opacity = on ? '' : '.45'; b.style.cursor = on ? '' : 'not-allowed'; }
+            if (!b) return;
+            const ok = !!on && !!allowed;
+            b.disabled = !ok;
+            b.style.opacity = ok ? '' : '.45';
+            b.style.cursor = ok ? '' : 'not-allowed';
         });
     }
 
@@ -810,6 +925,19 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             renderPickerGrid();
             updatePickerPreview();
         });
+    }
+
+    /* 只用内存里已有的图库数据重绘弹窗（不联网）。写操作响应里已带回最新数据时用它，
+       避免再发一次 GET（后端每次 GET 都要全盘扫一遍图片目录，图多时 1 秒以上）。 */
+    function renderPickerAll() {
+        renderPickerCats();
+        renderUploadCatOptions();
+        syncUpcatWithCategory();
+        renderMoveOptions();
+        renderPickerFolderOptions();
+        renderPickerGrid();
+        renderBulkBar();
+        updatePickerPreview();
     }
 
     /* ---- 整个弹窗可拖入上传 + Ctrl+V 粘贴上传 ---- */
@@ -978,9 +1106,11 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         if (el('wxp-close')) el('wxp-close').onclick = close;
         if (el('wxp-cancel')) el('wxp-cancel').onclick = close;
         if (el('wxp-ok')) el('wxp-ok').onclick = commitPicker;
-        if (el('wxp-search')) el('wxp-search').oninput = e => { pickerQuery = e.target.value; renderPickerGrid(); };
+        if (el('wxp-search')) el('wxp-search').oninput = e => { queuePickerSearch(e.target.value); };
         if (el('wxp-search')) el('wxp-search').onkeydown = e => {
-            if (e.key === 'Enter' && pickerSel && pickerMarked.length === 0) commitPicker();
+            if (e.key !== 'Enter') return;
+            flushPickerSearch();
+            if (pickerSel && pickerMarked.length === 0) commitPicker();
         };
         // 分类 chips 的点击/拖放目标在 renderPickerCats() 里绑定
         if (el('wxp-folder')) el('wxp-folder').onchange = e => {
@@ -990,8 +1120,9 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             pickerSort = e.target.value; lsSet(LS_SORT, pickerSort); renderPickerGrid();
         };
         if (el('wxp-multibtn')) el('wxp-multibtn').onclick = () => {
+            // 勾选框由 body.wxp-bulkmode 控制显隐，不需要重建网格（大图库里重建一次要几百毫秒）
             setBulkMode(!pickerBulkMode);
-            renderPickerGrid(); renderBulkBar();
+            renderBulkBar();
         };
         if (el('wxp-catbtn')) el('wxp-catbtn').onclick = openCatManager;
         // 命名：写入展示名（不改文件路径）
@@ -1003,8 +1134,9 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path: pickerSel, label: label })
             }).then(r => r.json()).then(r => {
-                refreshPickerAfterApi().then(() => updatePickerPreview());
-                if (!(r && r.ok)) alert((r && r.msg) || '命名失败');
+                if (!(r && r.ok)) { alert((r && r.msg) || '命名失败'); return; }
+                applyGalleryPayload(r.gallery);
+                renderPickerAll();
             }).catch(() => alert('命名失败，请检查服务是否运行'));
         };
         if (el('wxp-labelok')) el('wxp-labelok').onclick = saveLabel;
@@ -1015,17 +1147,20 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             try { navigator.clipboard.writeText(pickerSel); } catch (e) { /* 忽略 */ }
             if (el('wxp-prevpath')) el('wxp-prevpath').textContent = pickerSel + '（已复制）';
         };
-        // 删除（仅图片；视频素材请在系统文件夹里手动清理）
+        // 删除（图片 / 视频素材都可以；后端按 /images/ 与 /videos/ 前缀分派）
         if (el('wxp-del')) el('wxp-del').onclick = () => {
-            if (!pickerSel || pickerSel.startsWith('/videos/')) return;
-            if (!confirm('确定删除这张图片吗？\n' + pickerSel + '\n\n删除后无法恢复。')) return;
+            if (!pickerSel) return;
+            const isVideo = pickerSel.startsWith('/videos/');
+            if (!confirm('确定删除这' + (isVideo ? '个视频' : '张图片') + '吗？\n' + pickerSel +
+                         '\n\n删除后无法恢复。')) return;
             fetch('/api/gallery/delete', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path: pickerSel })
             }).then(r => r.json()).then(r => {
                 if (r && r.ok) {
                     pickerSel = '';
-                    refreshPickerAfterApi();
+                    applyGalleryPayload(r.gallery);   // 响应里已带回最新图库，不用再 GET
+                    renderPickerAll();
                 } else alert((r && r.msg) || '删除失败');
             }).catch(() => alert('删除失败，请检查服务是否运行'));
         };
@@ -1056,7 +1191,8 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             }).then(r => r.json()).then(r => {
                 if (r && r.ok) {
                     pickerSel = r.path || '';
-                    refreshPickerAfterApi().then(updatePickerPreview);
+                    applyGalleryPayload(r.gallery);
+                    renderPickerAll();
                     if (r.changed && r.changed.length) {
                         alert('已移动到「' + catLabelOf(cat) + '」，并同步更新了引用：\n' + r.changed.join('、'));
                     }
@@ -1107,7 +1243,8 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
     }
 
     /* ---- 配图面板 ---- */
-    let slots = [];            // [{id, no, speaker, desc, path}]
+    let slots = [];            // [{id, no, speaker, desc, path, note}]
+    let notes = [];            // 没有配图槽的图片注释 [{label, text}]（点开的朋友圈图等）
     let slotsOnChange = null;
 
     function setSlotsState(newSlots) {
@@ -1115,8 +1252,11 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         renderAttachList();
     }
 
-    function renderAttachPanel(el, slotList, onChange) {
+    function renderAttachPanel(el, slotList, onChange, noteList) {
         slots = (slotList || []).slice();
+        // 没有配图槽的图（点开的朋友圈图、历史块占位图…）的注释：单独列在列表下方，
+        // 让用户照样看得到「这张图是干嘛的」，而不是只有有槽位的图才有说明。
+        notes = (noteList || []).filter(n => n && String(n.text || '').trim());
         slotsOnChange = typeof onChange === 'function' ? onChange : null;
         if (!el) return;
         el.innerHTML = attachMarkup();
@@ -1150,42 +1290,87 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         const f = slotFocusObj(slot);
         return f ? '<span class="wxp-fdot" style="left:' + (f.x * 100) + '%;top:' + (f.y * 100) + '%;"></span>' : '';
     }
+    /* 滑杆 + 数值框的取值域。滑杆范围只是「顺手拖」的舒适区，数值框可越过滑杆上限自由输入
+       （运行时按任意 float 处理，如 停留 12 秒、倍率 3.4 都能生效）。
+       hold.def=0.3 对齐 main.py 里「停留」未设置时的真实生效值（VIEW_IMAGE_HOLD_DEFAULT /
+       registry 默认），旧版这里写死 2 秒，和实际跑出来的时长对不上，用户会以为「设了 2 秒」。 */
+    const OPEN_SLIDER_CFG = {
+        zoom: { sliderMin: 1, sliderMax: 3, step: 0.05, min: 1, max: 5, def: 1.6, unit: '×', digits: 2 },
+        hold: { sliderMin: 0, sliderMax: 10, step: 0.05, min: 0, max: 30, def: 0.3, unit: '秒', digits: 2 }
+    };
+    function _fmtNum(n, digits) {
+        const s = Number(n).toFixed(digits).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+        return s === '' ? '0' : s;
+    }
     function _openSliderHtml(kind, label) {
-        const cfg = kind === 'zoom'
-            ? 'min="1" max="3" step="0.05"'
-            : 'min="0" max="10" step="0.5"';
+        const c = OPEN_SLIDER_CFG[kind];
         return '<div class="wxp-sliderwrap">' +
             '<span class="wxp-slabel">' + label + '</span>' +
-            '<input type="range" class="wxp-' + kind + '-slider" ' + cfg + '>' +
-            '<span class="wxp-sval"></span>' +
+            '<input type="range" class="wxp-' + kind + '-slider" min="' + c.sliderMin +
+                '" max="' + c.sliderMax + '" step="' + c.step + '">' +
+            '<span class="wxp-numwrap">' +
+                '<input type="text" class="wxp-num wxp-' + kind + '-num" inputmode="decimal" ' +
+                    'autocomplete="off" spellcheck="false" title="可直接输入数值（如 0.2），留空＝用默认">' +
+                '<span class="wxp-numunit">' + c.unit + '</span>' +
+            '</span>' +
         '</div>';
     }
     function _bindOpenSlider(host, kind, slot) {
         const inp = host.querySelector('.wxp-' + kind + '-slider');
+        const num = host.querySelector('.wxp-' + kind + '-num');
         if (!inp) return;
-        const badge = inp.parentElement.querySelector('.wxp-sval');
-        const setBadge = (txt, dim) => { badge.textContent = txt; badge.classList.toggle('dim', !!dim); };
-        if (kind === 'zoom') {
-            const raw = slotZoomStr(slot);
-            const eff = slotZoomNum(slot);
-            inp.value = eff;
-            setBadge(eff.toFixed(2) + '×' + (raw ? '' : ' 默认'), !raw);
-            inp.oninput = () => setBadge(Number(inp.value).toFixed(2) + '×', false);
-            inp.onchange = () => {
-                slot.openZoom = Number(inp.value).toFixed(2);
-                if (slot.onOptsChange) slot.onOptsChange(slot);
-            };
-        } else {
-            const raw = String(slot.openHold === undefined || slot.openHold === null ? '' : slot.openHold).trim();
-            const eff = (raw && isFinite(Number(raw))) ? Number(raw) : 2;
-            inp.value = eff;
-            setBadge(raw ? eff.toFixed(1) + ' 秒' : '默认', !raw);
-            inp.oninput = () => setBadge(Number(inp.value).toFixed(1) + ' 秒', false);
-            inp.onchange = () => {
-                slot.openHold = Number(inp.value).toFixed(1);
-                if (slot.onOptsChange) slot.onOptsChange(slot);
-            };
-        }
+        const c = OPEN_SLIDER_CFG[kind];
+        const readRaw = () => (kind === 'zoom'
+            ? slotZoomStr(slot)
+            : String(slot.openHold === undefined || slot.openHold === null ? '' : slot.openHold).trim());
+        const write = v => {
+            if (kind === 'zoom') slot.openZoom = v; else slot.openHold = v;
+            if (slot.onOptsChange) slot.onOptsChange(slot);
+        };
+        // 回显：空/非法值＝用默认（灰字占位），滑杆停在默认位置。
+        const show = () => {
+            const raw = readRaw();
+            const has = raw !== '' && isFinite(Number(raw));
+            const val = has ? Number(raw) : c.def;
+            inp.value = String(Math.min(c.sliderMax, Math.max(c.sliderMin, val)));
+            num.value = has ? _fmtNum(val, c.digits) : '';
+            num.placeholder = '默认 ' + _fmtNum(c.def, c.digits);
+            num.classList.toggle('dim', !has);
+        };
+        // 输入框落定：空 → 恢复默认（清掉参数）；有数 → 夹到 [min,max] 后写回。
+        // 用 _last 去重：回车会先触发 change 再触发 blur，避免同一次输入写两遍。
+        const commitNum = () => {
+            const t = String(num.value).replace(/[^0-9.]/g, '').trim();
+            if (num._last === t) return;
+            num._last = t;
+            if (t === '') { write(''); show(); return; }
+            const n = Number(t);
+            if (!isFinite(n)) { show(); return; }
+            write(_fmtNum(Math.min(c.max, Math.max(c.min, n)), c.digits));
+            show();
+        };
+        // 打字过程只让滑杆跟随，不回写 —— 回写会重渲染整块面板，输入框会掉焦点。
+        num.oninput = () => {
+            num.classList.remove('dim');
+            const t = String(num.value).trim();
+            const n = Number(t.replace(/[^0-9.]/g, ''));
+            if (t !== '' && isFinite(n)) {
+                inp.value = String(Math.min(c.sliderMax, Math.max(c.sliderMin, n)));
+            }
+        };
+        num.onchange = commitNum;
+        num.onblur = commitNum;   // 双保险：个别场景程序化改值不派发 change（_last 去重防重复写）
+        num.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); num.blur(); } };
+        // 拖滑杆：实时回显数值，松手才写回（避免拖动中反复重渲染）。
+        inp.oninput = () => {
+            num.value = _fmtNum(Number(inp.value), c.digits);
+            num.classList.remove('dim');
+        };
+        inp.onchange = () => {
+            write(_fmtNum(Number(inp.value), c.digits));
+            show();
+        };
+        show();
     }
     function renderOpenOptsInto(host, slot) {
         if (!host || !slot) return;
@@ -1216,6 +1401,7 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
                             '</button>' : '') +
                         (mode === 'zoom' ? _openSliderHtml('zoom', '倍率') : '') +
                         _openSliderHtml('hold', '停留') +
+                        '<span class="wxp-openhint">停留 / 倍率可直接在方框里打字输入（例：0.2），滑杆只作快速微调；方框留空＝用默认值。</span>' +
                     '</div>') +
             '</div>';
         host.querySelectorAll('.wxp-segmode').forEach(btn => {
@@ -1239,9 +1425,16 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         const count = document.getElementById('wxp-attach-count');
         if (!body) return;
         const filled = slots.filter(s => s.path).length;
+        const autoN = slots.filter(s => !s.path && s.previewPath).length;
         if (count) {
-            count.textContent = '已配 ' + filled + '/' + slots.length;
-            count.className = 'wxp-count' + (filled >= slots.length ? ' done' : ' pending');
+            // optional 槽（链接卡片封面留空＝运行时按标题自动配图）没配也不算待办，
+            // 否则每篇剧本的粉丝链接都会把计数染成 pending，提醒用户配一张并不必需的图。
+            // 同理：已解析出「系统自动出图」的槽（表情短名 / 朋友圈点图 / 封面）也不计入待办，
+            // 否则用户会以为这些图还要自己去准备。
+            const required = slots.filter(s => !s.optional && !s.previewOnly && !s.previewPath);
+            const reqFilled = required.filter(s => s.path).length;
+            count.textContent = '已配 ' + filled + '/' + slots.length + (autoN ? '（系统自动 ' + autoN + '）' : '');
+            count.className = 'wxp-count' + (reqFilled >= required.length ? ' done' : ' pending');
         }
         body.innerHTML = slots.map((s, i) => {
             // 「打开」控件显示条件：autoplayable（历史会话块图片）或 openable（发送图片/对方发图片
@@ -1251,22 +1444,35 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
                 ? '<div class="wxp-openhost" data-id="' + escAttr(s.id) + '"></div>'
                 : '';
             const slotFilled = !!s.path;
-            return '<div class="wxp-slot ' + (slotFilled ? 'filled' : 'empty') + '" data-id="' + escAttr(s.id) + '">' +
+            // 系统自动出图：槽位没有用户配的图，但运行时能自己取到（表情短名 / 朋友圈点图 / 封面按标题）。
+            // 解析出的路径放在 previewPath，只用于展示与计数，绝不写回剧本。
+            const autoOn = !slotFilled && !!s.previewPath;
+            // previewOnly：运行时自己取图、本来就不能手配的槽（朋友圈点图）——没解析出图也别染成「待配图」
+            const sysHint = !slotFilled && (autoOn || s.previewOnly);
+            const shown = s.path || s.previewPath || '';
+            const slotCls = slotFilled ? 'filled' : (autoOn ? 'auto' : ('empty' + ((s.optional || s.previewOnly) ? ' opt' : '')));
+            const tagCls = slotFilled ? ' ok' : (sysHint ? ' auto' : (s.optional ? ' opt' : ''));
+            const tagText = slotFilled ? '已配图' : (sysHint ? (s.previewTag || '系统自动') : (s.optional ? '可选' : '待配图'));
+            const thumbCls = shown ? (autoOn ? ' auto' : ' ok') : ((s.optional || s.previewOnly) ? '' : ' warn');
+            return '<div class="wxp-slot ' + slotCls + '" data-id="' + escAttr(s.id) + '">' +
                 '<div class="wxp-slot-main">' +
                     '<span class="wxp-slot-no">' + (s.no || ('图' + (i + 1))) + '</span>' +
-                    '<span class="wxp-slot-info"><span class="wxp-desc">' + escAttr(s.speaker ? (s.speaker + ' · ') : '') + escAttr(s.desc || '') + '</span></span>' +
-                    '<span class="wxp-slot-tag' + (slotFilled ? ' ok' : '') + '">' + (slotFilled ? '已配图' : '待配图') + '</span>' +
-                    '<span class="wxp-slot-thumb' + (s.path ? ' ok' : ' warn') + '">' +
-                        (s.path ? '<img src="' + escAttr(s.path) + '" onerror="this.style.opacity=.25">' : '<span class="wxp-nopic">未配图</span>') +
+                    '<span class="wxp-slot-info"><span class="wxp-desc">' + escAttr(s.speaker ? (s.speaker + ' · ') : '') + escAttr(s.desc || '') + '</span>' +
+                        (s.note ? '<span class="wxp-note">' + escAttr(s.note) + '</span>' : '') +
+                        ((sysHint && s.previewNote) ? '<span class="wxp-autonote">' + escAttr(s.previewNote) + '</span>' : '') + '</span>' +
+                    '<span class="wxp-slot-tag' + tagCls + '">' + tagText + '</span>' +
+                    '<span class="wxp-slot-thumb' + thumbCls + '">' +
+                        (shown ? '<img src="' + escAttr(shown) + '" onerror="this.style.opacity=.25">' : '<span class="wxp-nopic">未配图</span>') +
                     '</span>' +
                     '<span class="wxp-slot-acts">' +
-                        '<button class="wxp-pick" data-act="pick">选图</button>' +
-                        (s.path ? '<button class="wxp-clear" data-act="clear">清除</button>' : '') +
+                        (s.previewOnly ? '' :
+                            '<button class="wxp-pick" data-act="pick">' + (autoOn ? '换图' : '选图') + '</button>' +
+                            (s.path ? '<button class="wxp-clear" data-act="clear">清除</button>' : '')) +
                     '</span>' +
                 '</div>' +
                 optsHtml +
             '</div>';
-        }).join('');
+        }).join('') + notesMarkup();
         body.querySelectorAll('.wxp-slot').forEach(row => {
             const id = row.getAttribute('data-id');
             const pickBtn = row.querySelector('[data-act="pick"]');
@@ -1282,6 +1488,28 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             const s = slots.find(x => x.id === h.getAttribute('data-id'));
             if (s) renderOpenOptsInto(h, s);
         });
+        // 「不用配图的图」区：可折叠（默认展开，用户要一眼看到这些图是干嘛的）
+        const nh = body.querySelector('#wxp-note-head');
+        const nl = body.querySelector('#wxp-note-list');
+        if (nh && nl) nh.onclick = () => {
+            const collapsed = nh.classList.toggle('collapsed');
+            nl.style.display = collapsed ? 'none' : '';
+            const caret = nh.querySelector('.wxp-caret');
+            if (caret) caret.textContent = collapsed ? '▶' : '▼';
+        };
+    }
+
+    /* 「不用配图的图」区：没有配图槽的图片注释（点开的朋友圈图 / 历史块占位图等）。
+       有槽位的图，注释直接显示在该槽位下方，不在这里重复。 */
+    function notesMarkup() {
+        if (!notes.length) return '';
+        return '<div class="wxp-notewrap">' +
+            '<div class="wxp-note-head" id="wxp-note-head">📌 不用配图的图（' + notes.length + ' 处，说明如下）<span class="wxp-caret">▼</span></div>' +
+            '<div class="wxp-notelist" id="wxp-note-list">' +
+                notes.map(n => '<div class="wxp-noterow">' +
+                    (n.label ? '<b>' + escAttr(n.label) + '</b> ' : '') + escAttr(String(n.text || '')) +
+                '</div>').join('') +
+            '</div></div>';
     }
 
     /* 读取/展示 打开动画 控件状态 */
@@ -1488,6 +1716,133 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
             .replace(/"/g, '&quot;');
     }
 
+    /* ---- 片头壁纸库（开场锁屏壁纸：上传 / 删除 / 随机或固定） ---- */
+    function ensureWpMask() {
+        let mask = document.getElementById('wxp-wpmask');
+        if (!mask) {
+            mask = document.createElement('div');
+            mask.id = 'wxp-wpmask';
+            mask.className = 'wxp-mask';
+            mask.innerHTML = '<div class="wxp-modal" id="wxp-wpmodal"></div>';
+            document.body.appendChild(mask);
+            mask.addEventListener('click', (e) => { if (e.target === mask) mask.classList.remove('show'); });
+            const st = document.createElement('style');
+            st.textContent =
+                '.wxp-wpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-top:12px}' +
+                '.wxp-wpitem{position:relative;border:2px solid transparent;border-radius:10px;overflow:hidden;cursor:pointer;aspect-ratio:9/16;background:#111;padding:0}' +
+                '.wxp-wpitem img{width:100%;height:100%;object-fit:cover;display:block}' +
+                '.wxp-wpitem.sel{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.25)}' +
+                '.wxp-wpdel{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:13px;line-height:22px;cursor:pointer;padding:0}' +
+                '.wxp-wpdel:hover{background:rgba(220,38,38,.9)}' +
+                '.wxp-wpempty{grid-column:1/-1;color:var(--wxp-muted,#6b7280);font-size:13px;padding:18px 0;text-align:center}';
+            document.head.appendChild(st);
+        }
+        return mask;
+    }
+
+    function wpUploadFiles(files, cb) {
+        const valid = (files || []).filter(f => f && f.size <= 10 * 1024 * 1024);
+        if (!valid.length) { alert('请选择 10MB 以内的图片（png/jpg/webp）'); return; }
+        let i = 0;
+        (function next() {
+            if (i >= valid.length) { if (cb) cb(); return; }
+            const f = valid[i++];
+            const reader = new FileReader();
+            reader.onload = () => {
+                fetch('/api/upload-intro-wallpaper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: reader.result, name: f.name })
+                }).then(r => r.json()).then(r => {
+                    if (!r.ok) alert('上传失败：' + (r.msg || '未知错误'));
+                    next();
+                }).catch(() => { alert('上传失败（网络错误）'); next(); });
+            };
+            reader.onerror = () => { alert('读取文件失败：' + f.name); next(); };
+            reader.readAsDataURL(f);
+        })();
+    }
+
+    /**
+     * 打开「片头壁纸库」窗口。
+     * opts.current : 当前已固定的壁纸路径（''=随机）
+     * opts.onPick  : 选中回调；固定某张传 '/images/introwall/x.jpg'，改回随机传 ''
+     */
+    function openWallpaperPicker(opts) {
+        opts = opts || {};
+        const mask = ensureWpMask();
+        const modal = mask.querySelector('#wxp-wpmodal');
+        mask.classList.add('show');
+
+        function render(images) {
+            const cur = String(opts.current || '');
+            let grid = '';
+            if (!(images || []).length) {
+                grid = '<div class="wxp-wpempty">壁纸库还是空的——点上面「📤 上传壁纸」加几张（建议竖屏 9:16，1140×2460 左右）。</div>';
+            } else {
+                images.forEach(p => {
+                    const sel = p === cur ? ' sel' : '';
+                    grid += '<div class="wxp-wpitem' + sel + '" data-p="' + escAttr(p) + '" title="点击固定为片头壁纸">' +
+                        '<img src="' + escAttr(p) + '" alt="">' +
+                        '<button type="button" class="wxp-wpdel" data-del="' + escAttr(p) + '" title="从壁纸库删除">✕</button>' +
+                        '</div>';
+                });
+            }
+            modal.innerHTML =
+                '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                '<b style="font-size:15px;">🖼 片头壁纸库</b>' +
+                '<span style="font-size:12px;color:var(--wxp-muted,#6b7280);flex:1;min-width:200px;">内置锁屏开场的壁纸。不固定 = 每条视频渲染时随机换一张（并发跑批里同一条任务固定、不同任务不同）。</span>' +
+                '<button type="button" class="btn small" id="wxpWpRandom">🎲 用随机壁纸</button>' +
+                '<button type="button" class="btn small" id="wxpWpUpload">📤 上传壁纸</button>' +
+                '<button type="button" class="btn small" id="wxpWpClose">关闭</button>' +
+                '</div>' +
+                '<div class="wxp-wpgrid">' + grid + '</div>' +
+                '<input type="file" id="wxpWpFile" accept="image/png,image/jpeg,image/webp,image/bmp" multiple style="display:none">';
+
+            modal.querySelector('#wxpWpClose').onclick = () => mask.classList.remove('show');
+            modal.querySelector('#wxpWpRandom').onclick = () => {
+                if (typeof opts.onPick === 'function') opts.onPick('');
+                mask.classList.remove('show');
+            };
+            modal.querySelector('#wxpWpUpload').onclick = () => modal.querySelector('#wxpWpFile').click();
+            modal.querySelector('#wxpWpFile').onchange = (e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                wpUploadFiles(files, () => {
+                    fetch('/api/intro-wallpapers').then(r => r.json())
+                        .then(d => render(d.images || [])).catch(() => {});
+                });
+            };
+            modal.querySelectorAll('.wxp-wpitem').forEach(el => {
+                el.onclick = (ev) => {
+                    if (ev.target && ev.target.classList && ev.target.classList.contains('wxp-wpdel')) return;
+                    if (typeof opts.onPick === 'function') opts.onPick(el.getAttribute('data-p'));
+                    mask.classList.remove('show');
+                };
+            });
+            modal.querySelectorAll('.wxp-wpdel').forEach(btn => {
+                btn.onclick = (ev) => {
+                    ev.stopPropagation();
+                    const p = btn.getAttribute('data-del');
+                    if (!confirm('从壁纸库删除这张壁纸？\n' + p.split('/').pop())) return;
+                    fetch('/api/delete-intro-wallpaper', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: p })
+                    }).then(r => r.json()).then(r => {
+                        if (!r.ok) { alert('删除失败：' + (r.msg || '未知错误')); return; }
+                        fetch('/api/intro-wallpapers').then(r2 => r2.json())
+                            .then(d => render(d.images || [])).catch(() => {});
+                    }).catch(() => alert('删除失败（网络错误）'));
+                };
+            });
+        }
+
+        fetch('/api/intro-wallpapers').then(r => r.json())
+            .then(d => render(d.images || []))
+            .catch(() => { modal.innerHTML = '<div style="padding:20px;">加载壁纸库失败（接口不可用）</div>'; });
+    }
+
     /* ---- 初始化 ---- */
     function init() {
         initStyles();
@@ -1512,5 +1867,6 @@ body.wxp-bulkmode .wxp-item .wxp-check { display: flex; }
         renderOpenOptsInto: renderOpenOptsInto,
         listImages: listImages,
         uploadFiles: uploadFiles,
+        openWallpaperPicker: openWallpaperPicker,
     };
 })();

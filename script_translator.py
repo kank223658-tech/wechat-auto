@@ -89,6 +89,19 @@ ACTION_ALIASES = {
     "把他拉黑": "加入黑名单",
     "解除拉黑": "移出黑名单",
     "取消拉黑": "移出黑名单",
+    # 删除联系人（扫黑转场两套动作）
+    "删除对方": "删除联系人",
+    "把他删除": "删除联系人",
+    "删除好友": "删除联系人",
+    "删好友": "删除联系人",
+    "删除联系人": "删除联系人",
+    "主页删除": "主页删除联系人",
+    "主页删除联系人": "主页删除联系人",
+    "进主页删除": "主页删除联系人",
+    "打开聊天详情": "打开聊天详情",
+    "聊天详情": "打开聊天详情",
+    "扫黑进设置": "扫黑进设置页",
+    "扫黑进设置页": "扫黑进设置页",
     "上一页": "返回上一页",
     "后退": "返回上一页",
     "编辑对方主页": "编辑对方资料",
@@ -173,6 +186,8 @@ NUMERIC_PARAMS = {
     "对方语音": {"秒数"},
     "加入黑名单": {"加载秒", "停留"},
     "移出黑名单": {"加载秒", "停留"},
+    "删除联系人": {"加载秒", "停留"},
+    "主页删除联系人": {"加载秒", "停留"},
 }
 
 # 内置动作表（未传入 editor_server.ACTIONS 时用这个生成提示词）
@@ -483,6 +498,9 @@ def validate_steps(steps: list):
             continue
         params = step.get("params")
         params = params if isinstance(params, dict) else {}
+        # 配图注释（图片槽上方的 # 行，main.parse_script_text 解析进 note）原样带到结果步骤上，
+        # 编辑器配图清单靠它显示「这张图要什么效果/去哪找/呼应哪句」。
+        note = str(step.get("note") or "").strip()
         if action in ACTION_PARAMS:
             clean = {}
             hold_provided = False
@@ -504,10 +522,16 @@ def validate_steps(steps: list):
                         clean[key] = float(clean[key])
                     except (TypeError, ValueError):
                         pass
-            out.append({"action": action, "params": clean})
+            _out_step = {"action": action, "params": clean}
+            if note:
+                _out_step["note"] = note
+            out.append(_out_step)
         else:
             warnings.append(f"未知动作「{action}」，已保留但运行时会跳过。")
-            out.append({"action": action, "params": params})
+            _out_step = {"action": action, "params": params}
+            if note:
+                _out_step["note"] = note
+            out.append(_out_step)
     return out, warnings
 
 
@@ -1017,6 +1041,33 @@ def _warn_missing_emoji_images(steps, warnings):
             f"再在剧本里用它的文件名/关键词引用。")
 
 
+
+def insert_reply_gaps(steps: list, gap: float = 0.2) -> list:
+    """我方消息发出后、对方回消息前自动补一小段等待（缺省 0.2s，2026-09-14 晚用户定标 0.3→0.2）。
+
+    真人聊天里「我方消息刚上屏、对方零间隔秒跟」几乎不可能；剧本若把
+    [我方打字]/[发送图片]/[发送表情] 与 [对方发消息]/[对方表情]/[对方发图片]
+    写成紧邻（中间无 [等待]），成片就会出现「秒回」。这里在中间插入一条等待。
+    已有 [等待] 的位置不动；幂等，可重复调用。
+    ★调用时机：merge_typing_waits 之后、写 workflow 之前（勿在 translate_offline 内调，
+    否则校验器指标被虚增）。
+
+    返回新步骤列表（不修改入参）。
+    """
+    _mine = {"我方打字", "发送图片", "发送表情", "发送消息"}
+    _peer = {"对方发消息", "对方发图片", "对方表情"}
+    out = []
+    n = len(steps)
+    for i, s in enumerate(steps):
+        out.append(s)
+        if not isinstance(s, dict) or s.get("action") not in _mine:
+            continue
+        nxt = steps[i + 1] if i + 1 < n else None
+        if isinstance(nxt, dict) and nxt.get("action") in _peer:
+            out.append({"action": "等待", "params": {"秒数": gap}})
+    return out
+
+
 def translate_offline(text: str):
     """离线解析标准剧本格式（[指令] 参数），别名归一，未知指令记 warning。
 
@@ -1032,10 +1083,15 @@ def translate_offline(text: str):
         return [], warnings
 
     raw_steps = parse_script_text(text or "")
+    # dict(s, params=...) 而不是「只取 action/params」——把笔记字段 note（配图注释）一并带过去，
+    # 否则离线解析后编辑器配图清单就看不到「这张图要什么效果/去哪找/呼应哪句」了。
     steps, extra = validate_steps(
-        {"action": s["action"], "params": s.get("params", {})} for s in raw_steps)
+        dict(s, params=s.get("params", {})) for s in raw_steps)
     warnings += extra
     _warn_missing_emoji_images(steps, warnings)
+    # 注意：insert_reply_gaps 不在此处调用——校验器也走 translate_offline，
+    # 在这里补等待会虚增「步数/等待节拍」指标。构建 workflow 时于
+    # merge_typing_waits 之后显式调用 insert_reply_gaps(steps)。
     return steps, warnings
 
 
@@ -1101,21 +1157,55 @@ _MESSAGE_TO_LINK_ACTION = {
     "发送消息": "我方发链接",
     "打字不发": "我方发链接",
 }
+# 链接卡片动作：离线/AI 直接产出这两个动作时，也要走一遍封面引用归一。
+_LINK_ACTIONS = ("我方发链接", "对方发链接")
 _LINK_MARKER_RE = re.compile(
     r"^\s*(?:[\[【]\s*(?:链接|小程序卡片|分享)\s*[\]】])\s*(.*)$")
+
+
+def _normalize_link_step_image(step: dict) -> None:
+    """把「已是链接卡片动作」的步骤里的封面引用解析成真实 URL（就地改写）。
+
+    离线/AI 直接产出 `[我方发链接] 标题 | 课程封面图 | 恋爱技巧` 时，「图片」段是
+    关键词/文件名而不是路径，编辑器（并发页/脚本页）只会把它当未知引用显示「未配图」，
+    用户没有缩略图可看、也拿不到预置封面。这里复用 main._resolve_link_image 的同一套规则
+    做一次归一（封面 / 视频封面 / 随机 / 图库关键词 / 文件名）：
+
+      - 已是 `/images/...` 或 http 开头：不动；
+      - 空：不动（保留运行时「按标题自动匹配」的语义，是否需要手动配图交给编辑器）；
+      - 解析落空（如「粥铺暖光门头」这类自由描述、或「无 / -」表示不带图）：保留原引用，
+        编辑器显示「未配图」，用户可手动上传封面，运行时行为与此前完全一致。
+    """
+    params = step.get("params")
+    if not isinstance(params, dict):
+        return
+    raw = params.get("图片")
+    ref = str(raw).strip() if raw is not None else ""
+    if not ref or ref.startswith("/") or ref.lower().startswith("http"):
+        return
+    try:
+        resolved = _resolve_link_image_ref(params.get("标题") or "", ref)
+    except Exception:            # noqa: BLE001
+        return
+    if resolved and (resolved.startswith("/") or resolved.lower().startswith("http")):
+        params["图片"] = resolved
 
 
 def convert_link_marker_steps(steps: list) -> list:
     """把「消息动作 + 内容以 [链接] 开头」的步骤，转成链接卡片动作。
 
     内容形如 `[链接] 标题 | 图片 | 来源`：按 `|` 拆出标题/图片/来源（来源缺省「恋爱技巧」）；
-    时间分隔条（params["时间"]）保留。已是「我方发链接/对方发链接」的步骤、以及自带链接分支的
-    「对方后台发消息」原样保留。就地改写并返回同一引用。
+    时间分隔条（params["时间"]）保留。已是「我方发链接/对方发链接」的步骤只做一次封面引用
+    归一（_normalize_link_step_image）；自带链接分支的「对方后台发消息」原样保留。
+    就地改写并返回同一引用。
     """
     if not isinstance(steps, list):
         return steps
     for step in steps:
         if not isinstance(step, dict):
+            continue
+        if step.get("action") in _LINK_ACTIONS:
+            _normalize_link_step_image(step)
             continue
         target = _MESSAGE_TO_LINK_ACTION.get(step.get("action"))
         if not target:
@@ -1376,20 +1466,23 @@ def ensure_all_contacts_in_home(steps: list) -> list:
     return steps
 
 
+SAFE_HOME_SLOTS = 8    # 前 8 行全可见且可点（第 9 行只露出半行，不安排主角）
+CAP_HOME_SLOTS = 10    # 主页最多 10 个会话：第 10 行整体在屏幕外，专作删除补位
+
+
 def cap_home_and_align_contacts(steps: list, warnings: list = None) -> list:
-    """离线解析专用：主页一屏最多显示 9 个会话，超出部分丢弃并对齐 [打开聊天]。
+    """离线解析专用：主页会话布局管理（前 8 行主角区 + 补齐到 10 个）。
 
-    主页会话列表是固定布局（9 行 × 110px，容器 overflow hidden），第 10 个起不可见。
-    因此离线解析把历史块 10+ 个会话全塞进 [编辑主页] 会导致：
-      - 主页显示不下，多出来的会话在画面里根本没有；
-      - [打开聊天] 引用了这些屏幕外/历史块里不存在的人时，ensure 兜底把它们追加进主页，
-        变成第 10、11…… 个，前后人物对不上、视频错乱。
+    主页会话行是绝对定位：1~8 行完整可见可点，第 9 行只露出 50px（不好点），
+    第 10 行整体在屏幕外。据此：
 
-    本函数在 ensure 兜底之前执行：
-      1. [编辑主页] 数据只保留前 9 个会话（第 10 个及之后丢弃，保持剧本原有顺序）；
-      2. 把所有 [打开聊天] 引用的联系人检查一遍：若不在主页前 9 个里，按剧本顺序
-         把它对齐到主页前 9 个里「尚未被其它 [打开聊天] 占用」的联系人（保持主页
-         排队顺序），保证打开的人一定是主页上显示的人。
+      1. 主角保证：所有 [打开聊天]/[对方后台发消息]/[后台消息队列] 引用的联系人
+         保持原有相对顺序前移进前 8 行——「只有前八个可以出现主角」，绝不会被
+         换成别人（旧版「对齐替换」会导致主角换人，已废弃）；
+      2. 自动补齐：列表不足 10 个时，用人物库里剧本没用到的人补到 10 个——
+         第 10 行在屏幕外平时不可见；删除联系人类创作把某行摘掉时，前端会把
+         补位行的内容搬进空出的行，列表永远满屏不漏空；
+      3. 超过 10 个的会话截断（保持剧本原有顺序）并告警。
 
     返回新的步骤列表（原地修改，返回同一引用）。
     """
@@ -1404,16 +1497,9 @@ def cap_home_and_align_contacts(steps: list, warnings: list = None) -> list:
             break
     if home is None:
         return steps
-    # 1) 截断到前 9 个会话（保持剧本顺序）
-    if len(home) > 9:
-        dropped = home[9:]
-        del home[9:]
-        names = "、".join(str(d.get("name", "？")) for d in dropped)
-        warnings.append(f"主页一屏最多显示 9 个会话，已丢弃第 10 个及之后的会话：{names}")
-    home_names = [str(d.get("name", "")).strip() for d in home if isinstance(d, dict)]
-    # 2) 收集所有「引用联系人」的动作里的联系人（按出现顺序去重）。
-    #    打开聊天 优先级最高（决定主流程进哪个会话），其后是 对方后台发消息/对方后台发表情/
-    #    后台消息队列（给主页投递消息，同样要求联系人在主页可见，否则运行期会"找不到会话"）。
+    # 收集所有「引用联系人」的动作里的联系人（按出现顺序去重）。
+    # 打开聊天 优先级最高（决定主流程进哪个会话），其后是 对方后台发消息/对方后台发表情/
+    # 后台消息队列（给主页投递消息，同样要求联系人在主页可见）。
     contacts = []
     seen = set()
 
@@ -1442,49 +1528,48 @@ def cap_home_and_align_contacts(steps: list, warnings: list = None) -> list:
                 for it in data:
                     if isinstance(it, dict):
                         _add(str(it.get("联系", it.get("contact", ""))).strip())
-    # 3) 不在主页前 9 里的联系人，按顺序对齐到主页里「尚未被占用」的某个联系人
-    used = {n for n in contacts if n in home_names}   # 已占用（本来就在主页里的）
-    queue = [n for n in home_names if n not in used]  # 主页里还没被点开过的人，按顺序排队
-    mapping = {}                                      # 旧联系人 -> 主页联系人
+    people_flat = _people_flat()
+    # 1) 确保每个被引用的联系人都在主页里（缺就补一条，运行期用人物库头像）
+    existing = {str(it.get("name", "")).strip() for it in home if isinstance(it, dict)}
     for n in contacts:
-        if n in home_names:
+        if n not in existing:
+            info = people_flat.get(n)
+            home.append({"name": n, "text": "", "avatar": info["avatar"] if info else ""})
+            existing.add(n)
+    # 2) 重排（最小移动）：主角已在 SAFE_HOME_SLOTS 内的不动；掉出安全区的整批
+    #    移到安全区末尾（互相不推挤），其余会话顺序尽量保持不变
+    name_of = lambda it: str(it.get("name", "")).strip()  # noqa: E731
+    ref_set = set(contacts)
+    kept, displaced = [], []
+    for i, it in enumerate(home):
+        if not isinstance(it, dict):
             continue
-        if queue:
-            mapping[n] = queue.pop(0)
+        if name_of(it) in ref_set and i >= SAFE_HOME_SLOTS:
+            displaced.append(it)
         else:
-            warnings.append(
-                f"联系人「{n}」不在历史会话里，且主页前 9 个联系人都已被占用，"
-                f"请把它加入历史会话块的前 9 位。")
-    if mapping:
-        for s in steps:
-            if not isinstance(s, dict):
+            kept.append(it)
+    for j, it in enumerate(displaced):
+        kept.insert(SAFE_HOME_SLOTS - len(displaced) + j, it)
+    ordered = kept
+    if sum(1 for it in ordered if name_of(it) in ref_set) > CAP_HOME_SLOTS:
+        warnings.append(
+            f"主角会话共 {len(ref_items)} 个，超过主页最多 {CAP_HOME_SLOTS} 个，"
+            f"多出的主角无法出现在主页。请精简 [打开聊天]/[后台消息] 的联系人。")
+    if len(ordered) > CAP_HOME_SLOTS:
+        dropped = ordered[CAP_HOME_SLOTS:]
+        names = "、".join(str(it.get("name", "？")) for it in dropped)
+        warnings.append(f"主页一屏最多 {CAP_HOME_SLOTS} 个会话，已截断：{names}")
+    home[:] = ordered[:CAP_HOME_SLOTS]
+    # 3) 自动补齐：用人物库里剧本没用到的人补到 10 个（第 10 行在屏幕外，专作删除补位）
+    if len(home) < CAP_HOME_SLOTS:
+        used = {str(it.get("name", "")).strip() for it in home}
+        for n, info in people_flat.items():
+            if len(home) >= CAP_HOME_SLOTS:
+                break
+            if n in used:
                 continue
-            p = s.get("params") or {}
-            a = s.get("action")
-            if a == "打开聊天":
-                old = str(p.get("联系人", "")).strip()
-                if old in mapping:
-                    p["联系人"] = mapping[old]
-            elif a in ("对方后台发消息", "对方后台发表情"):
-                old = str(p.get("联系人") or p.get("会话", "")).strip()
-                if old in mapping:
-                    p["联系人"] = mapping[old]
-            elif a in ("后台消息队列", "后台消息"):
-                data = p.get("数据", p.get("data", p.get("队列")))
-                if isinstance(data, list):
-                    for it in data:
-                        if isinstance(it, dict):
-                            old = str(it.get("联系", it.get("contact", ""))).strip()
-                            if old in mapping:
-                                if "联系" in it:
-                                    it["联系"] = mapping[old]
-                                if "contact" in it:
-                                    it["contact"] = mapping[old]
-        for old, new in mapping.items():
-            warnings.append(
-                f"联系人「{old}」不在主页前 9 个里，已对齐到主页人物「{new}」，"
-                f"保证引用（打开聊天/后台消息等）与主页显示一致。若不想被替换，"
-                f"请把它写进历史会话块的前 9 位。")
+            home.append({"name": n, "text": "最近怎么样", "avatar": info.get("avatar") or ""})
+            used.add(n)
     return steps
 
 
@@ -2207,6 +2292,23 @@ def split_history_block(text: str, pre_mapping: dict = None):
     block_start = None          # [历史会话] 起始行号
     clean_start = len(lines)    # 历史块结束后剧本从哪一行继续
     warnings = []               # 历史块内：人名替换、表情图缺失等提示
+    # 历史块内图片槽上方的 `#` 注释（如「【历史块占位图·不用找】…」）照样要带出来：
+    # 编辑器配图清单靠它告诉用户这条会话的图不用准备。判定规则复用 main 的那一套。
+    try:
+        from main import _merge_slot_note  # noqa: PLC0415
+    except Exception:                      # noqa: BLE001
+        def _merge_slot_note(pending, line):   # noqa: ARG001
+            return pending
+    _note = [""]
+
+    def _append_msg(msg):
+        """把消息收进当前会话；紧跟其上的 # 配图注释写进 msg.note（编辑器配图清单显示）。"""
+        if msg is None or cur_name is None:
+            return
+        if _note[0]:
+            msg["note"] = _note[0]
+            _note[0] = ""
+        cur_messages.append(msg)
 
     for i, raw in enumerate(lines):
         line = raw.strip()
@@ -2216,6 +2318,9 @@ def split_history_block(text: str, pre_mapping: dict = None):
                 block_start = i
             continue
         # 下面都已在历史块内
+        if line.startswith("#"):
+            _note[0] = _merge_slot_note(_note[0], line)
+            continue
         if _HISTORY_END_RE.match(line):
             clean_start = i + 1             # 去掉块结束标记行
             break
@@ -2226,6 +2331,7 @@ def split_history_block(text: str, pre_mapping: dict = None):
                 conversations.append({"name": cur_name, "messages": cur_messages})
             cur_name = _normalize_people_name((head.group(1) or "").strip(), people_flat)
             cur_messages = []
+            _note[0] = ""                   # 注释不跨会话（避免挂到下一个会话的消息上）
             continue
         if _TIME_STAMP_RE.match(line):
             # [时间戳] HH:MM 属于会话内的时间标注（时间分隔条占位），不是动作指令；
@@ -2236,17 +2342,13 @@ def split_history_block(text: str, pre_mapping: dict = None):
             if hist_msg_line is not None:
                 # 行首是「消息型指令」（如 [我方发链接]）：当作当前会话的一条历史消息，
                 # 不要结束历史块（否则该行会变成剧本里独立的动作，执行时不在聊天页而报错）。
-                msg = _line_to_message(hist_msg_line, warnings)
-                if msg is not None and cur_name is not None:
-                    cur_messages.append(msg)
+                _append_msg(_line_to_message(hist_msg_line, warnings))
                 continue
             # 行首是真正的动作指令（导航/流程类）：历史块到此结束，该行保留给剧本
             clean_start = i
             break
         # 普通对白行
-        msg = _line_to_message(raw, warnings)
-        if msg is not None and cur_name is not None:
-            cur_messages.append(msg)
+        _append_msg(_line_to_message(raw, warnings))
 
     # 落盘最后一个会话
     if cur_name is not None:

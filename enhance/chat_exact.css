@@ -21,9 +21,13 @@
    发送清空后自动回落（与真实微信一致）。 ---- */
 :root {
     --chat-box-base: 61px;    /* 输入框单行（最小）高度 */
-    --chat-bar-base: 86px;    /* 键盘展开时输入工具栏高度 */
-    --chat-sec-base: 552px;   /* 键盘展开时消息区高度 */
-    --chat-ln-h: 38px;        /* 输入框行高 */
+    --chat-bar-base: 84.4px;  /* 键盘展开时输入工具栏高度：栏顶到框顶 11.7 + 框高 60.5 +
+                                 框底到栏底 12.2（参考视频 1180x2556 逐帧实测，上下对称空隙） */
+    --chat-sec-base: 553.1px; /* 键盘展开时消息区高度：消息区底 = 输入栏顶 702.8 */
+    --chat-ln-h: 38px;        /* 输入框行高（收起态） */
+    --chat-kb-box-base: 60.5px; /* 键盘展开态单行框高：参考实测框 713.9~774.4（高 60.5）。
+                                 注：此前 73px 是量到了输入栏顶那根 1px 线，框顶被高估 12px */
+    --chat-kb-ln-h: 31px;     /* 键盘展开态行高：参考视频实测行距 30.5~31 */
     --chat-grow: 0px;         /* 输入框内容增高量，由 JS 维护，仅 wxkb-open 生效 */
     --wx-chat-bg: #101010;    /* 聊天背景：默认深色；设置背景图时由 JS 写入 url(..) 遮罩 cover */
 }
@@ -37,14 +41,46 @@ body.wx-chat .dialogue { background: #101010 !important; }
    （底边到 y=1379，比视口 1300 低 79px），动画期间输入栏会被拖到屏下、结束再"弹回"。
    改成与视口同底后，动画期间输入栏仍落在视口底部，不再下沉。 */
 body.wx-chat .dialogue, body.wx-chat .dialogue.sub-page { height: calc(100% - 79px) !important; }
-/* 聊天页不显示主页专属控件 */
-body.wx-chat #wx-home-plus,
-body.wx-chat #wx-home-pill { display: none !important; }
+
+/* ============================================================
+   聊天背景层（2026-09-16 新增）：真机行为——背景钉死在屏幕上。
+   键盘弹出/收起、气泡铺满滚动、输入框长高，都只动内容层，背景一动不动。
+   ------------------------------------------------------------
+   锚点选 .dialogue（聊天页容器：absolute 定位、不滚动、高度只由视口决定），
+   用 ::before 铺满其内容盒；不用 .dialogue-section（会滚动、高度在 1019↔552
+   之间随键盘/输入框变化，背景会被 cover 反复重裁 → 观感就是背景跟着上移），
+   也不用 background-attachment: fixed（会被后代/自身的 transform、will-change
+   降级成 scroll，正是旧实现失效的原因）。
+   绘制顺序：::before 是容器首个子节点，消息区 .dialogue-section 与其后的
+   输入栏、键盘都在其后按文档序绘制，天然压在背景之上，不需要额外层级调整。
+   --wx-chat-bg 由 config.js 的 setChatBg 写入（形如
+   "linear-gradient(rgba(16,16,16,.82), rgba(16,16,16,.82)), url('..') center / cover no-repeat #101010"），
+   未设背景时变量被移除 → 落到默认 #101010，与旧行为逐像素一致。
+   ============================================================ */
+html body.wx-chat .dialogue::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: var(--wx-chat-bg, #101010) !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+}
+/* 聊天页不显示主页专属控件。
+   ★ :not(.wx-chat-persist)：返回主页的离场动画（.34s）期间 body 会挂
+   .wx-chat-persist（见 dialogue.vue beforeDestroy），让「聊天页内容」的精修
+   规则撑满整段滑出动画；但这两条管的是【主页元素】、状态栏块管的是【全局
+   覆盖层】，必须照旧在返回瞬间立即恢复，否则主页露出来时「+」/未读胶囊
+   会消失 0.3 秒、状态栏在动画结束时才跳变。 */
+body.wx-chat:not(.wx-chat-persist) #wx-home-plus,
+body.wx-chat:not(.wx-chat-persist) #wx-home-pill { display: none !important; }
 
 /* ============================================================
    一、状态栏（0~79）
    ============================================================ */
-body.wx-chat #ios-statusbar {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar {
     height: 79px !important;
     background: #101010 !important;
     color: #f5f5f5 !important;
@@ -53,7 +89,7 @@ body.wx-chat #ios-statusbar {
     font-size: 26px !important;
 }
 /* 时间 */
-body.wx-chat #ios-statusbar .sb-time {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-time {
     position: absolute !important;
     left: 64px !important;
     top: 30px !important;
@@ -64,7 +100,7 @@ body.wx-chat #ios-statusbar .sb-time {
     color: #f5f5f5 !important;
 }
 /* 左侧定位/静音图标 */
-body.wx-chat #ios-statusbar .sb-left-icon {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-left-icon {
     position: absolute !important;
     left: 132px !important;
     top: 34px !important;
@@ -73,16 +109,16 @@ body.wx-chat #ios-statusbar .sb-left-icon {
     color: #f5f5f5 !important;
     display: block !important;
 }
-body.wx-chat #ios-statusbar .sb-left-icon svg { display: block; width: 20px !important; height: 20px !important; }
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-left-icon svg { display: block; width: 20px !important; height: 20px !important; }
 /* 主页静音图标在聊天页隐藏（聊天页用 .sb-left-icon） */
-body.wx-chat #ios-statusbar .sb-mute { display: none !important; }
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-mute { display: none !important; }
 /* 右侧：信号 / 5G / 电池 */
-body.wx-chat #ios-statusbar .sb-right {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-right {
     position: static !important;
     display: block !important;
     margin: 0 !important;
 }
-body.wx-chat #ios-statusbar .sb-signal {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-signal {
     position: absolute !important;
     left: 430px !important;
     top: 34px !important;
@@ -90,13 +126,13 @@ body.wx-chat #ios-statusbar .sb-signal {
     height: 21px !important;
     color: #f1f1f1 !important;
 }
-body.wx-chat #ios-statusbar .sb-signal i {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-signal i {
     background: currentColor !important;
     width: 3.6px !important;
     border-radius: 2px !important;
 }
-body.wx-chat #ios-statusbar .sb-wifi { display: none !important; }
-body.wx-chat #ios-statusbar .sb-cell5g {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-wifi { display: none !important; }
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-cell5g {
     position: absolute !important;
     left: 470px !important;
     top: 35px !important;
@@ -106,12 +142,12 @@ body.wx-chat #ios-statusbar .sb-cell5g {
     display: block !important;
     font-weight: 400 !important;
 }
-body.wx-chat #ios-statusbar .sb-batt-cell {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-batt-cell {
     position: absolute !important;
     left: 509px !important;
     top: 34px !important;
 }
-body.wx-chat #ios-statusbar .sb-battery {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-battery {
     width: 38px !important;
     height: 20px !important;
     border: 1.5px solid rgba(245, 245, 245, .55) !important;
@@ -119,16 +155,16 @@ body.wx-chat #ios-statusbar .sb-battery {
     padding: 2px !important;
     box-sizing: border-box !important;
 }
-body.wx-chat #ios-statusbar .sb-battery::after {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-battery::after {
     background: rgba(245, 245, 245, .55) !important;
     width: 3.6px !important;
     height: 6px !important;
     border-radius: 2px !important;
 }
-body.wx-chat #ios-statusbar .sb-battery .sb-fill { border-radius: 3px !important; }
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-battery .sb-fill { border-radius: 3px !important; }
 /* 低电量：极细红色电量条（参考图状态） */
-body.wx-chat #ios-statusbar .sb-battery.sb-batt-low .sb-fill,
-body.wx-chat #ios-statusbar .sb-battery .sb-fill.sb-fill-low {
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-battery.sb-batt-low .sb-fill,
+body.wx-chat:not(.wx-chat-persist) #ios-statusbar .sb-battery .sb-fill.sb-fill-low {
     width: 6.6px !important;
     background: #ff3b30 !important;
 }
@@ -227,19 +263,21 @@ body.wx-chat .dialogue-section {
     left: 0 !important;
     width: 600px !important;
     height: 1019px !important;
-    /* 聊天背景：默认 #101010，设置背景图时由 JS 写 --wx-chat-bg 为
-       "url('..') center/cover no-repeat" 并叠加深色遮罩，气泡无需改透明度 */
-    background: var(--wx-chat-bg, #101010) !important;
-    /* 背景固定到屏幕（视口），不随消息内容滚动；消息区高度随键盘开合变化时，
-       cover 仍以视口为定位区，背景不会被重新裁切而跳动。
-       （默认 background-attachment: scroll 会让背景贴在消息区盒子上，
-        键盘弹出/收起使消息区高度变化时 cover 背景会重排跳变，观感即“背景跟着上滑”。）
-       放在 background 声明之后，覆盖该 shorthand 隐含的 scroll。 */
-    background-attachment: fixed !important;
+    /* ★ 聊天背景不再画在消息区上（2026-09-16 修「气泡铺满时一开键盘，背景整体上移」）：
+       旧实现用 background-attachment: fixed 想把背景钉在视口，但 transfer_detail.css
+       为转账页视差给 .dialogue-section 常驻挂了 will-change: transform，
+       按规范这会让该元素上的 fixed 退化成 scroll —— 背景重新变成「贴在消息区盒子上」：
+       消息区高度随键盘开合/输入框增高在 1019↔552 之间变化，cover 便按新盒子反复
+       重新裁切缩放，气泡铺满（需要贴底滚动）时最明显，观感就是背景跟着上移。
+       现在背景画在真正不滚动、不变形的 .dialogue::before 上（见下方「聊天背景层」），
+       消息区自身保持透明，只负责滚动气泡。 */
+    background: transparent !important;
     /* 顶部对齐：消息从顶部往下排；底部留小空隙，最后一条气泡不与输入栏贴死。
+       底部 padding 19px = 真机参考逐像素实测（参考图 1179×2556：末气泡底 1343、
+       输入栏顶 1380，差 37 × 0.509 = 18.8px，2026-09-14 用户像素级对标）。
        顶部 padding 保持小值：首条消息紧贴顶部，首条时间分隔条经
        .msg-time:first-child 把 margin-top 压为 0，同样紧贴顶部，不留大空隙。 */
-    padding: 26px 0 16px !important;
+    padding: 26px 0 19px !important;
     overflow: hidden !important;
     overflow-y: auto !important;
     box-sizing: border-box !important;
@@ -247,8 +285,11 @@ body.wx-chat .dialogue-section {
        开合动画时由 keyboard.js 的 _animChatSection 临时置 inline transition:none，
        在单个 rAF 里同步「设高度 + 钉 scrollTop」每帧只排一次版，避免 CSS 高度过渡与
        逐帧写 scrollTop 造成的一帧两次 layout（开合断帧的来源）；
-       动画结束恢复 CSS 过渡，让打字时输入框增高(--chat-grow)仍平滑收放。 */
-    transition: height .22s cubic-bezier(.25, .46, .45, .94);
+       动画结束恢复 CSS 过渡，让打字时输入框增高(--chat-grow)仍平滑收放。
+       ★ 时长/曲线必须与 .dialogue-footer 的 height 过渡完全一致(.18s easeOutQuad)：
+       打字增高时输入栏向上长、消息区底边向上缩，两条曲线若时长不同（旧值 .22s），
+       输入栏顶会先于消息区底到位 → 过渡期间最后一条气泡被输入栏盖住一小截。 */
+    transition: height .18s cubic-bezier(.25, .46, .45, .94);
 }
 /* 去掉消息入场动画：新气泡秒出，不做缩放/淡入（真实微信为瞬间出现） */
 body.wx-chat .dialogue-section .row.pop-in {
@@ -308,7 +349,13 @@ body.wx-chat .dialogue-section .row {
     float: none !important;
 }
 body.wx-chat .dialogue-section .row.self { justify-content: flex-end !important; }
-body.wx-chat .dialogue-section .row:last-child { margin-bottom: 0 !important; }
+/* 末行下边距清零（2026-09-14 修「单行输入框离上方气泡太远」）：
+   :last-child 永远不成立——.msg-more(长按菜单)、运行时注入的 .chat-clip-top /
+   撤回提示条都排在消息行之后，末行 26px margin 清不掉，间距 16+26=42px，
+   真机参考只有 ~19px。改用 :has 兄弟判定「后面再无 .row 的行」= 视觉末行，
+   对 Vue 渲染行与运行时直插行都成立。 */
+body.wx-chat .dialogue-section .row:last-child,
+body.wx-chat .dialogue-section .row:not(:has(~ .row)) { margin-bottom: 0 !important; }
 
 /* ---- 头像 62.6×62.6 ---- */
 body.wx-chat .dialogue-section .row .header {
@@ -648,9 +695,32 @@ body.wx-chat .dialogue-footer {
        bottom 是布局属性，会走「样式重算→回流→绘制→合成」链路，比键盘的
        transform(纯合成器/GPU) 慢半拍到一拍，导致键盘弹出时输入栏滞后、出现接缝。
        改为 transform 后与 #wxkb 同为合成器驱动，帧序一致，能逐帧贴合无缝。
-       时长/缓动与 keyboard.css 的 #wxkb 一致：.22s + easeOutQuad，弹出锐利不拖尾。 */
-    transition: transform .22s cubic-bezier(.25, .46, .45, .94),
-                height .22s cubic-bezier(.25, .46, .45, .94);
+       时长 .18s + easeOutQuad（2026-09-13 由 .22s 收紧：键盘实际动画是 keyboard.js
+       _animKb 的 rAF 180ms，footer 此前 .22s 慢半拍 → 键盘先到位、输入栏后到）。
+       开/收键盘时 keyboard.js 已改为 inline 逐帧接管 footer（同一 rAF 刚性同步），
+       这里的 transition 只作兜底与其它路径使用。 */
+    transition: transform .18s cubic-bezier(.25, .46, .45, .94),
+                height .18s cubic-bezier(.25, .46, .45, .94);
+}
+
+/* 输入栏下沿遮兜（2026-09-13）：真机里输入栏与键盘是一体皮肤，运动中永不露底；
+   本项目 footer 是独立长条，开合瞬间只要与键盘差 1 帧，footer 下方就会露出
+   消息区/页面底层。补一块与 footer 同色的向下延伸遮兜：
+   - #wxkb(z 99999) 盖在 footer(z 1000) 之上，键盘贴图天然盖住遮兜；
+   - 仅当键盘尚未贴上/已经离开缝隙区时，遮兜以 #282828 补底（2026-09-13 用户按真机参考图指定，原 #1c1c1c），不再透出下层内容；
+   - 收起稳态时 footer 贴屏幕底，遮兜整体在视口外(bottom 0 以下)，无副作用；
+   - emoji/更多面板态面板(z≥999981) 盖在遮兜之上，同样无感知。 */
+body.wx-chat .dialogue-footer::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 600px;
+    /* !important 压过 wechat_modern.css「.dialogue-footer::after { background-color:#1c1c1e }」
+       颜色=用户提供的真机参考图取色 #282828 */
+    background: #282828 !important;
+    pointer-events: none;
 }
 body.wx-chat .component-dialogue-bar-person {
     position: relative !important;
@@ -833,28 +903,81 @@ body.wx-chat.wxkb-open .component-dialogue-bar-person .icon-dialogue-jianpan,
 body.wx-chat.wxkb-open .component-dialogue-bar-person .expression,
 body.wx-chat.wxkb-open .component-dialogue-bar-person .more {
     /* 固定在输入栏底部（屏幕Y不变）：随着 box 长高，top 同步增大抵消 bar 顶部上移，
-       从而 icon 停在原来单行的高度，不随之上移，仅输入框向上长。 */
-    top: calc(22px + var(--chat-grow, 0px)) !important;
+       从而 icon 停在原来单行的高度，不随之上移，仅输入框向上长。
+       top 必须与 footer 高度同曲线同长过渡：bar 顶边上移量 f(t) 与 top 增量 g(t)
+       逐帧相消，图标全程钉死在屏幕Y（参考视频过渡期语音圆环 724.1 恒定，无先坠后回弹）。 */
+    top: calc(21.3px + var(--chat-grow, 0px)) !important;
+    transition: top .22s cubic-bezier(.25, .46, .45, .94) !important;
 }
-/* 左上角“收起键盘”小图标（参考图：键盘展开时显示在输入栏左上，点击收起键盘） */
+/* 左上角“收起”小图标：参考视频逐帧实测 —— ≥3行出现，贴输入框左上（框顶下≈21画布px，
+   x≈28），随框顶同步上移；2行及以下不出现。贴图 collapse_cut.png 为参考视频原帧
+   多帧平均裁切(38x38@1180 → 19.3px@600)，背景与输入栏 #1c1c1c 同色无缝。
+   定位挂在输入栏(.component-dialogue-bar-person)内：栏顶随 --chat-grow 上移，
+   top 用固定 21.3px（栏顶到图标顶恒 21.3px，参考实测 3 行态 667.1 - 栏顶 645.8）。 */
 body.wx-chat .chat-kb-collapse {
-    position: fixed !important;
-    left: 12px !important;
-    top: 166px !important;
-    width: 26px !important;
-    height: 26px !important;
-    border-radius: 50% !important;
-    color: #8e8e93 !important;
-    font-size: 20px !important;
-    line-height: 24px !important;
-    text-align: center !important;
+    position: absolute !important;
+    left: 26.9px !important;
+    top: 21.3px !important;   /* 栏顶下方 21.3（与语音/表情/加号同一行），参考视频实测 */
+    width: 19.3px !important;
+    height: 19.3px !important;
+    z-index: 5 !important;
     cursor: pointer !important;
-    z-index: 999990 !important;
     display: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    line-height: normal !important;
 }
-body.wx-chat.wxkb-open .chat-kb-collapse { display: none !important; }
-body.wx-chat.wxkb-open .component-dialogue-bar-person .chat-way { top: 12px !important; }
+body.wx-chat .chat-kb-collapse img { display: block; width: 100%; height: 100%; }
+body.wx-chat.wxkb-open.wx-kb-tall .chat-kb-collapse { display: block !important; }
+/* 框顶 = 栏内容顶 + 10.7（2026-09-13 复核：单行 grow 归零后框整体下移 1px，
+   这里同步 -1 补回；实测单/双/三/四行框顶 713.8 / 687.8 / 656.8 / 625.8，
+   参考 713.9 / 688.0 / 657.5 / 625.4；框底恒 774.3，参考 774.4）。 */
+body.wx-chat.wxkb-open .component-dialogue-bar-person .chat-way { top: 10.7px !important; }
 body.wx-chat.wxkb-open .component-dialogue-bar-person .chat-say { top: 12px !important; }
+/* 三次校准（2026-09-13）：参考视频逐帧实测 —— 输入栏是整块 #1b1b1b（比聊天区 #121212 亮一档），
+   输入框在栏内上下各留 11.7 / 12.2px 空隙对称"浮"起；栏顶有 1px #2e2e2e 细线（实测 RGB 46）。
+   上一版把栏顶 18.3px 涂成 #121212（与聊天区几乎同色）→ 视觉上"框贴顶"，本次改回整块栏底。 */
+body.wx-chat.wxkb-open .dialogue-footer { border-top-color: #2e2e2e !important; }
+body.wx-chat.wxkb-open .dialogue-footer,
+body.wx-chat.wx-emoji-open .dialogue-footer {
+    background: #1c1c1c !important;
+}
+/* 框沿**没有**亮线（2026-09-13 复核）：上一版误把「栏顶那 1px #2e2e2e 亮线」
+   当成了框沿，给框加了一圈 1px 边 → 框被撑高 2px（框底 776.7，参考恒 774.4），
+   且框四周多出一道参考里不存在的亮边。
+   逐帧复核证明：参考里框顶就是 #272727 直接接栏底（无过渡亮线），
+   唯一的 1px 亮线属于**输入栏顶边**（见上 .dialogue-footer border-top）。
+   去掉这圈边后框高正好 = --chat-kb-box-base 60.5（＝参考实测 60.5），框底回到 774.8。 */
+
+/* ---- 键盘展开态输入框像素标定（参考视频 1180x2556 → 600x1300 画布实测）：
+   单行框 701.7~774.9（高73.2）；行距≈31；末行行心恒 744.5，与语音圆环行心 744.4 对齐。
+   模型：行高31 + 上内边距24 + 下15，单行 min-height 73；框顶=输入栏顶+1。
+   逐态框顶 1/2/3/4 行 = 702/674/643/612（参考 701.7/675.8/645.3/613.2，误差≤2.3）；
+   逐态末行行心恒 744.5（参考 743.6~745.7，误差≤1.2）。
+   height 加同曲线过渡：框底边 = 栏顶f(t) + 1 + 高h(t)，f=h 逐帧相消恒 775，
+       变行瞬间框底不向键盘候选条下坠（参考视频框底恒贴 774.9）。
+
+   呼吸感标定（2026-09-13 二次校准）：参考视频输入框不是贴着栏顶的——框顶上方有
+   18.3px 的 #121212 空隙带（全宽一致），框体自身带 1px #2e2e2e 细边、"浮"在栏内；
+   栏顶边没有亮线（聊天区直接接空隙）。故：框顶 = 栏顶 + 18.3（.chat-way top），
+   栏高 86→104.3，图标 top 基准 22→41.3（屏幕 Y 仍恒 724）。 ---- */
+body.wx-chat.wxkb-open .component-dialogue-bar-person .chat-way,
+body.wx-chat.wx-emoji-open .component-dialogue-bar-person .chat-way {
+    height: calc(var(--chat-kb-box-base) + var(--chat-grow, 0px)) !important;
+    transition: height .18s cubic-bezier(.25, .46, .45, .94) !important;
+}
+body.wx-chat.wxkb-open .component-dialogue-bar-person .chat-txt,
+body.wx-chat.wx-emoji-open .component-dialogue-bar-person .chat-txt {
+    height: calc(var(--chat-kb-box-base) + var(--chat-grow, 0px)) !important;
+    min-height: var(--chat-kb-box-base) !important;
+    line-height: var(--chat-kb-ln-h) !important;
+    /* 参考实测：字形顶距框顶 2 行及以上 = 16.7（=10.5 padding + 半个行距 6.1）；1 行 = 20.3
+       （框被 min-height 撑高后文字垂直居中），故单行态由 JS 把 --chat-kb-pt 提到 14.2px。 */
+    padding-top: var(--chat-kb-pt, 10.5px) !important;
+    padding-bottom: 13px !important;
+    transition: height .18s cubic-bezier(.25, .46, .45, .94) !important;
+}
 
 /* ---- iOS 键盘：整张参考图(kb_body.png)做背景，等比铺满，键区/输入栏/底部图标全来自贴图 ---- */
 body.wx-chat #wxkb {

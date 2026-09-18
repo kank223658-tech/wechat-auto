@@ -10,9 +10,9 @@
     {
       "id": "c1",
       "type": "friend",
-      "name": "luna-富婆",
+      "name": "林晚晚",
       "remark": "微信支付",
-      "avatar": "/images/avatar/30_女人_1_金善慧Keina_来自小红书网页版_20260831_184614_096.jpg",
+      "avatar": "/images/avatar/dygirl_01.jpg",
       "lastText": "你今晚有没有空",
       "time": "18:22",
       "unread": 1,
@@ -52,9 +52,8 @@
     {
       "id": "c2",
       "type": "friend",
-      "name": "香儿",
-      "remark": "陆香儿",
-      "avatar": "/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg",
+      "name": "苏念念",
+      "avatar": "/images/avatar/dygirl_02.jpg",
       "lastText": "我也吃饭去了",
       "time": "18:16",
       "unread": 1,
@@ -112,9 +111,9 @@
     {
       "id": "c3",
       "type": "friend",
-      "name": "安雅",
+      "name": "乔安好",
       "remark": "服务号",
-      "avatar": "/images/avatar/照片输出_1_楠柒_来自小红书网页版_20260902_180914_204.jpg",
+      "avatar": "/images/avatar/dygirl_16.jpg",
       "lastText": "你太小了",
       "time": "17:29",
       "unread": 1,
@@ -131,9 +130,9 @@
     {
       "id": "c4",
       "type": "friend",
-      "name": "妍妍",
+      "name": "芋泥啵啵",
       "remark": "公众号",
-      "avatar": "/images/avatar/御一下_1_涔涔_来自小红书网页版_20260831_184719_470.jpg",
+      "avatar": "/images/avatar/dygirl_03.jpg",
       "lastText": "来姨妈了",
       "time": "10:57",
       "unread": 1,
@@ -150,9 +149,9 @@
     {
       "id": "c5",
       "type": "friend",
-      "name": "熙熙（酒吧）",
+      "name": "桃桃乌龙",
       "remark": "微信团队",
-      "avatar": "/images/avatar/110_158_夏天就要大胆穿__5_不吃饭了__来自小红书网页版_20260831_185134_593.jpg",
+      "avatar": "/images/avatar/dygirl_04.jpg",
       "lastText": "来喝吗",
       "time": "00:49",
       "unread": 1,
@@ -169,9 +168,8 @@
     {
       "id": "c6",
       "type": "friend",
-      "name": "苏苏",
-      "remark": "沉默光环",
-      "avatar": "/images/avatar/Jennie头像_1_PP酱v_来自小红书网页版_20260831_185616_327.jpg",
+      "name": "半糖柚柚",
+      "avatar": "/images/avatar/dygirl_05.jpg",
       "lastText": "拍得好看吗",
       "time": "昨天 23:52",
       "unread": 1,
@@ -188,9 +186,8 @@
     {
       "id": "c7",
       "type": "friend",
-      "name": "乌云乌云",
-      "remark": "D",
-      "avatar": "/images/avatar/女生头像ins高级质感_1_小玖不动心_来自小红书网页版_20260831_185734_459.jpg",
+      "name": "陈眠眠",
+      "avatar": "/images/avatar/dygirl_06.jpg",
       "lastText": "那你今晚不过来？",
       "time": "昨天 22:28",
       "unread": 1,
@@ -207,9 +204,8 @@
     {
       "id": "c8",
       "type": "friend",
-      "name": "萝卜快跑",
-      "remark": "妍",
-      "avatar": "/images/avatar/Dark_高质量女头__1_Dark__来自小红书网页版_20260831_185822_457.jpg",
+      "name": "一颗甜莓",
+      "avatar": "/images/avatar/dygirl_07.jpg",
       "lastText": "您好呀，闺蜜介绍的",
       "time": "星期日",
       "unread": 1,
@@ -237,8 +233,8 @@
   ],
   "moments": [
     {
-      "author": "陆香儿",
-      "avatar": "/images/avatar/𝙒𝙚𝘾𝙝𝙖𝙩___御姐感女头_1_Jin_Junuary-Cap03_来自小红书_20260831_190001_316.jpg",
+      "author": "苏念念",
+      "avatar": "/images/avatar/dygirl_02.jpg",
       "text": "就这么丝滑的下班。",
       "images": [
         "/images/peer/peer_v1.jpg"
@@ -247,7 +243,7 @@
       "likes": [],
       "comments": [
         {
-          "name": "陆香儿",
+          "name": "苏念念",
           "text": "没有保持苹果肌扁平的义务。"
         }
       ]

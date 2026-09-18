@@ -1922,6 +1922,8 @@ button {
 .run-image-item .rum-thumb.missing { font-size: 11px; color: var(--muted-2); }
 .run-image-item .rum-info { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }
 .run-image-item .rum-info b { color: var(--text); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 配图注释（剧本里图片槽上方的 # 行，解析后带进 step.note）：这张图要什么效果、去哪找、呼应哪句 */
+.run-image-item .rum-note { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: 11px; line-height: 1.45; color: var(--muted-2); }
 .run-image-item .rum-pick {
   flex: 0 0 auto;
   border: 1px solid var(--line-strong);
@@ -2517,6 +2519,8 @@ button {
       <div class="toolbar-group">
         <button type="button" class="btn small" id="btnScene" data-tip="打开独立的场景编辑器：可放大、点选即改联系人/消息/朋友圈，一键生成工作流">🎬 场景</button>
         <button type="button" class="btn small" id="btnConcurrent" data-tip="并发生产：一次导入多条剧本，各自解析/配图后同时跑批出片">⚡ 并发</button>
+        <button type="button" class="btn small" id="btnShotDesk" data-tip="截图工作台：写一段对话 JSON（可选人设/头像/背景），直接出一张正宗微信聊天截图 PNG">📷 截图</button>
+        <button type="button" class="btn small" id="btnLongimg" data-tip="长图工作台：写一段对话 JSON（或传整张长图），自动出正宗微信长图并渲染成卡鼓点的镜头视频">🖼 长图</button>
         <button type="button" class="btn small" id="btnManual" data-tip="打开离线使用手册：所有功能的书写格式与用法，支持搜索">📖 手册</button>
       </div>
 
@@ -2620,6 +2624,7 @@ button {
                 <span class="script-sub" id="scriptStats">0 步</span>
                 <span class="spacer"></span>
                 <button type="button" class="btn small" id="btnMoments" data-tip="编辑朋友圈内容，并决定进朋友圈后打开哪张图 / 哪个视频、各看多久">🍩 朋友圈</button>
+                <button type="button" class="btn small" id="btnMomentsPreview" data-tip="在真实手机画面里预览朋友圈：成片会拍到的画面 + 按剧本走一遍（进朋友圈→滚动→点开图片）">📱 预览朋友圈</button>
                 <button type="button" class="btn primary" id="btnRunScript" data-tip="按当前步骤列表运行并生成视频">▶ 运行并生成视频</button>
               </div>
               <div class="script-warnings" id="scriptWarnings" hidden></div>
@@ -2716,6 +2721,7 @@ button {
                 <span class="spacer"></span>
                 <button type="button" class="btn small ghost" id="btnGenCopy" data-tip="复制生成文本" disabled>复制</button>
                 <button type="button" class="btn small ghost" id="btnGenRegen" data-tip="用当前主题重新生成一版" disabled>重新生成</button>
+                <button type="button" class="btn small ghost" id="btnGenCheck" data-tip="剧本体检：对当前文本查格式/完整性/规则/联系人真实性，离线秒出，不调大模型" disabled>🔍 检测合理性</button>
                 <button type="button" class="btn primary" id="btnGenUse" data-tip="把这份剧本用到脚本模式里编辑与运行" disabled>✓ 使用到脚本模式</button>
               </div>
               <div class="gen-progress" id="genProgress" hidden></div>
@@ -2856,10 +2862,34 @@ button {
         <span class="run-modal-speed-hint" id="sceneHint">聊天主页将直接使用场景里的联系人与历史消息</span>
       </div>
       <div class="run-modal-speed">
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--text);font-weight:500;">
-          <input type="checkbox" id="chkIntro"> <span>在开头插入锁屏收消息开场</span>
-        </label>
-        <span class="run-modal-speed-hint">自动取「打开聊天」的联系人做发送者，1-2 秒后转场到微信主页；需已有记录（scene.json / 历史会话）</span>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;color:var(--text);font-weight:500;">
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="radio" name="introMode" id="introModeNone" value="none" checked> <span>不加片头</span>
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="radio" name="introMode" id="chkIntro" value="builtin"> <span>内置锁屏开场</span>
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="radio" name="introMode" id="introModeUpload" value="upload"> <span>上传片头（替换内置）</span>
+          </label>
+          <button type="button" class="btn small" id="btnIntroPreview">▶ 预览片头</button>
+        </div>
+        <span class="run-modal-speed-hint">内置：自动取「打开聊天」的联系人做发送者，约 1 秒后闪黑进主页。上传：用自己的竖屏视频当片头，等比居中铺进画面（不裁画面），并在闪黑切进主视频那一刻补一记微信提示音。</span>
+        <div id="introWallRow" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+          <span style="font-size:12px;color:var(--muted);">🖼 片头壁纸：</span>
+          <span id="introWallName" class="run-modal-speed-hint" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">随机（每次渲染换一张）</span>
+          <button type="button" class="btn small" id="btnIntroWall" data-tip="打开片头壁纸库：上传/删除壁纸，点一张可固定；不固定则每条视频随机换一张">壁纸库</button>
+        </div>
+        <div id="introUploadRow" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+          <button type="button" class="btn small" id="btnIntroUpload">📤 上传片头视频</button>
+          <span id="introUploadName" class="run-modal-speed-hint" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">未选择</span>
+          <button type="button" class="btn small" id="btnIntroClear">清除</button>
+        </div>
+        <div id="introPreviewBox" style="display:none;margin-top:8px;">
+          <video id="introPreviewVideo" controls playsinline preload="metadata"
+                 style="width:200px;max-height:400px;background:#000;border-radius:8px;display:block;"></video>
+          <span class="run-modal-speed-hint" id="introPreviewHint"></span>
+        </div>
       </div>
       <div class="run-modal-speed">
         <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--text);font-weight:500;">
@@ -4226,7 +4256,8 @@ button {
           '<span class="rum-thumb' + (s.path ? "" : " missing") + '">' +
             (s.path ? '<img src="' + esc(s.path) + '" onerror="this.style.opacity=.25">' : "未配图") +
           '</span>' +
-          '<span class="rum-info"><b>' + esc(s.no || ("图" + (i + 1))) + '</b>' + esc(s.desc || "") + '</span>' +
+          '<span class="rum-info"><b>' + esc(s.no || ("图" + (i + 1))) + '</b>' + esc(s.desc || "") +
+            (s.note ? '<span class="rum-note">' + esc(s.note) + '</span>' : '') + '</span>' +
           '<button type="button" class="rum-pick" data-i="' + i + '">' + (s.path ? "换图" : "选图") + '</button>' +
           optsHtml +
         '</div>';
@@ -4356,7 +4387,7 @@ button {
         const res = await api("/api/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workflow: payload, headless: true, use_scene: !!$("chkScene").checked, typing_speed: Number($("runTypingSpeed").value), intro: !!$("chkIntro").checked, bgm: !!$("chkBgm").checked, bgm_path: $("bgmPath").value.trim() })
+          body: JSON.stringify({ workflow: payload, headless: true, use_scene: !!$("chkScene").checked, typing_speed: Number($("runTypingSpeed").value), intro: !!$("chkIntro").checked, intro_path: introMode() === "upload" ? introUploadPath : "", intro_wallpaper: introMode() === "builtin" ? introWallpaper : "", bgm: !!$("chkBgm").checked, bgm_path: $("bgmPath").value.trim() })
         });
         if (!res.ok) {
           log(res.msg || "启动失败", "err");
@@ -4579,6 +4610,16 @@ button {
       const m = _imgMarkerRe.exec(v);
       return m ? (v.slice(m[0].length).trim() || "") : null;
     }
+    // 判断「图片」参数是不是真实可用的图片路径（区别于大模型写下的找图描述/关键词）。
+    // 描述词被当成路径会让配图清单显示破图、并误标「已配图」，所以统一用它判定：
+    // 非真实路径 -> path 置空（显示「待配图」+ 描述），描述原样保留在参数里。
+    function _isImgPathRef(v) {
+      const s = String(v == null ? "" : v).trim();
+      if (!s) return false;
+      return s.startsWith("/") || s.startsWith("data:") || /^https?:/i.test(s)
+        || /^[a-zA-Z]:[\\/]/.test(s) || /[\\/]/.test(s)
+        || /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(s);
+    }
     // 文本类步骤转图片动作的映射（返回目标动作；不能转图片则返回 null）
     function _imageFor(action) {
       if (action === "对方发消息") return "对方发图片";
@@ -4663,8 +4704,10 @@ button {
           const content = params["内容"] !== undefined ? params["内容"] : params["文案"];
           const raw = params["图片"] || "";
           const md = _markerToDesc(raw);
-          path = md !== null ? "" : raw;
-          desc = (md !== null ? md : _imgDesc(content)) || "图片消息";
+          const real = _isImgPathRef(raw);
+          path = (md === null && real) ? raw : "";
+          // 描述取三者之一：①[图片]标记后的文字 ②内容/文案 ③「图片」参数本身就写着找图描述时直接用它
+          desc = (md !== null ? md : _imgDesc(content)) || (real ? "" : String(raw || "").trim()) || "图片消息";
         } else if (emojiActions.has(step.action)) {
           // 表情动作（发送表情/对方表情）：参数存的是表情关键词/真实路径。
           // 真实路径直接显示缩略图；文字短名显示「未配图」，让用户上传自定义表情。
@@ -4674,7 +4717,7 @@ button {
           desc = (params["表情"] !== undefined ? params["表情"] : params["图片"]) || params["内容"] || "表情";
           slots.push({
             id: "wf_slot_" + slots.length, no: "图" + (slots.length + 1),
-            desc, path, step, imgKey: "表情"
+            desc, path, step, imgKey: "表情", note: _stepNote(step)
           });
           return;
         } else if (step.action === "对方后台发消息") {
@@ -4684,8 +4727,9 @@ button {
           if (!((typeof content === "string" && _imgMarkerRe.test(content)) || hasImgParam)) return;
           const raw = params["图片"] || "";
           const md = _markerToDesc(raw);
-          path = md !== null ? "" : raw;
-          desc = _imgDesc(content) || "图片消息";
+          const real = _isImgPathRef(raw);
+          path = (md === null && real) ? raw : "";
+          desc = _imgDesc(content) || (real ? "" : String(raw || "").trim()) || "图片消息";
         } else if (step.action === "我方发链接" || step.action === "对方发链接") {
           // 链接卡片封面：图片参数是封面关键词（视频封面/封面…）、文件名或真实路径。
           // 真实路径显示缩略图；关键词/文件名显示「未配图」让用户上传自己的封面。
@@ -4707,6 +4751,7 @@ button {
                   speaker,
                   desc: (m.text || m.image || conv.name || "图片消息"),
                   path: (m.image || "").trim(),
+                  note: (m.note || ""),
                   autoplayable: true,
                   onOptsChange: persistSlotParams,
                   setPath: (p) => { m.image = p; },
@@ -4731,6 +4776,7 @@ button {
                   speaker,
                   desc: (m.text || _raw || conv.name || "表情"),
                   path: _isReal ? _raw : "",
+                  note: (m.note || ""),
                   emoji: true,
                   setPath: (p) => { m.image = p; }
                 });
@@ -4743,6 +4789,7 @@ button {
                   speaker,
                   desc: (m.title || m.text || m.image || conv.name || "链接封面"),
                   path: _isReal ? _raw : "",
+                  note: (m.note || ""),
                   setPath: (p) => { m.image = p; }
                 });
               }
@@ -4752,7 +4799,7 @@ button {
         } else {
           return;
         }
-        slots.push(_withStepOpenAccessors({ id: "wf_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step }, persistSlotParams));
+        slots.push(_withStepOpenAccessors({ id: "wf_slot_" + slots.length, no: "图" + (slots.length + 1), desc, path, step, note: _stepNote(step) }, persistSlotParams));
       });
       return slots;
     }
@@ -4786,6 +4833,148 @@ button {
       return slot;
     }
 
+    /* 步骤上的「配图注释」：剧本里图片槽上方那行 # 注释（谁发·用途·效果·找图·呼应哪句），
+       离线解析时由 main.parse_script_text 带进 step.note。配图清单靠它回答「这张图是干嘛的」。 */
+    function _stepNote(step) { return (step && step.note) ? String(step.note) : ""; }
+    /* 有配图注释、但没有配图槽的图片步骤（点开的朋友圈图等）：素材不用准备，
+       但注释写着「点开的是谁的哪条动态」，收进配图清单的「不用配图的图」区照样能看。
+       slotted = 已生成槽位的步骤集合（含被 syncImageAttach 就地改写过动作的步骤）。 */
+    function _collectStepNoteLines(steps, slotted) {
+      const skip = slotted || new Set();
+      const out = [];
+      (steps || []).forEach((step) => {
+        const text = _stepNote(step);
+        if (!text || skip.has(step)) return;
+        out.push({ label: (step && step.action) || "图", text });
+      });
+      return out;
+    }
+
+    /* ================= 「系统自动出图」预览（与并发页同一套机制） =================
+       槽位没配路径 ≠ 要你上传：表情短名（喵星人01）、图库已有素材名、链接封面、
+       朋友圈点图，运行时都能自动取到。这里向后端 /api/resolve-refs 批量解析一次，
+       把能自动取到的直接显示成真图（previewPath 只展示、绝不写回剧本）。 */
+    const _refPreviewCache = Object.create(null);   // 引用名 -> {path, kind}；'' 表示已问过且解析不到
+    const _refPreviewTried = Object.create(null);   // 接口异常时记档，避免反复重试
+    let _peerPresetsCache = null;                   // peer_presets.json 的 presets 段（主页动态）
+    let _autoPreviewRedrawGuard = false;            // 重绘中标记：重绘期间不再触发重绘（防递归爆栈）
+
+    async function _loadPeerPresets() {
+      if (_peerPresetsCache !== null) return _peerPresetsCache;
+      try {
+        const r = await api("/api/peer-presets");
+        _peerPresetsCache = (r && r.presets) || {};
+      } catch (err) { _peerPresetsCache = {}; }
+      return _peerPresetsCache;
+    }
+
+    /* 朋友圈序号口径：写「2」=第2条第1张，写「2,3」=第2条第3张（与运行时一致） */
+    function _momentsImage(presets, person, seq) {
+      const p = presets && person ? presets[person] : null;
+      if (!p || !Array.isArray(p.posts) || !p.posts.length) return { path: "", note: "" };
+      const parts = String(seq || "1").split(/[,，]/);
+      const ni = Math.max(1, parseInt(parts[0], 10) || 1);
+      const mi = Math.max(1, parseInt(parts[1], 10) || 1);
+      const post = p.posts[ni - 1] || p.posts[0];
+      const imgs = (post && post.images) || [];
+      return {
+        path: imgs[mi - 1] || imgs[0] || "",
+        note: "第 " + ni + " 条动态「" + String((post && post.text) || "").slice(0, 16) + "」"
+      };
+    }
+
+    /* 用现有缓存把预览同步填到槽位上（不请求、不重绘）。渲染面板前先跑一遍：
+       命中缓存时第一帧就有图，不会「先显示未配图、再闪一下变有图」。 */
+    function _fillAutoPreviews(slots) {
+      let changed = false;
+      const setP = (s, v) => { if (s.previewPath !== v) { s.previewPath = v; changed = true; } };
+      const setTag = (s, v) => { if (s.previewTag !== v) { s.previewTag = v; changed = true; } };
+      const setNote = (s, v) => { if (s.previewNote !== v) { s.previewNote = v; changed = true; } };
+      slots.forEach((s) => {
+        if (!s || s.path) return;
+        if (s.previewOnly) {
+          if (_peerPresetsCache === null) return;              // 人设库还没到，等异步那一轮
+          const r = _momentsImage(_peerPresetsCache, s.momPerson, s.momSeq);
+          if (r.path) {
+            setP(s, r.path); setTag(s, "系统自动");
+            setNote(s, "运行时打开她的朋友圈自动取这张 · " + r.note + "，无需准备");
+          } else {
+            setNote(s, "运行时按她主页动态取图（该联系人在人设库里没有动态，画面会是空框）");
+          }
+          return;
+        }
+        if (s.linkCover) {
+          const k = "link::" + s.linkTitle + "::" + (s.autoRef || "");
+          const c = _refPreviewCache[k];
+          if (!c) return;
+          if (c.path) { setP(s, c.path); setTag(s, "系统自动"); setNote(s, "运行时按标题自动配封面，无需上传"); }
+          else setNote(s, "封面解析不到，运行时会渲染空方框（可手动配一张）");
+          return;
+        }
+        const key = String(s.autoRef || "");
+        if (!key) return;
+        const c = _refPreviewCache[key];
+        if (!c) return;
+        if (c.path) {
+          setP(s, c.path);
+          setTag(s, c.kind === "sticker" ? "图库自动" : "图库有");
+          setNote(s, c.kind === "sticker"
+            ? "运行时按名字自动取这张表情，无需上传"
+            : "图库已有同名素材，运行时自动取用（不用你找图）");
+        } else {
+          setNote(s, "图库里没有这张 —— 需要你上传，或改写成图库里已有的名字");
+        }
+      });
+      return changed;
+    }
+
+    async function hydrateAutoPreviews(slots) {
+      const keyOf = (s) => s.previewOnly ? "" : (s.linkCover
+        ? "link::" + s.linkTitle + "::" + (s.autoRef || "")
+        : String(s.autoRef || ""));
+      const pending = slots.filter((s) => {
+        if (!s || s.path || !keyOf(s)) return false;
+        const k = keyOf(s);
+        if (s.previewOnly) return _peerPresetsCache === null;      // 人设库未加载才算待办
+        return !_refPreviewCache[k] && !_refPreviewTried[k];
+      });
+      const needNames = Array.from(new Set(pending.filter((s) => !s.linkCover && !s.previewOnly).map((s) => s.autoRef)));
+      const needLinks = pending.filter((s) => s.linkCover);
+      const needPresets = slots.some((s) => s && !s.path && s.previewOnly) && _peerPresetsCache === null;
+      if (!needNames.length && !needLinks.length && !needPresets) return;
+
+      if (needNames.length || needLinks.length) {
+        try {
+          const qs = new URLSearchParams();
+          qs.set("names", needNames.join("\n"));
+          qs.set("links", needLinks.map((s) => s.linkTitle + "\t" + (s.autoRef || "")).join("\n"));
+          const r = await api("/api/resolve-refs?" + qs.toString());
+          ((r && r.items) || []).forEach((it) => { _refPreviewCache[it.name] = { path: it.path || "", kind: it.kind || "" }; });
+          ((r && r.links) || []).forEach((it) => {
+            _refPreviewCache["link::" + it.title + "::" + (it.ref || "")] = { path: it.path || "", kind: "cover" };
+          });
+        } catch (err) {
+          // 接口异常：本轮不写缓存（保持「待配图」），但记档避免每次重绘都重试造成卡顿。
+          needNames.forEach((n) => { _refPreviewTried[n] = 1; });
+          needLinks.forEach((s) => { _refPreviewTried["link::" + s.linkTitle + "::" + (s.autoRef || "")] = 1; });
+          return;
+        }
+        // 问过就记档：空路径＝图库里确实没有这张，需要用户上传（别再反复问）
+        needNames.forEach((n) => { if (!_refPreviewCache[n]) _refPreviewCache[n] = { path: "", kind: "" }; });
+        needLinks.forEach((s) => {
+          const k = "link::" + s.linkTitle + "::" + (s.autoRef || "");
+          if (!_refPreviewCache[k]) _refPreviewCache[k] = { path: "", kind: "cover" };
+        });
+      }
+      if (needPresets) await _loadPeerPresets();
+      const changed = _fillAutoPreviews(slots);
+      // 只有「这轮真的填进了新东西」才重绘一次；重绘期间上锁，避免 syncImageAttach→hydrate→重绘 无限递归。
+      if (changed && !_autoPreviewRedrawGuard) {
+        _autoPreviewRedrawGuard = true;
+        try { syncImageAttach(); } finally { _autoPreviewRedrawGuard = false; }
+      }
+    }
+
     function syncImageAttach() {
       const box = $("scriptAttach");
       if (!box || !window.__wxPick) return;
@@ -4795,20 +4984,47 @@ button {
       imageSlots = [];
       // 先把已被标记为图片的步骤里已配的路径记录下来，供重新识别保留
       const prevByStep = imageSlotPathByStep;
+      // 朋友圈预览状态机：记「现在开的是谁的主页/朋友圈」，供 [点开图片] 生成只读预览槽
+      //（配图清单里直接显示「点开会是哪张图」，用户不用对着注释猜）。
+      let curChat = "", peerOpen = "", inMoments = false;
       scriptSteps.forEach((step) => {
         if (!step || typeof step !== "object") return;
         const params = step.params || {};
         // 插话里带「对方表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
         _pushInterjectionEmojiSlots(imageSlots, step);
+        if (step.action === "打开聊天") { curChat = String(params["联系人"] || ""); peerOpen = ""; inMoments = false; }
+        else if (step.action === "打开对方主页") { peerOpen = String(params["对方"] || params["联系人"] || params["预设"] || ""); }
+        else if (step.action === "进入对方朋友圈") { inMoments = true; }
+        else if (step.action === "返回主页" || step.action === "闪回聊天" || step.action === "退出朋友圈") { inMoments = false; }
+        else if (step.action === "点开图片") {
+          // [点开图片] 没有「图片」参数——运行时取「当前打开的朋友圈」第 N 条第 M 张图。
+          // 只读预览槽（previewOnly）：显示运行时会点开的那张真图，绝不写回剧本。
+          const seq = String(params["序号"] || "1").trim();
+          const who = (inMoments && peerOpen) ? peerOpen : (peerOpen || curChat);
+          imageSlots.push({
+            id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1),
+            previewOnly: true, momPerson: who, momSeq: seq,
+            speaker: who ? (who + " · 朋友圈") : "朋友圈",
+            desc: "点开朋友圈第 " + seq + " 张",
+            path: "", step, note: _stepNote(step)
+          });
+          return;
+        }
         // 情况一：已经是图片动作（对方发图片/发送图片），即使没配图也显示槽位，方便补/换图
         if (imageActions.has(step.action)) {
           const raw = params["图片"] || prevByStep.get(step) || "";
           const md = _markerToDesc(raw);
-          const path = md !== null ? "" : raw;
-          const desc = (md !== null ? md : _imgDesc(params["内容"] || params["文案"] || "")) || "图片消息";
+          const real = _isImgPathRef(raw);
+          const path = (md === null && real) ? raw : "";
+          // 参数里存的是找图描述（不是路径）时，把它当描述显示，让配图清单能看清要什么效果
+          const desc = (md !== null ? md : _imgDesc(params["内容"] || params["文案"] || ""))
+            || (real ? "" : String(raw || "").trim()) || "图片消息";
           if (path) step.params["图片"] = path;
           prevByStep.set(step, path);
-          imageSlots.push(_withStepOpenAccessors({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: path, step }));
+          // 系统自动出图：没配路径时登记「运行时按什么名字取图」，hydrateAutoPreviews
+          // 向后端解析一次——图库已有的素材名/表情短名直接显示真图，不再误报「未配图」。
+          const autoRef = path ? "" : (md !== null ? md : (String(raw || "").trim() || desc)).trim();
+          imageSlots.push(_withStepOpenAccessors({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: path, autoRef, step, note: _stepNote(step) }));
           return;
         }
         // 情况一b：表情动作（发送表情/对方表情）——参数存的是表情关键词；
@@ -4821,7 +5037,7 @@ button {
           prevByStep.set(step, path);
           imageSlots.push({
             id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1),
-            desc, path, step, imgKey: "表情", emoji: true
+            desc, path, autoRef: path ? "" : String(desc === "表情" ? "" : desc).trim(), step, imgKey: "表情", emoji: true, note: _stepNote(step)
           });
           return;
         }
@@ -4832,7 +5048,10 @@ button {
           const path = (raw && !_markerToDesc(raw) && (raw.startsWith("/") || /^https?:/i.test(raw))) ? raw : "";
           const desc = params["标题"] || raw || "链接封面";
           prevByStep.set(step, raw ? path : "");
-          imageSlots.push({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path, step, imgKey: "图片" });
+          // 引用为空＝运行时按标题自动配封面（/images/link），给空槽标 optional 不计入未配图提醒
+          imageSlots.push({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path, step, imgKey: "图片",
+                            linkCover: true, linkTitle: String(params["标题"] || "").trim(), origRef: raw,
+                            autoRef: path ? "" : raw, optional: true, note: _stepNote(step) });
           return;
         }
         // 情况二：消息文本以 [图片] 开头 → 转成图片动作
@@ -4849,7 +5068,7 @@ button {
             step.action = target;
             step.params = { 图片: prev, 内容: desc };
             prevByStep.set(step, prev);
-            imageSlots.push(_withStepOpenAccessors({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: prev, step }));
+            imageSlots.push(_withStepOpenAccessors({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path: prev, autoRef: prev ? "" : desc, step, note: _stepNote(step) }));
             return;
           }
         }
@@ -4860,12 +5079,13 @@ button {
           const hasImgParam = params["图片"] !== undefined && String(params["图片"]).trim() !== "";
           if ((typeof content === "string" && _imgMarkerRe.test(content)) || hasImgParam) {
             const prev = params["图片"] !== undefined ? params["图片"] : (prevByStep.get(step) || "");
-            const path = (prev && !_markerToDesc(prev)) ? prev : "";
-            const desc = _imgDesc(content) || "图片消息";
+            const real = _isImgPathRef(prev);
+            const path = (prev && !_markerToDesc(prev) && real) ? prev : "";
+            const desc = _imgDesc(content) || (real ? "" : String(prev || "").trim()) || "图片消息";
             step.params["内容"] = desc;
             step.params["图片"] = path;
             prevByStep.set(step, path);
-            imageSlots.push({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path, step });
+            imageSlots.push({ id: "step_" + imageSlots.length, no: "图" + (imageSlots.length + 1), desc, path, autoRef: path ? "" : desc, step, note: _stepNote(step) });
             return;
           }
         }
@@ -4886,6 +5106,7 @@ button {
                   speaker,
                   desc,
                   path: (m.image || "").trim(),
+                  note: (m.note || ""),        // 历史块图片上方的 # 注释（如「占位图·不用找」）
                   autoplayable: true,
                   setPath: (p) => { m.image = p; },
                   get open() { return m.open || ""; },
@@ -4911,6 +5132,8 @@ button {
                   speaker,
                   desc,
                   path: _isReal ? _raw : "",
+                  autoRef: _isReal ? "" : (m.image || "").trim(),
+                  note: (m.note || ""),
                   emoji: true,
                   setPath: (p) => { m.image = p; },
                   onOptsChange: () => { renderScriptPreview(); saveScriptDraft(); }
@@ -4929,6 +5152,8 @@ button {
                   speaker,
                   desc,
                   path: _isReal ? _raw : "",
+                  autoRef: _isReal ? "" : (m.image || "").trim(),
+                  note: (m.note || ""),
                   setPath: (p) => { m.image = p; },
                   onOptsChange: () => { renderScriptPreview(); saveScriptDraft(); }
                 });
@@ -4937,8 +5162,10 @@ button {
           });
         }
       });
-      box.style.display = imageSlots.length ? "" : "none";
-      if (imageSlots.length) {
+      const noteLines = _collectStepNoteLines(scriptSteps, new Set(imageSlots.filter((s) => s.step).map((s) => s.step)));
+      box.style.display = (imageSlots.length || noteLines.length) ? "" : "none";
+      if (imageSlots.length || noteLines.length) {
+        _fillAutoPreviews(imageSlots);   // 渲染前先用缓存填好「系统自动出图」预览（命中时一帧到位，不闪）
         __wxPick.renderAttachPanel(box, imageSlots, (id, path) => {
           const slot = imageSlots.find((s) => s.id === id);
           if (!slot) return;
@@ -4953,12 +5180,26 @@ button {
               // 表情步骤若只有 图片 key（AI 手写）就沿用 图片，避免空 表情 顶掉真值。
               let k = slot.imgKey || "图片";
               if (k === '表情' && slot.step.params['表情'] === undefined && slot.step.params['图片'] !== undefined) k = '图片';
-              slot.step.params[k] = path;
+              // 配图前 params[k] 里是「找图描述」（如「对镜举手的女生自拍 美甲细节清晰」）。
+              // 配上路径会把描述顶掉、清单只剩「图片消息」，所以先把描述挪进 内容 留档；
+              // 清空配图时再把描述还回 params[k]，剧本永远看得懂这张图要什么效果。
+              const _desc = (k !== '表情' && slot.desc && slot.desc !== "图片消息") ? slot.desc : "";
+              if (path) {
+                const old = slot.step.params['内容'];
+                if (_desc && (old === undefined || old === "" || old === _desc)) slot.step.params['内容'] = _desc;
+                slot.step.params[k] = path;
+              } else {
+                if (_desc && slot.step.params['内容'] === _desc) delete slot.step.params['内容'];
+                slot.step.params[k] = _desc;
+              }
             }
           }
           renderScriptPreview();
           saveScriptDraft();
-        });
+        }, noteLines);
+        // 解析完立刻把「运行时系统会自动出图」的槽显示成真图
+        //（表情短名 / 图库已有素材 / 链接封面 / 朋友圈点图），用户不用为这些图准备素材。
+        hydrateAutoPreviews(imageSlots);
       }
       // 表情关键词槽自动按图库标签配真图，配图清单一打开就有缩略图
       autoFillEmojiSlots();
@@ -5169,8 +5410,19 @@ button {
       return { removed: removed, added: block.length };
     }
 
-    /* 解析完成后判断要不要自动弹面板 */
+    /* 解析完成后判断要不要自动弹面板：有朋友圈动作 → 直接开「朋友圈预览」
+       （成片真实画面 + 按剧本走一遍）；没有预览模块才退回旧的「朋友圈设置」面板 */
     function maybeOfferMoments(text) {
+      const P = window.__wxMomentsPreview;
+      if (P && typeof P.detect === "function") {
+        const pd = P.detect(scriptSteps);
+        if (pd.any) {
+          log("检测到流程里有朋友圈动作，已打开「朋友圈预览」：直接看成片会拍到的画面与点开顺序。", "warn");
+          openMomentsPreview(pd);
+          return true;
+        }
+        return false;
+      }
       const M = window.__wxMomentsEditor;
       if (!M || typeof M.detect !== "function") return false;
       const d = M.detect(scriptSteps, text);
@@ -5178,6 +5430,38 @@ button {
       log("检测到流程里有朋友圈动作，已打开「朋友圈设置」：可编内容、定每张图/每个视频看多久。", "warn");
       openMomentsPanel(d.peer && !d.me ? "peer" : "me");
       return true;
+    }
+
+    /* 打开朋友圈预览面板：内嵌真实前端（/wxpv/），按剧本演示朋友圈段 */
+    async function openMomentsPreview(detected) {
+      const P = window.__wxMomentsPreview;
+      if (!P) { log("朋友圈预览模块没加载成功（moments_preview.js）。", "err"); return; }
+      const d = detected || P.detect(scriptSteps);
+      if (!d || !d.any) {
+        alert("当前流程里没有朋友圈动作（打开对方主页 / 进入对方朋友圈 / 进入朋友圈）。");
+        return;
+      }
+      let scene = {};
+      try { scene = await api("/api/scene"); } catch (err) { scene = {}; }
+      if (!scene || typeof scene !== "object") scene = {};
+      let presets = {};
+      try {
+        const r = await api("/api/peer-presets");
+        presets = (r && r.presets) || {};
+      } catch (err) { presets = {}; }
+      // 剧本里 [编辑朋友圈]/[编辑对方资料] 带的数据优先于 scene.json / 人设库（与运行时一致）
+      const ov = P.extractDataOverrides(scriptSteps);
+      if (ov.moments) scene.moments = ov.moments;
+      if (ov.peer) scene.peer = ov.peer;
+      P.open({
+        steps: scriptSteps,
+        segments: d.segments,
+        scene: scene,
+        presets: presets,
+        onEditContent: function () {
+          openMomentsPanel(d.segments.some((s) => s.page === "peer") ? "peer" : "me");
+        }
+      });
     }
 
     /* ---- 预览渲染 ---- */
@@ -5441,7 +5725,7 @@ button {
         alert("还没有转译结果，请先粘贴剧本并转译。");
         return;
       }
-      const missing = imageSlots.filter((s) => !s.path);
+      const missing = imageSlots.filter((s) => !s.path && !s.optional);
       if (missing.length) {
         log("提示：还有 " + missing.length + " 张图片未配图，运行会得到空图片，建议先在「🖼 配图清单」补图。", "warn");
       }
@@ -5460,7 +5744,7 @@ button {
         const res = await api("/api/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workflow: payload, headless: true, use_scene: !!$("chkScene").checked, typing_speed: Number($("runTypingSpeed").value), intro: !!$("chkIntro").checked, bgm: !!$("chkBgm").checked, bgm_path: $("bgmPath").value.trim() })
+          body: JSON.stringify({ workflow: payload, headless: true, use_scene: !!$("chkScene").checked, typing_speed: Number($("runTypingSpeed").value), intro: !!$("chkIntro").checked, intro_path: introMode() === "upload" ? introUploadPath : "", intro_wallpaper: introMode() === "builtin" ? introWallpaper : "", bgm: !!$("chkBgm").checked, bgm_path: $("bgmPath").value.trim() })
         });
         if (!res.ok) {
           log(res.msg || "启动失败", "err");
@@ -5646,6 +5930,7 @@ button {
         $("btnGenUse").disabled = !genSteps.length;
         $("btnGenCopy").disabled = !$("genText").value;
         $("btnGenRegen").disabled = false;
+        $("btnGenCheck").disabled = !$("genText").value;
         $("genFeedback").classList.add("show");
         $("genFeedbackHint").textContent = "这是历史记录，可评价或直接用到脚本模式。";
         setGenScore(Number(item.score) || 0);
@@ -5837,6 +6122,7 @@ button {
         $("btnGenUse").disabled = false;
         $("btnGenCopy").disabled = false;
         $("btnGenRegen").disabled = false;
+        $("btnGenCheck").disabled = false;
         $("genFeedback").classList.add("show");
         $("genFeedbackHint").textContent = "";
         setGenScore(0);
@@ -5861,6 +6147,53 @@ button {
         // 失败时也要让「重新生成 / 复制」回到与当前结果匹配的可用状态
         $("btnGenRegen").disabled = !genSteps.length;
         $("btnGenCopy").disabled = !$("genText").value;
+        $("btnGenCheck").disabled = !$("genText").value;
+      }
+    }
+
+    async function doGenCheck() {
+      const text = $("genText").value.trim();
+      if (!text) { alert("还没有剧本可检测，先点「生成剧本」，或直接把剧本粘贴进来。"); return; }
+      const btn = $("btnGenCheck");
+      const old = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "检测中…";
+      log("正在对当前文本做合理性检测（离线，不调大模型）……", "warn");
+      try {
+        const res = await api("/api/generate/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) { log(res.msg || "检测失败", "err"); return; }
+        // 用检测返回的最新步骤刷新预览（文本可能被手动改过）
+        if (Array.isArray(res.steps) && res.steps.length) {
+          genSteps = res.steps;
+          renderGenSteps();
+        }
+        const el = $("genReport");
+        const _warnN = (res.warnings || []).length;
+        if (res.passed) {
+          el.className = "gen-report show ok";
+          el.innerHTML = "<b>✔ 检测通过</b>（按 " + (res.rules || 0) + " 条规则校验，共 " + res.steps_count + " 步）" +
+            (_warnN ? "，另有 " + _warnN + " 条软提示见日志（不拦播放，建议看一眼）" : "，剧本合理，可以放心使用。");
+          (res.warnings || []).forEach((w) => log("提示：" + w, "warn"));
+          log("检测通过：共 " + res.steps_count + " 步" + (_warnN ? "，" + _warnN + " 条软提示。" : "。"), "ok");
+        } else {
+          el.className = "gen-report show err";
+          el.innerHTML = "<b>✖ 检出 " + res.issues.length + " 个问题</b>（改完可再点一次检测）：" +
+            res.issues.map((x) => '<span class="gr-item">• ' + esc(x) + '</span>').join("") +
+            (_warnN ? '<span class="gr-item">另有 ' + _warnN + ' 条软提示见日志</span>' : "");
+          (res.warnings || []).forEach((w) => log("提示：" + w, "warn"));
+          log("检测发现 " + res.issues.length + " 个问题，报告已显示在生成结果上方。", "err");
+        }
+        const card = el.closest(".create-card");
+        if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (err) {
+        log("检测失败：" + err.message, "err");
+      } finally {
+        btn.disabled = !$("genText").value;
+        btn.textContent = old;
       }
     }
 
@@ -6171,6 +6504,9 @@ button {
     function initGenPanel() {
       restoreGenDraft();
       $("btnGenerate").onclick = doGenerate;
+      $("btnGenCheck").onclick = doGenCheck;
+      // 手动往生成文本框里粘贴/编辑剧本时，也解锁「检测合理性」
+      $("genText").addEventListener("input", () => { $("btnGenCheck").disabled = !$("genText").value; });
       $("btnGenOutline").onclick = doOutline;
       $("btnGenUse").onclick = useToScript;
       $("btnGenCopy").onclick = async () => {
@@ -6374,6 +6710,16 @@ button {
       if (!w) log("弹窗被拦截，请允许本站打开新窗口，或直接在浏览器访问 /concurrent。", "warn");
     };
 
+    // 截图工作台：JSON 对话 → 正宗微信聊天截图 PNG。同窗切换（不弹新标签页），
+    // 截图页顶栏有「← 返回工作流」可切回来。
+    // ★ 注意 id 用 btnShotDesk：工具菜单里已有一个 btnShot（截图预览=抓实时画面），别抢它的 id。
+    $("btnShotDesk").onclick = () => { location.href = "/shot"; };
+
+    // 长图工作台：JSON 对话 / 整图 → 微信长图 + 卡鼓点镜头视频。
+    // 在当前窗口内切换（不弹新标签页），这样它是软件里的一个功能模块；
+    // 长图页顶栏有「← 工作流编辑器」可切回来。
+    $("btnLongimg").onclick = () => { location.href = "/longimg"; };
+
     $("searchBox").oninput = (event) => renderPalette(event.target.value);
     $("flowName").oninput = () => {
       workflow.name = $("flowName").value || "未命名流程";
@@ -6412,6 +6758,9 @@ button {
         const cur = scriptSteps[scriptSelected];
         openMomentsPanel(cur && cur.action === "进入对方朋友圈" ? "peer" : "me");
       };
+    }
+    if ($("btnMomentsPreview")) {
+      $("btnMomentsPreview").onclick = () => openMomentsPreview();
     }
     $("btnInsertImg").onclick = () => {
       const ta = $("scriptInput");
@@ -6486,10 +6835,120 @@ button {
       };
       inp.click();
     };
+    /* ---- 片头：不加 / 内置锁屏开场 / 上传（替换内置） ---- */
+    let introUploadPath = "";
+    function introMode() {
+      const el = document.querySelector('input[name="introMode"]:checked');
+      return el ? el.value : "none";
+    }
+    function refreshIntroUI() {
+      $("introUploadRow").style.display = introMode() === "upload" ? "flex" : "none";
+      $("introWallRow").style.display = introMode() === "builtin" ? "flex" : "none";
+    }
+    /* ---- 片头壁纸库：随机（默认）或固定某张，随运行请求一起发给后端 ---- */
+    let introWallpaper = "";
+    function refreshIntroWallLabel() {
+      $("introWallName").textContent = introWallpaper
+        ? ("已固定：" + introWallpaper.split("/").pop())
+        : "随机（每次渲染换一张）";
+    }
+    function showIntroPreview(url, hint) {
+      const v = $("introPreviewVideo");
+      $("introPreviewBox").style.display = "block";
+      $("introPreviewHint").textContent = hint || "";
+      if (v.getAttribute("src") !== url) v.setAttribute("src", url);
+      else v.currentTime = 0;
+      try { v.load(); } catch (e) { /* 忽略 */ }
+      const p = v.play();
+      if (p && p.catch) p.catch(() => {});
+    }
+    function previewIntro() {
+      const mode = introMode();
+      if (mode === "none") { log("先选「内置锁屏开场」或「上传片头」再预览。", "warn"); return; }
+      if (mode === "upload" && !introUploadPath) { log("请先上传片头视频。", "warn"); return; }
+      $("btnIntroPreview").disabled = true;
+      $("introPreviewBox").style.display = "block";
+      $("introPreviewHint").textContent = (mode === "upload")
+        ? "正在加载上传的片头…" : "正在渲染内置开场（约十几秒）…";
+      fetch("/api/intro/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: mode, path: introUploadPath, wallpaper: mode === "builtin" ? introWallpaper : "" })
+      }).then((r) => r.json()).then((r) => {
+        if (r && r.ok && r.url) {
+          showIntroPreview(r.url, (mode === "upload")
+            ? "上传的片头（成片会在它结束、闪黑切进主视频那一刻补一记微信提示音）"
+            : "内置锁屏开场预览（用当前场景的联系人 / 消息 / 时钟）");
+        } else {
+          $("introPreviewBox").style.display = "none";
+          log((r && r.msg) || "片头预览失败", "err");
+        }
+      }).catch((e) => {
+        $("introPreviewBox").style.display = "none";
+        log("片头预览失败：" + ((e && e.message) || e), "err");
+      }).then(() => { $("btnIntroPreview").disabled = false; });
+    }
+    document.querySelectorAll('input[name="introMode"]').forEach((r) => {
+      r.addEventListener("change", refreshIntroUI);
+    });
+    $("btnIntroPreview").onclick = previewIntro;
+    $("btnIntroUpload").onclick = () => {
+      const inp = document.createElement("input");
+      inp.type = "file";
+      inp.accept = "video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.webm,.mov,.m4v";
+      inp.onchange = () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        if (f.size > 200 * 1024 * 1024) { log("片头视频不能超过 200MB", "err"); return; }
+        log("片头上传中 " + (f.size / 1048576).toFixed(1) + "MB，请稍候…", "warn");
+        fetch("/api/upload-video", {
+          method: "POST",
+          headers: {
+            "Content-Type": f.type || "application/octet-stream",
+            "X-File-Name": encodeURIComponent(f.name || "intro.mp4"),
+            "X-Upload-Folder": "intro"
+          },
+          body: f
+        }).then((r) => r.json()).then((r) => {
+          if (r && r.ok && r.path) {
+            introUploadPath = r.path;
+            $("introUploadName").textContent = r.path.split("/").pop();
+            $("introModeUpload").checked = true;
+            refreshIntroUI();
+            log("片头已上传：" + r.path + "（本次运行将用它替换内置片头）", "ok");
+            previewIntro();
+          } else {
+            log((r && r.msg) || "片头上传失败", "err");
+          }
+        }).catch((e) => log("片头上传失败：" + ((e && e.message) || e), "err"));
+      };
+      inp.click();
+    };
+    $("btnIntroClear").onclick = () => {
+      introUploadPath = "";
+      $("introUploadName").textContent = "未选择";
+      $("introPreviewBox").style.display = "none";
+      $("introPreviewVideo").removeAttribute("src");
+      $("introModeNone").checked = true;
+      refreshIntroUI();
+      log("已清除上传片头。", "ok");
+    };
+    $("btnIntroWall").onclick = () => {
+      if (!window.__wxPick || !window.__wxPick.openWallpaperPicker) { log("壁纸库组件未加载（shared_picker.js）。", "err"); return; }
+      window.__wxPick.openWallpaperPicker({
+        current: introWallpaper,
+        onPick: (p) => {
+          introWallpaper = p || "";
+          refreshIntroWallLabel();
+          log(p ? ("片头壁纸已固定：" + p.split("/").pop()) : "片头壁纸：随机（每次渲染换一张）", "ok");
+        }
+      });
+    };
+    refreshIntroUI();
+
     $("confirmRunModal").addEventListener("click", (event) => {
       if (event.target === $("confirmRunModal")) cancelRunAction();
-    });
-    document.addEventListener("keydown", (event) => {
+    });    document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !$("confirmRunModal").hidden) cancelRunAction();
     });
 
@@ -6625,6 +7084,7 @@ button {
   <script src="/shared_picker.js"></script>
   <!-- 朋友圈设置面板：离线解析检测到「进入朋友圈 / 进入对方朋友圈」时自动弹出 -->
   <script src="/moments_editor.js"></script>
+  <script src="/moments_preview.js"></script>
 <style id="qtTipsStyle">
 /* 悬停问号提示 */
 .qt-host { position: relative; }

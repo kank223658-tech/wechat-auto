@@ -27,6 +27,65 @@
 
     let commentTargetCell = null;   // 「评论」时记录目标动态；发送时评论进它的深灰条
 
+    /* ============================================================
+       评论条「多行增高」—— 与聊天页（chat_extra.js）**同一模型**
+       ------------------------------------------------------------
+       聊天页那边叫 --chat-grow，这边叫 --cmt-grow，消费方 moments_exact.css §八。
+       参考视频（_ref_comment_kb 逐帧）里输入框单行高 61、框底恒 774.9；
+       文字换行后框向上长、底边不动，两侧 😊/🖼 图标钉死屏幕 Y。
+       实现：临时放开固定高 → 量 scrollHeight → 算 grow → 交回 CSS calc 接管。
+       ============================================================ */
+    const CMT_BASE = 61;         // 单行框高，与 CSS .cb-way 一致（参考实测 61）
+    const CMT_LN_H = 31;         // 行高，与聊天 --chat-kb-ln-h 同值（同一套设计）
+    const CMT_MAX_LINES = 6;     // 到该行数前持续长高，超出才转内部滚动（与聊天一致）
+    const cmtDoc = () => document.documentElement;
+    const cmtInput = () => document.getElementById('momentCommentInput');
+    const resetCmtGrow = () => {
+        cmtDoc().style.setProperty('--cmt-grow', '0px');
+        cmtDoc().style.setProperty('--cmt-pt', '14.2px');
+    };
+    function recalcCmtGrow() {
+        const ta = cmtInput();
+        if (!ta) { resetCmtGrow(); return; }
+        ta.style.setProperty('height', 'auto', 'important');   // 释放固定高再量内容
+        /* 与聊天页同款：量高时统一用"多行态"上内边距 10.5，
+           否则单行(14.2)与多行(10.5)的差会让 1→2 行那一下多算 3.7px、下一帧再纠回 → 抖动。 */
+        ta.style.setProperty('padding-top', '10.5px', 'important');
+        const needed = ta.scrollHeight || 0;
+        ta.style.removeProperty('padding-top');
+        const maxH = CMT_BASE + (CMT_MAX_LINES - 1) * CMT_LN_H;
+        const h = Math.min(needed, maxH);
+        /* 单行态特判：单行量出来只有 55（<基线+1.5），相减为负 → grow 归零，
+           框高回到 61、框底恒 774.9（与聊天页 60.5 + grow 同一套算法）。 */
+        let grow = Math.round(h - CMT_BASE);
+        if (needed <= CMT_BASE + 1.5) grow = 0;
+        grow = Math.max(0, grow);
+        cmtDoc().style.setProperty('--cmt-grow', grow + 'px');
+        /* 单行态框被固定高撑着，文字上内边距回到 14.2 才垂直居中（参考 ≈20.4）；
+           多行态压到 10.5，与聊天页逐行 +31 的排版一致。 */
+        cmtDoc().style.setProperty('--cmt-pt', grow === 0 ? '14.2px' : '10.5px');
+        ta.style.setProperty('overflow-y', needed > maxH ? 'auto' : 'hidden', 'important');
+        ta.style.removeProperty('height');                      // 让 CSS calc 决定最终高度
+    }
+    let _cmtGrowHooked = false;
+    function hookCmtGrow() {
+        if (_cmtGrowHooked) return;
+        _cmtGrowHooked = true;
+        document.addEventListener('input', (e) => {
+            if (e.target && e.target.id === 'momentCommentInput') recalcCmtGrow();
+        }, true);
+        document.addEventListener('focusin', (e) => {
+            if (e.target && e.target.id === 'momentCommentInput') recalcCmtGrow();
+        }, true);
+        /* Enter 由 main.py 统一提交（会清空 value、preventDefault 不进换行）→ 下一帧回落单行 */
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'Enter' || e.keyCode === 13) &&
+                e.target && e.target.id === 'momentCommentInput') {
+                setTimeout(recalcCmtGrow, 0);
+            }
+        }, true);
+    }
+
     /* 脚本序号 -> 动态元素：缺省/空 = 最后一条（兼容旧「给最后一条点赞」语义） */
     function postByIndex(postIndex) {
         const posts = document.querySelectorAll('#moments .moments__post');
@@ -91,8 +150,9 @@
     }
 
     /* 点「评论」：底部输入条滑入 + 键盘弹出（同一节奏，复刻真机）
-       输入条照搬聊天页打字框：大圆角深色输入框 + 右侧 😊/🖼 图标（无条内发送钮，
-       发送=键盘右下蓝键，Enter 由 main.py 统一提交；组合态绿下划线由 keyboard.js 覆盖层绘制）。 */
+       输入条与聊天页打字框**同一套**：深色圆角输入框 + 右侧 😊/🖼 图标（无条内发送钮，
+       发送=键盘右下蓝键，Enter 由 main.py 统一提交）；输入区是 <textarea>，
+       文字换行后输入框向上长高（与聊天页同一模型），图标钉死不随之上移。 */
     const CB_SMILE_SVG =
         '<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">' +
         '<circle cx="24" cy="24" r="20" stroke="#fff" stroke-width="2.6"/>' +
@@ -107,22 +167,26 @@
     function startComment(cell) {
         closeCommentBarSoft();
         commentTargetCell = cell || null;
+        resetCmtGrow();                       /* 新条从单行起手 */
         const bar = document.createElement('div');
         bar.id = 'commentBar';
         bar.innerHTML =
             '<div class="cb-way">' +
-                '<input id="momentCommentInput" type="text" placeholder="发表评论:">' +
+                '<textarea id="momentCommentInput" rows="1" spellcheck="false" ' +
+                    'autocomplete="off" placeholder="发表评论:"></textarea>' +
             '</div>' +
             '<span class="cb-ico cb-emoji">' + CB_SMILE_SVG + '</span>' +
             '<span class="cb-ico cb-img">' + CB_IMG_SVG + '</span>';
         document.body.appendChild(bar);
-        const input = bar.querySelector('input');
+        hookCmtGrow();
+        const input = bar.querySelector('textarea');
         /* 下一帧滑入（transition 由内嵌 CSS #commentBar 提供，.32s 与键盘同节奏）；
            可见后再聚焦 —— visibility:hidden 的元素拿不到焦点，键盘引擎
            （target = activeElement）也就找不到输入框。 */
         requestAnimationFrame(() => requestAnimationFrame(() => {
             bar.classList.add('in');
             try { input.focus(); } catch (e) { /* noop */ }
+            recalcCmtGrow();
             if (window.__wxKeyboard) {
                 try { window.__wxKeyboard.show(); } catch (e) { /* noop */ }
             }

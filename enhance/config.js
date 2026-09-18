@@ -129,6 +129,33 @@
         };
     }
 
+    /* ---- 对方头像与会话同步 ----
+       peer 数据里的 avatar 是场景默认值，不随「当前在和谁聊天」变化——
+       聊天详情抽屉 / 对方主页就会显示一张和聊天对不上的头像。
+       这里在 avatar 还是默认兜底图时，从消息列表里按名字找到该会话行，
+       用它显示的头像（和聊天页气泡一致）覆盖。脚本显式传入的 avatar 不动。 */
+    function syncPeerAvatarFromList(p) {
+        try {
+            if (!p) return p;
+            const DEFAULT_AV = '/images/avatar/2_20260831_184618_874.jpg';
+            /* 显式设置过非默认头像的（脚本 / 场景指定）不覆盖 */
+            if (p.avatar && p.avatar !== DEFAULT_AV) return p;
+            const name = String(p.name || p.nickname || p.remark || '').trim();
+            if (!name) return p;
+            const rows = document.querySelectorAll('.wechat-list li');
+            for (let i = 0; i < rows.length; i++) {
+                const a = rows[i].querySelector('.desc-author');
+                if (a && a.textContent.trim() === name) {
+                    const im = rows[i].querySelector('.header-box img, img');
+                    const src = im && im.getAttribute('src');
+                    if (src) p.avatar = src;
+                    break;
+                }
+            }
+        } catch (e) { /* 列表还没渲染等情况静默跳过 */ }
+        return p;
+    }
+
     /* ---- 时间标注解析：把「时间分隔条」用的时刻字符串换算成时间戳 + 显示文本 ----
        支持：HH:MM[:SS]、昨天 HH:MM、星期X/周X [HH:MM]、M月D日 HH:MM、N分钟/小时/天前、
        纯毫秒时间戳。返回 { ts, text }（text=按标注原样显示），无法识别返回 null。 */
@@ -257,7 +284,7 @@
         setMe(patch) { Object.assign(me, patch); },
 
         /* 对方资料：整体替换（null = 回到默认）或局部合并 */
-        getPeer() { return peerData || genPeerDefaults(); },
+        getPeer() { return syncPeerAvatarFromList(peerData || genPeerDefaults()); },
         setPeer(data) {
             if (data == null) {
                 peerData = null;
@@ -330,6 +357,15 @@
         setPeerAvatar(url) {
             this.setMe({ peerAvatar: url });
             this.apply();
+        },
+
+        /* 同步当前聊天对方的昵称（进会话时调用）：
+           聊天详情抽屉 / 对方主页 / 删除弹窗文案 / 删除后从列表摘除，
+           都按 getPeer().name 取名字——不跟着会话换人就会全部张冠李戴。 */
+        setPeerName(name) {
+            const d = peerData || genPeerDefaults();
+            d.name = String(name || '').trim() || d.name;
+            peerData = d;
         },
 
         getPeerAvatar() { return me.peerAvatar; },
@@ -435,7 +471,14 @@
                         name: senderName,
                         headerUrl: group ? '/images/avatar/2_20260831_184618_874.jpg' : single.headerUrl,
                     };
-                    for (let k = 0; k < nMsg; k++) msg.push(Object.assign({}, lastMsg));
+                    // 无文字（无历史会话）：只留 1 条占位供主页列表预览取 date/name，
+                    // 不复制 nMsg 条——否则聊天页会渲染出多个空气泡（dialogue.vue
+                    // 已按 hasContent 跳过空消息行，这里再少生成，双保险）。
+                    if (String(lastMsg.text || '').trim() === '') {
+                        msg.push(lastMsg);
+                    } else {
+                        for (let k = 0; k < nMsg; k++) msg.push(Object.assign({}, lastMsg));
+                    }
                 }
                 return {
                     mid: 1000 + i,
