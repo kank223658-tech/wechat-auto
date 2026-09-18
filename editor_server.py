@@ -36,6 +36,12 @@ import script_generator
 import create_store as store
 import script_format
 
+# 小红书无水印下载器（可选依赖：缺失时相关 API 返回未安装提示）
+try:
+    import xhs_downloader as _xhs
+except Exception:                                # noqa: BLE001
+    _xhs = None
+
 # Pillow 可选依赖：用于把上传图片按真实字节归一化重编码，修复「上传后全黑」。
 # 缺失时自动回退到原逻辑（按 MIME 推断扩展名、原样保存），保证上传不失败。
 try:
@@ -48,6 +54,10 @@ except Exception:                                # noqa: BLE001
 
 # 项目根目录（本文件所在目录）
 ROOT = os.path.dirname(os.path.abspath(__file__))
+# 长图模式（/longimg 工作台）API 模块所在目录
+_LONGIMG_DIR = os.path.join(ROOT, "长图模式")
+if os.path.isdir(_LONGIMG_DIR) and _LONGIMG_DIR not in sys.path:
+    sys.path.insert(0, _LONGIMG_DIR)
 EDITOR_DIR = os.path.join(ROOT, "editor")
 WORKFLOW_PATH = os.path.join(ROOT, "workflow.json")
 RUN_LOG = os.path.join(ROOT, "editor_run.log")
@@ -796,6 +806,15 @@ def _list_chat_bgs():
             out.append("/images/bg/" + fn)
     return out
 
+
+def _list_introwalls():
+    """列出片头壁纸库（public/images/introwall）下的图片，返回 /images/introwall/... URL。"""
+    if not os.path.isdir(INTROWALL_DIR):
+        return []
+    return ["/images/" + INTROWALL_DIR_NAME + "/" + fn
+            for fn in sorted(os.listdir(INTROWALL_DIR))
+            if fn.lower().endswith(IMG_EXTS)]
+
 def _category_of(folder, catmap=None):
     """按子目录返回分类 key（avatar/sticker/emoji/bg/asset/icon/自定义），未知目录归入 asset。"""
     m = catmap if catmap is not None else _folder_category_map()
@@ -817,14 +836,36 @@ def _load_gallery_meta():
         with open(GALLERY_META_PATH, "r", encoding="utf-8") as fh:
             data = json.load(fh)
             return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+    except OSError:
         return {}
+    except ValueError:
+        pass
+    # 容错抢救：文件尾部被写坏（追加内容未截断 / 写入被中断）时，取出第一个完整 JSON 对象。
+    # 2026-09-15 真实发生过：坏尾巴让整个图片库索引失效 → 剧本里所有表情回落成默认表情。
+    try:
+        with open(GALLERY_META_PATH, "r", encoding="utf-8", errors="replace") as fh:
+            text = fh.read().lstrip()
+        obj, _end = json.JSONDecoder().raw_decode(text)
+        if isinstance(obj, dict) and obj:
+            return obj
+    except (OSError, ValueError):
+        pass
+    return {}
 
 def _save_gallery_meta(meta):
-    """保存图片库「自定义命名」元数据。"""
+    """保存图片库「自定义命名」元数据（原子写：临时文件 + os.replace）。
+
+    直接以 "w" 覆写时，一旦写入被中断或与另一个进程的写入交错，
+    文件会留下「完整对象 + 半截尾巴」的残骸，JSON 整体解析失败（2026-09-15 事故）。
+    改成先写同目录临时文件再原子替换，任何时刻磁盘上都是一份完整 JSON。
+    """
     try:
-        with open(GALLERY_META_PATH, "w", encoding="utf-8") as fh:
+        tmp = GALLERY_META_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(meta, fh, ensure_ascii=False, indent=2)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, GALLERY_META_PATH)
         return True
     except OSError:
         return False
@@ -844,6 +885,12 @@ def _list_image_files():
     folder 是该文件的子目录名（如 "avatar"、"/"）；type 为 "icon"(图标)/"image"(图像)；
     label 为展示名（自定义命名或文件名）。
     按创建时间降序排列（最新在前），便于用户快速找到刚上传/新加入的图片。
+
+    性能（2026-09-15）：这里原来是 os.walk + 对每个文件分别调 getsize/getmtime/getctime，
+    一次全盘扫 2605 张要 1.3~1.7 秒（每个 path 调用都是一次独立 stat，本机磁盘上很慢）。
+    现改为 os.scandir 递归 + 每个目录项只取一次 stat（DirEntry.stat 自带缓存，
+    同一次 stat 里就能拿到 size/mtime/ctime），实测 40ms，结果与旧实现逐字节一致。
+    图库扫描慢会让「删除/移动/命名/打开图库」都显得卡（改一次要等整盘重扫）。
     """
     if not os.path.isdir(FRONTEND_PUBLIC):
         return []
@@ -851,18 +898,31 @@ def _list_image_files():
     base = FRONTEND_PUBLIC
     meta = _load_gallery_meta()
     catmap = _folder_category_map()      # 只算一次，避免逐文件重算分类表
-    for dirpath, _dirnames, filenames in os.walk(base):
-        for fn in filenames:
+    stack = [base]
+    while stack:
+        cur = stack.pop()
+        try:
+            entries = list(os.scandir(cur))
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                if entry.is_dir():
+                    stack.append(entry.path)
+                    continue
+            except OSError:
+                continue
+            fn = entry.name
             if not fn.lower().endswith(IMG_EXTS):
                 continue
-            fp = os.path.join(dirpath, fn)
-            rel = os.path.relpath(fp, base).replace(os.sep, "/")
+            rel = os.path.relpath(entry.path, base).replace(os.sep, "/")
             folder = os.path.dirname(rel) or "/"
             try:
-                size = os.path.getsize(fp)
-                mtime = int(os.path.getmtime(fp))
-                # Windows 上 getctime 就是文件创建时间；取不到时退回 mtime
-                ctime = int(os.path.getctime(fp))
+                st = entry.stat()            # 一次 stat：size/mtime/ctime 全拿到
+                size = st.st_size
+                mtime = int(st.st_mtime)
+                # Windows 上 st_ctime 就是文件创建时间；取不到时退回 mtime
+                ctime = int(st.st_ctime)
             except OSError:
                 size, mtime, ctime = 0, 0, 0
             out.append({
@@ -881,7 +941,10 @@ def _list_image_files():
     return out
 
 _gallery_cache = {"ts": 0.0, "data": None}
-_GALLERY_CACHE_TTL = 2.5    # 秒；写操作的响应里传 fresh=True 强制重扫，绕过缓存
+_GALLERY_CACHE_TTL = 0.8    # 秒；写操作的响应里传 fresh=True 强制重扫，绕过缓存
+# 说明：全盘扫描已从 1.4s 降到 40ms（见 _list_image_files），缓存只是为了省掉连续请求里的重复扫描。
+# 窗口定太长会让「刚放进 public/images 的新图」（比如用外部脚本/资源管理器拷进去的）
+# 在打开图片库时短暂看不见（旧值 2.5s），所以压到 0.8s。
 
 
 def _gallery_payload(fresh: bool = False):
@@ -986,6 +1049,8 @@ def _safe_image_fp(rel):
 AVATAR_DIR_NAME = "avatar"  # 上传头像存放的子目录（public/images/avatar）
 CHAT_BG_DIR_NAME = "bg"     # 聊天背景存放的子目录（public/images/bg）
 CHAT_BG_DIR = os.path.join(FRONTEND_PUBLIC, CHAT_BG_DIR_NAME)
+INTROWALL_DIR_NAME = "introwall"  # 片头锁屏壁纸库（public/images/introwall）
+INTROWALL_DIR = os.path.join(FRONTEND_PUBLIC, INTROWALL_DIR_NAME)
 
 def _save_upload_image(data_url, name="", folder=AVATAR_DIR_NAME):
     """把 base64 dataURL 图片保存到图片库，返回 (路径, None) 或 (None, 错误)。
@@ -1066,6 +1131,20 @@ def _list_source_videos():
             out.append("/videos/" + fn)
     return out
 
+def _public_video_fp(web_path):
+    """把 /videos/xxx.mp4 这类 web 路径解析成 public/videos 下的绝对路径。
+
+    越界或文件不存在都返回 None（上传片头路径校验用）。
+    """
+    p = unquote(str(web_path or "").split("?", 1)[0]).strip()
+    if not p.startswith("/videos/"):
+        return None
+    rel = p[len("/videos/"):].replace("/", os.sep)
+    fp = os.path.normpath(os.path.join(SOURCE_VIDEO_DIR, rel))
+    if not fp.startswith(SOURCE_VIDEO_DIR + os.sep):
+        return None
+    return fp if os.path.isfile(fp) else None
+
 def _video_mime_ext(mime):
     """根据上传声明的 MIME 推断视频扩展名。"""
     return {
@@ -1075,14 +1154,17 @@ def _video_mime_ext(mime):
         "video/x-m4v": ".m4v",
     }.get((mime or "").lower())
 
-def _save_upload_video(raw, name="", mime=""):
+def _save_upload_video(raw, name="", mime="", folder=""):
     """把上传的视频字节直接落盘到 vue-WeChat/public/videos/。
 
     返回 (路径, None) 或 (None, 错误)。
 
-    不做转码：项目用系统安装的 Chrome 作为浏览器内核（完整 H.264/AAC），
-    mp4 可以直接 <video> 播放；转码既慢又伤画质。这里只做
-    大小上限校验 + 扩展名归一 + 文件名净化。
+    不做转码：项目用系统安装的 Chrome 作为浏览器内核，mp4 可以直接 <video> 播放
+    （实测 HEVC 也能走硬件解码播出来，虽然 canPlayType 会返回空串）；转码既慢又
+    伤画质、体积还会变大。这里只做大小上限校验 + 扩展名归一 + 文件名净化。
+
+    folder：可选的子目录（如 "intro" 片头）。视频库列表只扫 public/videos 顶层，
+    所以放进子目录的上传物不会出现在朋友圈「源视频」选择器里。
     """
     if not raw:
         return None, "未收到视频数据"
@@ -1101,11 +1183,13 @@ def _save_upload_video(raw, name="", mime=""):
                       os.path.splitext(os.path.basename(str(name)))[0])[:40].strip("_")
     stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
     fname = (f"{stem}_{stamp}{ext}" if stem else f"video_{stamp}{ext}")
-    os.makedirs(SOURCE_VIDEO_DIR, exist_ok=True)
-    with open(os.path.join(SOURCE_VIDEO_DIR, fname), "wb") as fh:
+    sub = re.sub(r"[^A-Za-z0-9_-]+", "", str(folder or ""))[:24]
+    dest = os.path.join(SOURCE_VIDEO_DIR, sub) if sub else SOURCE_VIDEO_DIR
+    os.makedirs(dest, exist_ok=True)
+    with open(os.path.join(dest, fname), "wb") as fh:
         fh.write(raw)
     _gallery_cache["ts"] = 0.0     # 新视频落盘，让下一次 /api/gallery 立即重扫
-    return "/videos/" + fname, None
+    return "/videos/" + (sub + "/" if sub else "") + fname, None
 
 def _normalize_image(data):
     """用 Pillow 按真实字节归一化图片，返回 (字节, 扩展名)。
@@ -1173,6 +1257,17 @@ def _rename_image(old_path, new_name):
     except OSError as exc:
         return None, "重命名失败：" + str(exc)
     rel = os.path.relpath(new_fp, FRONTEND_PUBLIC).replace(os.sep, "/")
+    rel_old = os.path.relpath(old_fp, FRONTEND_PUBLIC).replace(os.sep, "/")
+    # 自定义命名跟着文件走（meta 的键是相对路径，不是 /images/ 开头的网址路径）
+    meta = _load_gallery_meta()
+    dirty = False
+    if rel_old in meta:
+        meta[rel] = meta.pop(rel_old)
+        dirty = True
+    if _prune_meta(meta):
+        dirty = True
+    if dirty:
+        _save_gallery_meta(meta)
     return "/images/" + rel, None
 
 # 「移动分类」时需要同步替换旧路径引用的数据文件（存在才处理）
@@ -1235,10 +1330,33 @@ def _move_image(path, category):
     old_web, new_web = "/images/" + rel_old, "/images/" + rel_new
     changed = _update_path_references(old_web, new_web)
     meta = _load_gallery_meta()
-    if old_web in meta:                    # 迁移自定义命名
-        meta[new_web] = meta.pop(old_web)
+    dirty = False
+    if rel_old in meta:                    # 迁移自定义命名（键是相对路径，曾错用 /images/ 前缀，永远匹配不上）
+        meta[rel_new] = meta.pop(rel_old)
+        dirty = True
+    if _prune_meta(meta):
+        dirty = True
+    if dirty:
         _save_gallery_meta(meta)
     return new_web, changed, None
+
+def _prune_meta(meta):
+    """剔除「命名元数据」里指向已不存在文件的陈旧条目，返回被剔除的键列表。
+
+    这类条目来自「绕过编辑器删文件」（手动删、脚本拷来拷去、清理工具），
+    meta 里会留下孤立键。它们平时无害，但同名文件日后重新入库会顶着一张旧命名，
+    所以每次写 meta 时顺手清一遍。分类元数据（__ 开头的键）保留不动。
+    """
+    gone = []
+    for k in list(meta):
+        if k.startswith("__"):
+            continue
+        fp = os.path.join(FRONTEND_PUBLIC, str(k).replace("/", os.sep))
+        if not os.path.isfile(fp):
+            gone.append(k)
+            meta.pop(k, None)
+    return gone
+
 
 def _delete_image(path):
     """删除图片库中的一张图片。返回 (True, None) 或 (False, 错误消息)。"""
@@ -1253,32 +1371,67 @@ def _delete_image(path):
         os.remove(fp)
     except OSError as exc:
         return False, "删除失败：" + str(exc)
-    # 清理该图的展示名元数据
+    # 清理该图的展示名元数据（顺带清掉历史遗留的孤立条目）
     rel = os.path.relpath(fp, FRONTEND_PUBLIC).replace(os.sep, "/")
     meta = _load_gallery_meta()
-    if rel in meta:
+    dirty = rel in meta
+    if dirty:
         del meta[rel]
+    if _prune_meta(meta):
+        dirty = True
+    if dirty:
         _save_gallery_meta(meta)
     return True, None
 
+def _delete_source_video(path):
+    """删除 public/videos 下的一个源视频（素材库里的视频）。返回 (True, None) 或 (False, 错误)。
+
+    图片库的「🎬 视频」标签里以前也摆着删除按钮，但后端只认 /images/，
+    点了永远失败（好消息是「没有选中图片」这种报错很莫名其妙）。这里补上真正的删除，
+    只允许删 /videos/ 下真实存在的视频文件，越界路径直接拒绝。
+    """
+    p = str(path or "").split("?", 1)[0]
+    if not p.startswith("/videos/"):
+        return False, "路径必须以 /videos/ 开头"
+    if not p.lower().endswith(VIDEO_EXTS):
+        return False, "只能删视频文件（" + " / ".join(e.lstrip(".") for e in VIDEO_EXTS) + "）"
+    fp = _public_video_fp(p)
+    if fp is None or not os.path.isfile(fp):
+        return False, "视频不存在"
+    try:
+        os.remove(fp)
+    except OSError as exc:
+        return False, "删除失败：" + str(exc)
+    return True, None
+
+def _delete_media(path):
+    """按路径前缀分派：/videos/ → 删视频，其余（/images/…）→ 删图片。"""
+    if str(path or "").startswith("/videos/"):
+        return _delete_source_video(path)
+    return _delete_image(path)
+
 def _batch_gallery(op, paths, category=""):
-    """批量操作图片：op='delete' 一次删多张；op='move' 把多张一起搬到同一分类。
+    """批量操作图片/视频：op='delete' 一次删多个；op='move' 把多张图片一起搬到同一分类。
 
     单张失败不影响其余（结果逐条返回）。返回 (结果列表, 被更新的引用文件列表, 错误消息)。
     """
-    paths = [p for p in (paths or []) if isinstance(p, str) and p.startswith("/images/")]
+    paths = [p for p in (paths or [])
+             if isinstance(p, str) and (p.startswith("/images/") or p.startswith("/videos/"))]
     if not paths:
         return [], [], "没有选中图片"
     results = []
     changed = set()
     if op == "delete":
         for p in paths:
-            ok, err = _delete_image(p)
+            ok, err = _delete_media(p)
             results.append({"path": p, "ok": bool(ok), "msg": err or ""})
     elif op == "move":
         if not category:
             return [], [], "缺少目标分类"
         for p in paths:
+            if p.startswith("/videos/"):
+                results.append({"path": p, "ok": False, "msg": "视频素材不能移到图片分类"})
+                continue
             new_path, ch, err = _move_image(p, category)
             if err:
                 results.append({"path": p, "ok": False, "msg": err})
@@ -1301,6 +1454,7 @@ def _set_gallery_label(path, label):
         return False, "图片不存在"
     rel = os.path.relpath(fp, FRONTEND_PUBLIC).replace(os.sep, "/")
     meta = _load_gallery_meta()
+    _prune_meta(meta)                      # 顺手清掉历史遗留的孤立条目
     lab = re.sub(r"\s+", " ", (label or "")).strip()[:60]
     if lab:
         meta[rel] = lab
@@ -1311,7 +1465,8 @@ def _set_gallery_label(path, label):
     return True, None
 
 def _start_run(headless: bool, typing_speed: float = 30.0, intro: bool = False,
-               bgm: bool = True, bgm_path: str = "", use_scene: bool = True):
+               bgm: bool = True, bgm_path: str = "", use_scene: bool = True,
+               intro_upload: str = "", intro_wallpaper: str = ""):
     """启动 runner 子进程（写入日志文件，后台运行）
 
     use_scene=True（默认）且 scene.json 有内容时，自动追加 --scene，
@@ -1319,6 +1474,9 @@ def _start_run(headless: bool, typing_speed: float = 30.0, intro: bool = False,
     我的资料 + 会话列表（含历史消息）+ 朋友圈，便于在工作流模式下逐项测试功能。
     若工作流自己的首步是「编辑主页 / 应用场景」，仍会按工作流里的数据覆盖，
     语义保持不变（工作流显式指定优先）。
+
+      intro         = True  → 内置锁屏收消息开场
+    intro_upload  = 路径   → 用户上传的片头（替换内置，两者互斥，上传优先）
     """
     global _run_proc
     # 加锁顺序与 _start_edit 保持一致（先 _edit_lock 再 _run_lock），
@@ -1337,9 +1495,16 @@ def _start_run(headless: bool, typing_speed: float = 30.0, intro: bool = False,
         # 按键节奏、拼音选字、删除回删都会随此倍速缩放。
         cmd.append("--typing-speed")
         cmd.append(str(typing_speed))
-        # 可选：录制完成后在视频开头拼接锁屏收消息开场
-        if intro:
+        # 可选：在视频开头拼接片头
+        #   上传片头（-intro-upload）替换内置开场；两者互斥，上传优先。
+        if str(intro_upload or "").strip():
+            cmd.append("--intro-upload")
+            cmd.append(str(intro_upload).strip())
+        elif intro:
             cmd.append("--intro")
+        # 片头壁纸：确认框里指定了就用它；没指定则壁纸库随机（每次运行换一张，无 seed）
+        if str(intro_wallpaper or "").strip():
+            cmd += ["--intro-wallpaper", str(intro_wallpaper).strip()]
         # 背景音乐：默认开启（用 main.py 内置的 苹果音效/背景音乐.mp3）。
         # 关闭时传 --no-bgm；自定义路径时传 --bgm <path>。
         if not bgm:
@@ -1572,6 +1737,28 @@ def _is_retryable_call_error(exc: Exception) -> bool:
     return False
 
 
+def _script_reviewer_enabled() -> bool:
+    """自动审稿员开关：默认开，WX_SCRIPT_REVIEWER=0 关闭。"""
+    return os.environ.get("WX_SCRIPT_REVIEWER", "1") != "0"
+
+
+def _run_script_reviewer(api_key, model, base_url, text: str) -> list:
+    """跑一遍语义终审，返回问题清单（字符串数组）；任何失败返回 []（fail-open）。
+
+    审稿员只审机械校验兜不住的语义问题（跨会话因果、钩子语义、台词复读空转…），
+    发现的问题以「（审稿员）」前缀混入 all_issues，驱动既有 critique 轮回炉。
+    """
+    try:
+        sys_prompt = script_generator.build_reviewer_system_prompt()
+        user_msg = script_generator.build_reviewer_user_message(text)
+        raw, err = _call_generate_deepseek(api_key, sys_prompt, user_msg, model, base_url)
+        if err is not None or not (raw or "").strip():
+            return []
+        return script_generator.reviewer_parse_issues(raw)
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def _call_generate_deepseek(api_key, system_prompt, user_msg, model, base_url):
     """调用大模型进行创作生成，带自动重试。
 
@@ -1799,6 +1986,28 @@ def _generate_script(payload: dict):
         actions=ACTIONS, people_block=people_block, preferences=preferences,
         reference_text=reference_text, category=category, skills=skills)
 
+    # ---- P2 分阶段装配链路（默认启用；pipeline="legacy" 回退旧一次性生成）----
+    pipeline = str(payload.get("pipeline") or "staged").strip().lower()
+    staged_text = None
+    staged_error = ""
+    if pipeline == "staged":
+        try:
+            def _call_llm(sys_p, usr_p):
+                return _call_generate_deepseek(api_key, sys_p, usr_p, model, base_url)
+            staged_text, staged_info = script_generator.generate_staged_script(
+                brief, category, people_block, _call_llm, actions=ACTIONS,
+                skills=skills, preferences=preferences, reference_text=reference_text,
+                debug_dir=_GEN_DEBUG_DIR)
+        except Exception as e:  # noqa: BLE001
+            staged_error = str(e)
+            staged_text = None
+            try:
+                os.makedirs(_GEN_DEBUG_DIR, exist_ok=True)
+                with open(os.path.join(_GEN_DEBUG_DIR, "staged_error.txt"), "w", encoding="utf-8") as fh:
+                    fh.write(str(e))
+            except OSError:
+                pass
+
     all_issues = []
     current_text = ""
     attempts = 0
@@ -1806,32 +2015,50 @@ def _generate_script(payload: dict):
     best = None          # (评分, 文本, 问题清单, 是否通过)：防止「越改越差」
     produce_mode = ""    # 记录最终采用的产出形态（json / text / patch）
     patch_ok = 0
+    reviewer_runs = 0        # 已跑的语义终审轮数（上限 script_generator.REVIEWER_MAX_ROUNDS）
+    reviewer_issues = []     # 最近一轮审稿员发现的问题（未修复的会进 report）
 
     for attempt in range(max_rounds):
         attempts = attempt + 1
-        if attempt == 0:
+        raw = None
+        sys_prompt = "(staged)"
+        user_msg = "(staged)"
+        if attempt == 0 and staged_text:
+            # 分阶段装配已产出初稿：跳过一次性生成，直接进校验/纠错环节
+            text, mode = staged_text, "staged"
+        elif attempt == 0:
             user_msg = script_generator._gen_user_message(brief, category, ref_titles, outline)
             sys_prompt = system_prompt
+            raw, gen_err = _call_generate_deepseek(api_key, sys_prompt, user_msg, model, base_url)
+            if gen_err is not None:
+                return None, f"创作生成调用大模型失败：{gen_err}"
+            raw = script_generator.strip_code_fences(raw or "")
+            text, mode = _coerce_model_output(raw)
         else:
             sys_prompt = script_generator.build_critique_prompt(
                 all_issues, actions=ACTIONS, people_block=people_block,
                 reference_text=reference_text, preferences=preferences, category=category,
                 violations=[x for x in all_issues if "（规则：" in x], skills=skills)
-            user_msg = script_generator._critique_user_message(current_text)
-        raw, gen_err = _call_generate_deepseek(api_key, sys_prompt, user_msg, model, base_url)
-        if gen_err is not None:
-            if attempt == 0:
-                return None, f"创作生成调用大模型失败：{gen_err}"
-            # 后续轮次失败：保留上一版有效结果
-            break
-        raw = script_generator.strip_code_fences(raw or "")
-        if not raw.strip() and attempt > 0:
-            # 纠错轮模型未产出内容：保留上一版有效结果，避免用空内容覆盖后二次空转。
-            break
+            # 2026-09-18（用户反馈「审核逼着 AI 把合理的内容改掉」）：纠错轮只许修格式/结构，
+            # 内容类指标（对白条数 / 交替率 / 等待占比）不达标时宁可保留原样，也不许删戏。
+            sys_prompt += """
 
-        if attempt == 0:
-            text, mode = _coerce_model_output(raw)
-        else:
+【改稿铁律 —— 优先级高于上面任何一条】
+1. 只修被点名的**格式 / 结构 / 素材**问题（指令写法、配对、时间条、素材短名、图片/表情动作）。
+2. **不许**为了让指标变好看而删改已经写好的对话：不许删她的台词、不许删我方的回话、
+   不许把有来有回的一段压成一句、不许删掉铺垫与钩子。
+3. 若某个问题只有「砍内容」才能解决（对白条数、交替率、等待占比这类**内容类指标**），
+   请**原样保留**，并在输出末尾用一行 `未修：<原因>` 说明，不要动正文。
+4. 改一处必须回头检查它被谁引用（下一句的回应、插话衔接），一起改，不许留断链。"""
+            user_msg = script_generator._critique_user_message(current_text)
+            raw, gen_err = _call_generate_deepseek(api_key, sys_prompt, user_msg, model, base_url)
+            if gen_err is not None:
+                # 后续轮次失败：保留上一版有效结果
+                break
+            raw = script_generator.strip_code_fences(raw or "")
+            if not raw.strip():
+                # 纠错轮模型未产出内容：保留上一版有效结果，避免用空内容覆盖后二次空转。
+                break
             text, mode = _apply_critique_output(raw, current_text)
             if text is None:
                 # 连补丁都产不出来：保留上一版，不覆盖
@@ -1848,7 +2075,20 @@ def _generate_script(payload: dict):
         # 离线归一（生成结果已是标准 [指令]，避免二次调用大模型）
         steps, warnings, _src = _parse_script_to_steps(text, offline=True)
         structural, violated_skills = script_generator.validate_generated_steps(steps, skills, text)
+        # 主页对齐告警是致命的：[打开聊天] 的联系人被顶出主页前 9 后会换成别人（主角换人）
+        structural = list(structural) + [
+            w for w in (warnings or [])
+            if ("已对齐到主页人物" in str(w)                     # 旧版对齐替换告警（兼容）
+                or "请把它加入历史会话块的前 9 位" in str(w)
+                or "无法出现在主页" in str(w))]                  # 新版：主角超过 10 个，多出的不可见
         all_issues = completeness + structural
+        # 机械校验全过后，再过一遍「审稿员」语义终审：发现问题混入问题清单，
+        # 走既有 critique 轮定向回炉（fail-open：审稿员故障不阻塞生成）。
+        if not all_issues and _script_reviewer_enabled() and reviewer_runs < script_generator.REVIEWER_MAX_ROUNDS:
+            reviewer_runs += 1
+            reviewer_issues = _run_script_reviewer(api_key, model, base_url, current_text)
+            if reviewer_issues:
+                all_issues = ["%s（审稿员）" % x for x in reviewer_issues]
         # 评分：致命问题比措辞问题重得多，同分时文本更完整者优先。
         _score = script_generator.issues_score(all_issues) + (-len(text),)
         if best is None or _score < best[0]:
@@ -1864,8 +2104,8 @@ def _generate_script(payload: dict):
             os.makedirs(_GEN_DEBUG_DIR, exist_ok=True)
             with open(os.path.join(_GEN_DEBUG_DIR, f"round{attempt}.txt"), "w", encoding="utf-8") as fh:
                 fh.write("===== mode =====\n" + str(mode) +
-                         "\n\n===== system_prompt =====\n" + sys_prompt +
-                         "\n\n===== user_msg =====\n" + user_msg +
+                         "\n\n===== system_prompt =====\n" + str(sys_prompt) +
+                         "\n\n===== user_msg =====\n" + str(user_msg) +
                          "\n\n===== raw_output =====\n" + (raw or "") +
                          "\n\n===== rendered_text =====\n" + (text or "") +
                          "\n\n===== parsed_steps =====\n" + json.dumps(steps, ensure_ascii=False, indent=2) +
@@ -1897,7 +2137,11 @@ def _generate_script(payload: dict):
             "passed": passed,
             "rules": len(skills),
             "produce_mode": produce_mode or "json",
+            "pipeline": pipeline,
+            "staged_error": staged_error,
             "patch_rounds": patch_ok,
+            "reviewer_rounds": reviewer_runs,
+            "reviewer_unfixed": [x for x in (all_issues or []) if "（审稿员）" in str(x)],
         },
         "ref_titles": ref_titles,
         "auto_refs": auto_refs,
@@ -2003,7 +2247,8 @@ def _default_task():
         "steps": [],
         "warnings": [],
         "source": "",
-        "options": {"typing_speed": 30.0, "intro": False, "bgm": True, "bgm_path": ""},
+        "options": {"typing_speed": 30.0, "intro": False, "intro_path": "",
+                    "bgm": True, "bgm_path": ""},
         "images": {},                 # 配图槽位 key -> 图片路径（脚本解析时由前端生成 img0/img1...）
         "status": TASK_IDLE,
         "video": None,
@@ -2123,13 +2368,21 @@ def _launch_task_locked(task):
            "--workflow", wf_path, "--headless",
            "--typing-speed", str(typing_speed),
            "--tag", tid]
-    if opt.get("intro"):
+    if str(opt.get("intro_path") or "").strip():
+        cmd += ["--intro-upload", str(opt["intro_path"]).strip()]
+    elif opt.get("intro"):
         cmd.append("--intro")
     if not opt.get("bgm", True):
         cmd.append("--no-bgm")
     elif opt.get("bgm_path"):
         cmd.append("--bgm")
         cmd.append(str(opt["bgm_path"]))
+    # 片头壁纸：任务里显式指定了 intro_wallpaper 就用它；否则按任务 id 固定随机挑一张
+    # （同一条视频壁纸稳定、不同条不同）。仅内置开场生效，上传片头会自动忽略。
+    if str(opt.get("intro_wallpaper") or "").strip():
+        cmd += ["--intro-wallpaper", str(opt["intro_wallpaper"]).strip()]
+    elif os.path.isdir(INTROWALL_DIR):
+        cmd += ["--intro-wallpaper-seed", str(zlib.crc32(tid.encode("utf-8")) & 0xffffffff)]
     # 聊天背景：每条任务自动从背景库挑一张。seed=tid 的 crc32 保证「同一条视频背景稳定、
     # 不同条视频背景不同、整片一致」。目录为空时 main.py 会回退默认深色，不影响现有行为。
     if os.path.isdir(CHAT_BG_DIR):
@@ -2384,7 +2637,69 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         _safe_wfile_write(self, data)
 
+    def _send_file_range(self, fp, ctype="application/octet-stream"):
+        """流式返回文件并支持 HTTP Range（<video> 预览必须，否则进度条拖不动）。
+
+        短片段直接整段发；带 Range 头时发 206 片段。统一 no-store，避免同路径
+        重新生成后浏览器仍播旧片（本机 dev server 曾有这个缓存坑）。
+        """
+        try:
+            total = os.path.getsize(fp)
+        except OSError:
+            return _json_reply(self, 404, {"ok": False, "msg": "文件不存在"})
+        start, end, code = 0, max(0, total - 1), 200
+        m = re.match(r"bytes=(\d*)-(\d*)$", (self.headers.get("Range") or "").strip())
+        if m and total > 0:
+            if m.group(1):
+                start = int(m.group(1))
+                end = int(m.group(2)) if m.group(2) else total - 1
+            elif m.group(2):
+                start = max(0, total - int(m.group(2)))
+                end = total - 1
+            start = max(0, min(start, total - 1))
+            end = max(start, min(end, total - 1))
+            code = 206
+        length = end - start + 1
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(length))
+        if code == 206:
+            self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, total))
+        self.end_headers()
+        try:
+            with open(fp, "rb") as fh:
+                fh.seek(start)
+                remain = length
+                while remain > 0:
+                    chunk = fh.read(min(262144, remain))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remain -= len(chunk)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            pass
+
     def do_GET(self):  # noqa: N802
+        # 截图模式（/shot 工作台）自有页面与 API：命中即返回
+        try:
+            import shot_api
+            if shot_api.handle_get(self):
+                return
+        except Exception as _e:                  # noqa: BLE001
+            import traceback
+            traceback.print_exc()
+            return _json_reply(self, 500, {"ok": False, "msg": "shot_api 异常: %s" % _e})
+        # 长图模式（/longimg 工作台）自有页面与 API：命中即返回
+        try:
+            import longimg_api
+            if longimg_api.handle_get(self):
+                return
+        except Exception as _e:                  # noqa: BLE001
+            import traceback
+            traceback.print_exc()
+            return _json_reply(self, 500, {"ok": False, "msg": "longimg_api 异常: %s" % _e})
         if self.path.startswith("/images/"):
             # 图片库静态文件：映射到 vue-WeChat/public/images，供编辑器预览头像/图片
             # 注意：self.path 是 HTTP 请求行里的原始路径，可能是百分号编码的（如中文文件名
@@ -2397,6 +2712,30 @@ class Handler(SimpleHTTPRequestHandler):
                 self._send_file(fp)
                 return
             return _json_reply(self, 404, {"ok": False, "msg": "图片不存在"})
+        if self.path.startswith("/videos/"):
+            # 视频静态文件：映射到 vue-WeChat/public/videos（含子目录），供片头预览等场景
+            # 在编辑器内直接 <video> 播放（支持 Range 才能拖进度条）。
+            rel = unquote(self.path.split("?", 1)[0][len("/videos/"):]).replace("/", os.sep)
+            fp = os.path.normpath(os.path.join(SOURCE_VIDEO_DIR, rel))
+            if not fp.startswith(SOURCE_VIDEO_DIR + os.sep):
+                return _json_reply(self, 403, {"ok": False, "msg": "禁止访问"})
+            if os.path.isfile(fp):
+                self._send_file_range(fp, mimetypes.guess_type(fp)[0]
+                                      or "application/octet-stream")
+                return
+            return _json_reply(self, 404, {"ok": False, "msg": "视频不存在"})
+        if self.path.startswith("/intro-preview/"):
+            # 内置开场的现场预览：文件生成在 _runtime/intro_preview，不进视频库
+            rel = unquote(self.path.split("?", 1)[0][len("/intro-preview/"):]).replace("/", os.sep)
+            root = os.path.join(RUNTIME_DIR, "intro_preview")
+            fp = os.path.normpath(os.path.join(root, rel))
+            if not fp.startswith(root + os.sep):
+                return _json_reply(self, 403, {"ok": False, "msg": "禁止访问"})
+            if os.path.isfile(fp):
+                self._send_file_range(fp, mimetypes.guess_type(fp)[0]
+                                      or "application/octet-stream")
+                return
+            return _json_reply(self, 404, {"ok": False, "msg": "预览不存在"})
         if self.path == "/scene":
             fp = os.path.join(EDITOR_DIR, "scene.html")
             if os.path.isfile(fp):
@@ -2451,11 +2790,72 @@ class Handler(SimpleHTTPRequestHandler):
             return _json_reply(self, 200, _gallery_payload())
         if self.path == "/api/chat-bgs":
             return _json_reply(self, 200, {"images": _list_chat_bgs(), "dir": "/images/bg/"})
+        if self.path == "/api/intro-wallpapers":
+            return _json_reply(self, 200, {"images": _list_introwalls(),
+                                           "dir": "/images/" + INTROWALL_DIR_NAME + "/"})
+        if self.path.startswith("/api/xhs/parse"):
+            if _xhs is None:
+                return _json_reply(self, 500, {"ok": False, "msg": "xhs_downloader 模块不可用"})
+            from urllib.parse import parse_qs, urlparse
+            _q = parse_qs(urlparse(self.path).query)
+            _url = unquote((_q.get("url") or [""])[0])
+            if not _url:
+                return _json_reply(self, 400, {"ok": False, "msg": "缺少 url 参数"})
+            try:
+                meta = _xhs.parse_note(_url, on_log=lambda m: print("[xhs]", m, flush=True))
+                return _json_reply(self, 200, {"ok": True, "meta": meta})
+            except Exception as e:                  # noqa: BLE001
+                return _json_reply(self, 200, {"ok": False, "msg": str(e)})
         if self.path.startswith("/api/emoji_lookup"):
             from urllib.parse import parse_qs, urlparse  # unquote 已在模块顶部导入，局部再导入会遮蔽成局部变量导致 do_GET 前段 UnboundLocalError
             _q = parse_qs(urlparse(self.path).query)
             _name = unquote((_q.get("name") or [""])[0])
             return _json_reply(self, 200, {"ok": True, "path": _lookup_sticker_by_label(_name)})
+        if self.path.startswith("/api/resolve-refs"):
+            # 批量把剧本里的「素材引用」（表情短名 / 图片找图描述 / 封面关键词）解析成真实图片路径，
+            # 供并发页配图清单把「运行时系统会自动出图」的槽直接显示成缩略图。
+            # 命中不了返回空串 —— 那就是真的需要用户上传，前端据此区分「自动」与「待配图」。
+            from urllib.parse import parse_qs, urlparse
+            _q = parse_qs(urlparse(self.path).query)
+            _raw = unquote((_q.get("names") or [""])[0])
+            _names = [x.strip() for x in _raw.split("\n") if x.strip()][:300]
+            _items = []
+            for _nm in _names:
+                _p = ""
+                try:
+                    import main as _main_mod                     # 图库/标签解析的权威实现（内含索引缓存）
+                    _p = _main_mod._lookup_emoji_file(_nm) or ""
+                except Exception:                                # noqa: BLE001
+                    _p = ""
+                if not _p:
+                    try:
+                        _p = _lookup_sticker_by_label(_nm) or ""
+                    except Exception:                            # noqa: BLE001
+                        _p = ""
+                _kind = ""
+                if _p:
+                    if "/sticker/" in _p:
+                        _kind = "sticker"
+                    elif "/avatar/" in _p or "/sets2/" in _p or "/peer/" in _p:
+                        _kind = "photo"
+                    else:
+                        _kind = "image"
+                _items.append({"name": _nm, "path": _p, "kind": _kind})
+            # 链接卡片封面：引用为空时运行时会按「标题」自动匹配封面，所以光看 ref 解析不到
+            # 不代表要用户准备。links 每行「标题<TAB>图片引用」，用运行时同源的
+            # _resolve_link_image 预演一遍，前端就能显示「运行时会给哪张封面」。
+            _links_raw = unquote((_q.get("links") or [""])[0])
+            _link_items = []
+            for _ln in [x for x in _links_raw.split("\n") if x.strip()][:100]:
+                _t, _, _r = _ln.partition("\t")
+                _p = ""
+                try:
+                    import main as _main_mod
+                    _p = _main_mod._resolve_link_image(_t.strip(), _r.strip()) or ""
+                except Exception:                                # noqa: BLE001
+                    _p = ""
+                _link_items.append({"title": _t.strip(), "ref": _r.strip(), "path": _p})
+            return _json_reply(self, 200, {"ok": True, "items": _items, "links": _link_items})
         if self.path == "/api/actions":
             return _json_reply(self, 200, ACTIONS)
         if self.path == "/api/reference-scripts":
@@ -2691,11 +3091,57 @@ class Handler(SimpleHTTPRequestHandler):
         return _json_reply(self, 200, payload)
 
     def do_POST(self):  # noqa: N802
+        # 截图模式（/shot 工作台）自有 API：命中即返回，不落入下面的通用分发
+        try:
+            import shot_api
+            if shot_api.handle_post(self):
+                return
+        except Exception as _e:                  # noqa: BLE001
+            import traceback
+            traceback.print_exc()
+            return _json_reply(self, 500, {"ok": False, "msg": "shot_api 异常: %s" % _e})
+        # 长图模式（/longimg 工作台）自有 API：命中即返回，不落入下面的通用分发
+        try:
+            import longimg_api
+            if longimg_api.handle_post(self):
+                return
+        except Exception as _e:                  # noqa: BLE001
+            import traceback
+            traceback.print_exc()
+            return _json_reply(self, 500, {"ok": False, "msg": "longimg_api 异常: %s" % _e})
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length) if length else b""
         if self.path == "/api/wxapp/start":
             ok, msg = _start_frontend()
             return _json_reply(self, 200, {"ok": ok, "msg": msg, "up": _frontend_ready()})
+        if self.path == "/api/xhs/download":
+            # 小红书无水印下载：body {url, outdir?}，同步执行并返回落盘文件列表
+            if _xhs is None:
+                return _json_reply(self, 500, {"ok": False, "msg": "xhs_downloader 模块不可用"})
+            try:
+                data = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            url = str(data.get("url") or "").strip()
+            if not url:
+                return _json_reply(self, 400, {"ok": False, "msg": "缺少 url"})
+            outdir = str(data.get("outdir") or "").strip() or None
+            try:
+                result = _xhs.download_note(
+                    url, outdir,
+                    on_log=lambda m: print("[xhs]", m, flush=True))
+                meta = result["meta"]
+                return _json_reply(self, 200, {
+                    "ok": bool(result["files"]),
+                    "title": meta.get("title") or meta.get("desc") or "(无标题)",
+                    "author": meta.get("author") or "",
+                    "type": meta.get("type") or "",
+                    "outdir": result["outdir"],
+                    "files": result["files"],
+                    "msg": "完成" if result["files"] else "没有可下载的媒体",
+                })
+            except Exception as e:                  # noqa: BLE001
+                return _json_reply(self, 200, {"ok": False, "msg": str(e)})
         if self.path == "/api/workflow":
             try:
                 data = json.loads(body.decode("utf-8"))
@@ -2834,6 +3280,38 @@ class Handler(SimpleHTTPRequestHandler):
                 return _json_reply(self, 400, {"ok": False, "msg": err})
             return _json_reply(self, 200, {"ok": True, "path": path,
                                            "images": _list_chat_bgs()})
+        if self.path == "/api/upload-intro-wallpaper":
+            # 片头壁纸库上传：复用 _save_upload_image 的归一化重编码，落到 public/images/introwall
+            try:
+                data = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            path, err = _save_upload_image(data.get("data"), data.get("name"),
+                                           folder=INTROWALL_DIR_NAME)
+            if err:
+                return _json_reply(self, 400, {"ok": False, "msg": err})
+            return _json_reply(self, 200, {"ok": True, "path": path,
+                                           "images": _list_introwalls()})
+        if self.path == "/api/delete-intro-wallpaper":
+            # 删除一张片头壁纸：只允许删 introwall 目录内的文件，防止路径穿越
+            try:
+                data = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            p = str(data.get("path") or "").strip()
+            prefix = "/images/" + INTROWALL_DIR_NAME + "/"
+            if not p.startswith(prefix):
+                return _json_reply(self, 400, {"ok": False, "msg": "只能删除片头壁纸库里的图片"})
+            fp = _safe_image_fp(unquote(p[len("/images/"):]))
+            if fp is None or os.path.normpath(os.path.dirname(fp)) != os.path.normpath(INTROWALL_DIR):
+                return _json_reply(self, 400, {"ok": False, "msg": "非法路径"})
+            if not os.path.isfile(fp):
+                return _json_reply(self, 404, {"ok": False, "msg": "图片不存在"})
+            try:
+                os.remove(fp)
+            except OSError as exc:
+                return _json_reply(self, 500, {"ok": False, "msg": "删除失败：" + str(exc)})
+            return _json_reply(self, 200, {"ok": True, "images": _list_introwalls()})
         if self.path == "/api/upload-video":
             # 两种上传姿势都支持：
             #   1) 原始二进制（推荐，大文件省掉 base64 的 33% 膨胀）：
@@ -2864,11 +3342,54 @@ class Handler(SimpleHTTPRequestHandler):
                     return _json_reply(self, 400, {"ok": False, "msg": "视频解码失败：" + str(exc)})
             else:
                 raw, mime = body, ctype
-            path, err = _save_upload_video(raw, fname, mime)
+            path, err = _save_upload_video(raw, fname, mime,
+                                           folder=self.headers.get("X-Upload-Folder") or "")
             if err:
                 return _json_reply(self, 400, {"ok": False, "msg": err})
             return _json_reply(self, 200, {"ok": True, "path": path,
                                            "videos": _list_source_videos()})
+        if self.path == "/api/intro/preview":
+            # 片头预览：
+            #   mode=builtin → 现场用当前场景渲染一份内置锁屏开场（放 _runtime，不进视频库）
+            #   mode=upload  → 直接回上传片头的可播放地址
+            try:
+                data = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            stamp = _dt.datetime.now().strftime("%Y%m%d%H%M%S")
+            if str(data.get("mode") or "builtin") == "upload":
+                p = str(data.get("path") or "").strip()
+                if not _public_video_fp(p):
+                    return _json_reply(self, 400, {"ok": False, "msg": "请先上传片头视频"})
+                return _json_reply(self, 200, {"ok": True, "url": p.split("?", 1)[0],
+                                               "mode": "upload"})
+            out_dir = os.path.join(RUNTIME_DIR, "intro_preview")
+            os.makedirs(out_dir, exist_ok=True)
+            _prepend = os.path.join(ROOT, "准备制作界面", "prepend_intro.py")
+            cmd = [sys.executable, _prepend, "--preview-out", out_dir]
+            if os.path.isfile(WORKFLOW_PATH):
+                cmd += ["--workflow", WORKFLOW_PATH]
+            if os.path.isfile(SCENE_PATH):
+                cmd += ["--scene", SCENE_PATH]
+            # 片头壁纸：确认框里指定了就用指定的；否则每次预览随机换一张（seed=当前时间戳），
+            # 让「随机壁纸」的效果在预览里可见。壁纸库为空时 build 端回退默认壁纸。
+            if str(data.get("wallpaper") or "").strip():
+                cmd += ["--wallpaper", str(data["wallpaper"]).strip()]
+            elif os.path.isdir(INTROWALL_DIR):
+                cmd += ["--wallpaper-seed", stamp]
+            try:
+                proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                                      errors="replace", timeout=300)
+            except subprocess.TimeoutExpired:
+                return _json_reply(self, 500, {"ok": False, "msg": "预览渲染超时（超过 5 分钟）"})
+            out_mp4 = os.path.join(out_dir, "intro.mp4")
+            if proc.returncode != 0 or not os.path.isfile(out_mp4):
+                tail = ((proc.stderr or "") + (proc.stdout or ""))[-500:]
+                return _json_reply(self, 500, {"ok": False,
+                                               "msg": "预览渲染失败：" + tail.strip()})
+            return _json_reply(self, 200, {"ok": True,
+                                           "url": "/intro-preview/intro.mp4?v=" + stamp,
+                                           "mode": "builtin"})
         if self.path == "/api/gallery/move":
             # 移动分类：把图片真正搬到目标分类的子目录，并同步更新项目里的路径引用
             try:
@@ -2897,7 +3418,7 @@ class Handler(SimpleHTTPRequestHandler):
                 data = json.loads(body.decode("utf-8") or "{}")
             except ValueError:
                 return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
-            ok, err = _delete_image(data.get("path") or "")
+            ok, err = _delete_media(data.get("path") or "")
             if not ok:
                 return _json_reply(self, 400, {"ok": False, "msg": err})
             return _json_reply(self, 200, {"ok": True, "gallery": _gallery_payload(fresh=True)})
@@ -2964,7 +3485,9 @@ class Handler(SimpleHTTPRequestHandler):
                                  bool(payload.get("intro")),
                                  bool(payload.get("bgm", True)),
                                  str(payload.get("bgm_path") or ""),
-                                 bool(payload.get("use_scene", True)))
+                                 bool(payload.get("use_scene", True)),
+                                 str(payload.get("intro_path") or ""),
+                                 str(payload.get("intro_wallpaper") or ""))
             return _json_reply(self, 200 if ok else 409, {"ok": ok, "msg": msg})
         if self.path == "/api/stop":
             return _json_reply(self, 200, {"ok": _stop_run()})
@@ -3044,6 +3567,54 @@ class Handler(SimpleHTTPRequestHandler):
             if err:
                 return _json_reply(self, 400, {"ok": False, "msg": err})
             return _json_reply(self, 200, result)
+        if self.path == "/api/generate/check":
+            # 剧本体检（创作模式）：对当前文本（AI 生成后或手改后）做离线合理性检测。
+            # 不调大模型、不在播放链路上：格式解析告警 + 完整性 + 规则库校验 + 联系人真实性，秒出报告。
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except ValueError:
+                return _json_reply(self, 400, {"ok": False, "msg": "JSON 解析失败"})
+            _text = str(payload.get("text") or "").strip()
+            if not _text:
+                return _json_reply(self, 400, {"ok": False, "msg": "剧本内容为空"})
+            try:
+                _steps, _warns, _src = _parse_script_to_steps(_text, offline=True)
+            except Exception as exc:  # noqa: BLE001
+                return _json_reply(self, 200, {"ok": True, "passed": False,
+                    "issues": [f"剧本解析失败：{exc}"], "warnings": [],
+                    "rules": 0, "steps": [], "steps_count": 0})
+            _issues = list(script_generator.check_completeness(_text))
+            _skills = script_generator.load_enabled_skills()
+            _structural, _violated = script_generator.validate_generated_steps(_steps, _skills, _text)
+            _issues.extend(_structural)
+            # 「联系人被对齐替换 / 主页无位置」是致命告警（主角会被顶掉换人或运行期找不到会话）：升级为 issue
+            _deadly = ("已对齐到主页人物", "请把它加入历史会话块的前 9 位", "无法出现在主页")
+            _aligned = [w for w in (_warns or []) if any(k in str(w) for k in _deadly)]
+            if _aligned:
+                _issues.extend(_aligned)
+                _warns = [w for w in _warns if not any(k in str(w) for k in _deadly)]
+            # 联系人真实性：[打开聊天]/[打开对方主页] 引用的人必须能在 people.json 里找到
+            try:
+                _names = set()
+                with open(os.path.join(ROOT, "people.json"), encoding="utf-8") as fh:
+                    _people = json.load(fh)
+                for _grp, _d in _people.items():
+                    if isinstance(_d, dict):
+                        _names.update(_d.keys())
+                for _s in _steps:
+                    if _s.get("action") in ("打开聊天", "打开对方主页"):
+                        _p = _s.get("params") or {}
+                        _nm = str(_p.get("联系人") or _p.get("对方") or "").strip()
+                        if _nm and _nm not in _names:
+                            _issues.append(
+                                f"联系人「{_nm}」不在 people.json 名单里，播放时可能找不到人"
+                                f"（先在人物库/场景里补这个人，或改用已存在的联系人）")
+            except Exception:  # noqa: BLE001
+                pass
+            return _json_reply(self, 200, {
+                "ok": True, "passed": not _issues,
+                "issues": _issues, "warnings": _warns,
+                "rules": len(_skills), "steps": _steps, "steps_count": len(_steps)})
         if self.path == "/api/reference-scripts":
             try:
                 payload = json.loads(body.decode("utf-8") or "{}")
@@ -3403,6 +3974,19 @@ class Handler(SimpleHTTPRequestHandler):
 
     def log_message(self, fmt, *args):  # noqa: A003
         pass  # 静默访问日志
+
+    def handle_one_request(self):
+        """单个请求的连接类异常一律静默收口，不得冒泡到 socketserver。
+
+        浏览器/预览窗口在响应途中主动断连（刷新、关页、视频拖进度条后取消、
+        静态资源 404 时连接已被中止）会抛 ConnectionAborted / Reset / BrokenPipe。
+        stdlib 默认会走 socketserver.handle_error 打一屏 traceback 噪声，
+        容易被误判成「服务崩了」。这里只关连接，不影响其它请求。
+        """
+        try:
+            super().handle_one_request()
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            self.close_connection = True
 
     def end_headers(self):
         # 禁止浏览器缓存 HTML / JS / CSS / JSON 等所有响应，避免旧版页面被缓存后
