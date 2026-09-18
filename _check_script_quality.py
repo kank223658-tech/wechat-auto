@@ -30,8 +30,24 @@ import script_generator as G
 import script_translator as T
 
 
+_NEW2OLD = {
+    "[我方发消息]": "[我方打字]", "[观众字幕]": "[打字不发]", "[清空输入框]": "[删除文字]",
+    "[我方发图片]": "[发送图片]", "[我方发表情]": "[发送表情]", "[我方发emoji]": "[发送emoji]",
+    "[我方发语音]": "[发送语音]", "[对方发表情]": "[对方表情]", "[对方发emoji]": "[对方emoji]",
+    "[对方发语音]": "[对方语音]", "[对方发图片]": "[对方图片]",
+}
+
+
+def _norm_new_action_names(t: str) -> str:
+    """2026-09-18 改名兼容：新写法归一为内部标准名后再过全部检查。"""
+    for _k, _v in _NEW2OLD.items():
+        t = t.replace(_k, _v)
+    return t
+
+
 def check_file(path: str) -> bool:
     text = open(path, encoding="utf-8").read()
+    text = _norm_new_action_names(text)
     print("=" * 72)
     print("◆", os.path.basename(path))
     ok = True
@@ -336,6 +352,28 @@ def check_file(path: str) -> bool:
               "参考 剧本库/不认识的女生怎么追（参考原文）.txt）：" % len(long_caps))
         for b in long_caps:
             print("  - [%d字] %s" % (len(b), b))
+
+    # ---- 3.6b 模板字幕残留（2026-09-18 B4：字层旧兜底「塞模板」病灶的门禁回扫）----
+    # 旧版字层失败时会把「顺手补一句」这类解说腔模板直接塞上屏 —— 观众一眼假。
+    # 生成器侧已改为「重试→弃壳、永不塞模板」（script_generator._SUB_BLACKLIST），
+    # 这里对最终成品兜底：历史稿/手写稿/二修稿里残留的模板字幕一律报问题。
+    # 与 script_generator._SUB_BLACKLIST 保持同源（子串匹配，防「顺手补一句新的」变体漏网）。
+    _SUB_TPL_BAN = ("稳住节奏", "顺手补一句", "继续推进", "先这样", "补一句", "推进节奏")
+    _tpl_hits = []
+    for ln in text.splitlines():
+        s = ln.strip()
+        if not s.startswith("[打字不发]"):
+            continue
+        body = s[len("[打字不发]"):].split("|")[0].strip()
+        hit = next((t for t in _SUB_TPL_BAN if t in body), "")
+        if hit:
+            _tpl_hits.append(body)
+    if _tpl_hits:
+        ok = False
+        print("[问题] %d 条字幕是旧兜底模板腔（字层生成失败时曾直接塞模板上屏，观众一眼假；"
+              "现口径=重试后仍失败就弃壳，宁缺勿假）—— 换成真字幕或删掉整对壳：" % len(_tpl_hits))
+        for b in _tpl_hits:
+            print("  - %s" % b)
 
     # ---- 3.7 台词复读扫描（2026-09-14：LLM 审判通读查不出"散布式复读"，计数问题必须代码化）----
     # a) 完全重复的台词（同文出现在实时对白里 >=2 次，或后台消息文本与实时对白撞车）

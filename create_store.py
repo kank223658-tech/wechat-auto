@@ -209,7 +209,7 @@ def derive_reference_title(text):
     main = opened[0] if opened else (names[0] if names else "")
     first_line = ""
     for ln in body.splitlines():
-        m = re.match(r"\[(?:我方打字|对方发消息)\]\s*(.+)", ln.strip())
+        m = re.match(r"\[(?:我方打字|我方发消息|对方发消息)\]\s*(.+)", ln.strip())
         if m:
             first_line = m.group(1).split("|")[0].strip()
             break
@@ -228,13 +228,13 @@ def derive_reference_summary(text):
     """结构摘要：会话数、我方/对方消息条数、用到的动作种类。"""
     body = text or ""
     sessions = len(re.findall(r"\[会话\]", body))
-    mine = len(re.findall(r"\[我方打字\]", body))
+    mine = len(re.findall(r"\[我方打字\]|\[我方发消息\]", body))
     peer = len(re.findall(r"\[对方发消息\]", body))
-    hold = len(re.findall(r"\[打字不发\]", body))
+    hold = len(re.findall(r"\[打字不发\]|\[观众字幕\]", body))
     acts = sorted(set(re.findall(r"\[([^\]]+)\]", body)) - {"历史会话", "历史会话结束", "会话"})
     bits = ["%d 会话" % sessions, "我方 %d 条" % mine, "对方 %d 条" % peer]
     if hold:
-        bits.append("打字不发 %d 处" % hold)
+        bits.append("观众字幕 %d 处" % hold)
     if acts:
         bits.append("动作：" + "、".join(acts[:8]))
     return " · ".join(bits)
@@ -485,7 +485,7 @@ RULE_KINDS = (
     "history_two_sided",    # 历史会话必须双方有来有回
     "max_history_streak",   # 历史会话里同一人最多连续几条
     "min_interjections",    # 至少几处「插话」
-    "min_typing_hold",      # 至少几处「打字不发」
+    "min_typing_hold",      # 至少几处「观众字幕」
     "max_script_steps",     # 整份剧本的实时指令步数上限
     "asset_ref_plain",      # 图片/表情引用只能写图库里的短名
     "asset_ref_exists",     # 图片/表情引用必须能解析到真实文件
@@ -513,7 +513,7 @@ _KIND_LABELS = {
     "history_two_sided": "历史会话整体要有双方对话",
     "max_history_streak": "历史会话同一人最多连续几条",
     "min_interjections": "至少几处「插话」",
-    "min_typing_hold": "至少几处「打字不发」",
+    "min_typing_hold": "至少几处「观众字幕」",
     "max_script_steps": "实时指令步数上限",
     "asset_ref_plain": "图片/表情只能写图库短名",
     "asset_ref_exists": "图片/表情必须能解析到真图",
@@ -766,7 +766,7 @@ def _migrate_v3():
                 "source_note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (_new_id("sk"), "rule", "策略注释最多 2 处（我方打字里禁止）", "max_annotations",
                  _json_dump(2),
-                 "策略注释/心理活动不许作为 [我方打字] 发出去；[打字不发] 里的教学注释整份最多 2 处",
+                 "策略注释/心理活动不许作为 [我方发消息] 发出去；[观众字幕] 里的教学注释整份最多 2 处",
                  1, _json_dump([]), "系统默认规则", now, now))
 
 
@@ -792,8 +792,8 @@ def _migrate_v4():
                 ("历史会话里同一人最多连续 2 条", "max_history_streak", 2,
                  "历史会话里同一个人最多连续发 2 条，再往下必须由另一方接话"),
                 ("至少 2 处「插话」", "min_interjections", 2,
-                 "至少 2 处用「插话」写法：[打字不发] 内容 | 0.5 | 对方插话一句"
-                 "（或 [我方打字] 内容 | 对方插话一句），多条插话用「；」分隔"),
+                 "至少 2 处用「插话」写法：[观众字幕] 内容 | 0.5 | 对方插话一句"
+                 "（或 [我方发消息] 内容 | 对方插话一句），多条插话用「；」分隔"),
             )
             for title, kind, value, hint in defaults:
                 exists = conn.execute(
@@ -1003,7 +1003,7 @@ def _migrate_v6():
                  "[等待] 只用在真正要停一下的地方：被 [等待] 紧跟着的我方消息不超过六成；"
                  "节奏靠连发 / 打字不发 / 插话，而不是每发一条都跟一个 0.3 秒"),
                 ("实时对白要有一方连发", "min_burst", 2,
-                 "实时对白里至少有一段是同一方连发 2~3 条（连着几条 [我方打字] 或 [对方发消息]），"
+                 "实时对白里至少有一段是同一方连发 2~3 条（连着几条 [我方发消息] 或 [对方发消息]），"
                  "不要每条都严格「我一条 → 对方一条」；交替率不要超过 0.75"),
             )
             for title, kind, value, hint in defaults:

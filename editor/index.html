@@ -2594,7 +2594,7 @@ button {
                 <span class="hq-wrap"><button type="button" class="hq" data-help="#scriptHelpSrc" title="使用说明">?</button></span>
               </div>
               <textarea id="scriptInput" class="script-textarea" spellcheck="false"
-                placeholder="在这里粘贴剧本，例如：&#10;&#10;[回到聊天主页]&#10;[等待] 0.5&#10;[打开聊天] 小明&#10;[等待] 0.8&#10;[我方打字] 在吗，晚上的方案改好了发你&#10;[等待] 0.5&#10;[对方正在输入] 1.2&#10;[对方发消息] 好的，辛苦啦&#10;&#10;也可以直接写自然语言：&#10;我和小明聊了下周聚餐，他说周三有空，我回复好的到时候见。"></textarea>
+                placeholder="在这里粘贴剧本，例如：&#10;&#10;[回到聊天主页]&#10;[等待] 0.5&#10;[打开聊天] 小明&#10;[等待] 0.8&#10;[我方发消息] 在吗，晚上的方案改好了发你&#10;[等待] 0.5&#10;[对方正在输入] 1.2&#10;[对方发消息] 好的，辛苦啦&#10;&#10;也可以直接写自然语言：&#10;我和小明聊了下周聚餐，他说周三有空，我回复好的到时候见。"></textarea>
               <div class="script-toolbar">
                 <button type="button" class="btn primary" id="btnTranslate" data-tip="调用 DeepSeek V4 Flash 翻译并补全仿真动作">🤖 AI 转译剧本</button>
                 <button type="button" class="btn" id="btnOffline" data-tip="不调用大模型，直接按标准格式解析">⚙ 离线解析</button>
@@ -2610,8 +2610,8 @@ button {
                 <li>粘贴剧本后点「AI 转译剧本」：大模型会补全前置动作、等待、对方正在输入等仿真细节，并为名单外的联系人自动生成会话列表。</li>
                 <li>转译结果在右侧逐条预览，可上移/下移/删除，点卡片可编辑参数；确认无误后点「运行并生成视频」。</li>
                 <li>没有 API Key 或断网时，点「离线解析」仍可解析标准格式剧本。</li>
-                <li>想精确控制节奏：在剧本里写 <code>[等待] 0.4</code>、<code>[对方正在输入] 0.5</code> 会按你写的秒数停；<code>[打字不发] 内容 | 0.3</code> 里的 <code>| 0.3</code> 表示打字后停留 0.3 秒，不写 <code>| 秒数</code> 则用默认。</li>
-                <li>要配图时：点「🖼 插入图片消息」，或在剧本里写一条「[对方发图片] [图片] 描述」（想让你发就写「[发送图片]」）。转译后它会成为一个「待配图」卡槽；运行时在确认框点「📤 上传图片（按顺序）」即可按图1、图2 顺序配上图片。</li>
+                <li>想精确控制节奏：在剧本里写 <code>[等待] 0.4</code>、<code>[对方正在输入] 0.5</code> 会按你写的秒数停；<code>[观众字幕] 内容 | 0.3</code> 里的 <code>| 0.3</code> 表示打字后停留 0.3 秒，不写 <code>| 秒数</code> 则用默认。</li>
+                <li>要配图时：点「🖼 插入图片消息」，或在剧本里写一条「[对方发图片] [图片] 描述」（想让你发就写「[我方发图片]」）。转译后它会成为一个「待配图」卡槽；运行时在确认框点「📤 上传图片（按顺序）」即可按图1、图2 顺序配上图片。</li>
                 <li>要给某个聊天写「历史记录」（进聊天前已存在的消息）：最省事是点顶部「🎬 场景编辑器」，在会话的「消息」tab 逐条添加后保存，再在剧本开头加一步「[应用场景] scene.json」；或直接在剧本里用「[编辑主页]」，在数据数组的每个会话里写 messages，每条含 dir（me 我方 / peer 对方）、kind（text 文字 / image 图片 / voice 语音）、text 内容、time 时间（可省）——「me 我」显示右侧绿色气泡，「peer 对方」显示左侧白气泡。</li>
                 <li>更省事的写法：用「段落」历史会话块，把会话名、人名、对白直接写进剧本，系统自动转成 [编辑主页]，无需手写 JSON。格式：<code>[历史会话]</code> 开头，<code>[会话] 联系人名</code> 切分多个会话，下面每行一条「说话人：内容」，消息可用 <code>[图片]</code> / <code>[语音]</code>（可带秒数如 <code>[语音] 5秒</code>）标记，最后 <code>[历史会话结束]</code> 收尾；历史块之后照常写你的动作剧本即可。</li>
               </ol></div>
@@ -2830,6 +2830,15 @@ button {
       <div class="field">
         <label>Base URL（一般保持默认）</label>
         <input id="llmBaseUrl" type="text" value="https://api.deepseek.com" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>戏层模型（AI 写对话内容那一层，可单独用高档模型；留空=与主模型相同）</label>
+        <select id="llmDramaModel">
+          <option value="">（与主模型相同）</option>
+          <option value="deepseek-chat">deepseek-chat</option>
+          <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+          <option value="deepseek-reasoner">deepseek-reasoner</option>
+        </select>
       </div>
       <div class="row">
         <button type="button" class="btn ghost" id="btnCancelLlm">取消</button>
@@ -4550,13 +4559,16 @@ button {
     }
 
     /* ---- 大模型配置 ---- */
+    let llmCfg = { model: "", drama_model: "" };   // 最近一次读到的配置（弹窗回显用）
     async function refreshLlmStatus() {
-      const cfg = { configured: false, model: "" };
+      const cfg = { configured: false, model: "", drama_model: "" };
       try {
         const c = await api("/api/llm/config");
         cfg.configured = !!c.configured;
         cfg.model = c.model || "";
+        cfg.drama_model = c.drama_model || "";
       } catch (err) { /* 忽略 */ }
+      llmCfg = cfg;
       llmConfigured = cfg.configured;
       const el = $("llmStatus");
       if (el) {
@@ -4586,15 +4598,16 @@ button {
       const apiKey = $("llmApiKey").value.trim();
       const model = $("llmModel").value.trim() || "deepseek-flash";
       const baseUrl = $("llmBaseUrl").value.trim() || "https://api.deepseek.com";
+      const dramaModel = $("llmDramaModel").value.trim();
       try {
         await api("/api/llm/config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ api_key: apiKey, model, base_url: baseUrl })
+          body: JSON.stringify({ api_key: apiKey, model, base_url: baseUrl, drama_model: dramaModel })
         });
         closeLlmModal();
         await refreshLlmStatus();
-        log(apiKey ? "大模型配置已保存。" : "已清空 API Key，AI 转译将自动降级为离线解析。", "ok");
+        log(apiKey ? "大模型配置已保存。" + (dramaModel ? "戏层已单独用 " + dramaModel + "。" : "") : "已清空 API Key，AI 转译将自动降级为离线解析。", "ok");
       } catch (err) {
         log("保存配置失败：" + err.message, "err");
       }
@@ -4697,7 +4710,7 @@ button {
       (steps || []).forEach((step) => {
         if (!step || typeof step !== "object") return;
         const params = step.params || {};
-        // 插话里带「对方表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
+        // 插话里带「对方发表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
         _pushInterjectionEmojiSlots(slots, step);
         let desc, path;
         if (imageActions.has(step.action)) {
@@ -4990,7 +5003,7 @@ button {
       scriptSteps.forEach((step) => {
         if (!step || typeof step !== "object") return;
         const params = step.params || {};
-        // 插话里带「对方表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
+        // 插话里带「对方发表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
         _pushInterjectionEmojiSlots(imageSlots, step);
         if (step.action === "打开聊天") { curChat = String(params["联系人"] || ""); peerOpen = ""; inMoments = false; }
         else if (step.action === "打开对方主页") { peerOpen = String(params["对方"] || params["联系人"] || params["预设"] || ""); }
@@ -5668,7 +5681,7 @@ button {
       "[等待] 0.5",
       "[打开聊天] 小明",
       "[等待] 0.8",
-      "[我方打字] 在吗，晚上的方案改好了发你",
+      "[我方发消息] 在吗，晚上的方案改好了发你",
       "[等待] 0.5",
       "[对方正在输入] 1.2",
       "[对方发消息] 好的，辛苦啦",
@@ -5678,10 +5691,10 @@ button {
       "[等待] 0.6",
       "[打开聊天] 小明",
       "[等待] 0.8",
-      "[我方打字] 周末的电影票我买好了",
+      "[我方发消息] 周末的电影票我买好了",
       "[对方正在输入] 1.5",
       "[对方发消息] 太棒了！几点的场",
-      "[我方打字] 下午三点，万达店",
+      "[我方发消息] 下午三点，万达店",
       "[等待] 0.5",
       "",
       "[返回聊天主页]",

@@ -41,6 +41,9 @@ DEFAULT_SETTINGS = {
     "deepseek_api_key": "",
     "deepseek_model": DEFAULT_MODEL,
     "deepseek_base_url": DEFAULT_BASE_URL,
+    # A2 模型分档（2026-09-18）：戏层（唯一写内容的层）可单独用高档模型，
+    # 例如 "deepseek-chat"；留空回落 deepseek_model。字层/骨架等机械活仍用主模型。
+    "deepseek_drama_model": "",
     # 「打字不发」的默认滞留时长（秒）。脚本里写 `[打字不发] 内容 | 0.3` 可逐条覆盖；
     # 不写时就使用这个默认值，方便统一调整节奏而不必改每条。
     "typing_hold_default": 1.5,
@@ -54,7 +57,17 @@ ACTION_ALIASES = {
     "返回": "返回主页",
     "回聊天主页": "返回主页",
     "对方打字": "对方发消息",
-    "对方正在输入中": "对方正在输入",
+
+    # 2026-09-18 指令改名：新写法 -> 内部标准名（旧写法继续可用，对照表见创作模式规范）
+    "我方发消息": "我方打字",
+    "观众字幕": "打字不发",
+    "清空输入框": "删除文字",
+    "我方发图片": "发送图片",
+    "我方发表情": "发送表情",
+    "我方发emoji": "发送emoji",
+    "我方发语音": "发送语音",
+    "对方发emoji": "对方emoji",
+    "对方发语音": "对方语音",    "对方正在输入中": "对方正在输入",
     "对方后台发言": "对方后台发消息",
     "后台对方消息": "对方后台发消息",
     "后台发消息": "对方后台发消息",
@@ -580,7 +593,7 @@ def _extract_source_timings(source_text: str):
         elif cmd == "对方正在输入":
             if arg:
                 typings.append(arg)
-        elif cmd == "打字不发" and "|" in arg:
+        elif cmd in ("打字不发", "观众字幕") and "|" in arg:
             # `[打字不发] 内容 | 0.3 | 插话`：第 2 段才是停留秒数，第 3 段是对方插话。
             # 之前用 partition("|") 只按第一个竖线切分，会把「插话」一并算进停留值，
             # 导致 _reassert 把 停留 写成 "0.3 | 插话..." 这类废串。这里显式取第 2 段。
@@ -734,7 +747,7 @@ def _source_typing_wait_absorptions(source_text: str):
         entries.append((m.group(1).strip(), m.group(2).strip()))
     out = []
     for idx, (cmd, arg) in enumerate(entries):
-        if cmd != "打字不发":
+        if cmd not in ("打字不发", "观众字幕"):
             continue
         if "|" in arg:                                   # 已写内联 | 秒：保持显式停留
             out.append(None)

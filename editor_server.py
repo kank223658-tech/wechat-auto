@@ -1992,11 +1992,23 @@ def _generate_script(payload: dict):
     staged_error = ""
     if pipeline == "staged":
         try:
+            # A2 模型分档（2026-09-18）：戏层（唯一写内容的层）可用高档模型；
+            # settings 里不配 deepseek_drama_model 时与主模型相同，行为不变。
+            drama_model = (settings.get("deepseek_drama_model") or "").strip() or model
+
             def _call_llm(sys_p, usr_p):
                 return _call_generate_deepseek(api_key, sys_p, usr_p, model, base_url)
+
+            def _call_llm_drama(sys_p, usr_p):
+                return _call_generate_deepseek(api_key, sys_p, usr_p, drama_model, base_url)
+
+            # A1 金样语感锚：把（手选或自动匹配的）第一篇参考全文递给生成器，
+            # 由它截「开场段+中段」注入戏层 —— 此前 staged 链路只有 Beat Sheet 见过摘要。
+            ref_raw = str((references[0] or {}).get("text") or "") if references else ""
             staged_text, staged_info = script_generator.generate_staged_script(
                 brief, category, people_block, _call_llm, actions=ACTIONS,
                 skills=skills, preferences=preferences, reference_text=reference_text,
+                call_llm_drama=_call_llm_drama, ref_raw=ref_raw,
                 debug_dir=_GEN_DEBUG_DIR)
         except Exception as e:  # noqa: BLE001
             staged_error = str(e)
@@ -2909,6 +2921,8 @@ class Handler(SimpleHTTPRequestHandler):
                 "configured": bool((settings.get("deepseek_api_key") or "").strip()),
                 "model": settings.get("deepseek_model") or script_translator.DEFAULT_MODEL,
                 "base_url": settings.get("deepseek_base_url") or script_translator.DEFAULT_BASE_URL,
+                # A2 模型分档：戏层（唯一写内容的层）可单独配高档模型；空=与主模型相同
+                "drama_model": str(settings.get("deepseek_drama_model") or "").strip(),
             })
         if self.path.startswith("/api/runlog"):
             # 参数解析改用 parse_qs：写错参数名或带额外参数不再抛 IndexError 500
@@ -3503,6 +3517,9 @@ class Handler(SimpleHTTPRequestHandler):
                 patch["deepseek_model"] = str(payload.get("model", "")).strip()
             if "base_url" in payload and str(payload.get("base_url", "")).strip():
                 patch["deepseek_base_url"] = str(payload.get("base_url", "")).strip()
+            # A2 分档：drama_model 允许传空串（清空=回落主模型），与上面两个字段不同
+            if "drama_model" in payload:
+                patch["deepseek_drama_model"] = str(payload.get("drama_model", "")).strip()
             script_translator.save_settings(patch)
             return _json_reply(self, 200, {"ok": True, "msg": "配置已保存"})
         if self.path == "/api/translate":

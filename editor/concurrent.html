@@ -890,7 +890,7 @@ function collectTaskImageSlots(t) {
       });
       return;
     }
-    // 插话里带「对方表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
+    // 插话里带「对方发表情」标记的，也补出表情贴纸槽位（用于上传自定义表情）
     pushIjEmojiSlots(slots, step);
     const imgKey = imageParamFor(step);
     if (imgKey) {

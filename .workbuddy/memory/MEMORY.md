@@ -42,6 +42,10 @@
 - PowerShell stdout 常被吞→写文件读；bash 工具链可能全坏→全程 PowerShell；★跑 py 中文输出乱码须 `[Console]::OutputEncoding=UTF8` + `$env:PYTHONIOENCODING="utf-8"`。
 - ★AI 起的 editor_server 会被回收；常驻请用户双击 启动.bat。curl localhost 必加 --noproxy '*'。
 - ★tasks.json 会被「空内存表」覆盖：动它前先停 8000 服务；恢复源=_probe_tmp/tasks_api.json。
+- ★提交铁律（2026-09-18 定）：**禁 git add -A / git add .**（未跟踪里有 6GB+ 临时产物）。正确姿势=①`git add -u` 收已跟踪改动 ②显式列路径 add 新增文件 ③`git ignore` 兜底。
+- ★复用脚本：`_工作文件/_git_commit_0918.py`（改 paths 列表即用）+ `_git_precheck.py`（staged 体积/大文件/sk- 扫描，提交前必跑）。中文路径必须走 Python subprocess，PowerShell 传参会 GBK 乱码。
+- 口径：素材图**不入库**（vue-WeChat/public/images 下 sets2 308MB、avatar、bg、link、sticker、asset、wxemoji3d、replica；longimg 与 videos/longimg 输出 168MB）。要入库需单独决策。
+- 已入库（09-18，commit 0a6facd）：长图模式/ 后端源码、video2script 源码、editor/longimg+shot.html+moments_preview.js、剧本库/、introwall 壁纸库。video2script 的 .venv/input_videos/output 已 ignore。
 
 ## 剧本转录：历史会话判定铁律（2026-09-17 用户定调）
 - 每次 [打开聊天] 那一刻屏上已有的消息=历史会话：首开会话写进 [历史会话块]（我方消息用「我：」，支持 [图片]/[链接]/内嵌3Demoji 如 我：[OK]），非首开会话则写成前一块尾部的 [对方后台发消息]；带打字/到达动画的才是实时步。

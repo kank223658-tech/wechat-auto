@@ -37,11 +37,11 @@ JSON_SPEC = """【输出格式 —— 只输出一个 JSON 对象，不要任何
   ],
   "steps": [
     {"action": "打开聊天", "params": {"联系人": "susu"}},
-    {"action": "我方打字", "params": {"内容": "刚看到这条 第一反应就是你"}},
-    {"action": "打字不发", "params": {"内容": "故意否定 引起注意", "停留": 0.5, "插话": "你这人什么意思？！"}},
-    {"action": "删除文字", "params": {"数量": -1}},
+    {"action": "我方发消息", "params": {"内容": "刚看到这条 第一反应就是你"}},
+    {"action": "观众字幕", "params": {"内容": "故意否定 引起注意", "停留": 0.5, "插话": "你这人什么意思？！"}},
+    {"action": "清空输入框", "params": {"数量": -1}},
     {"action": "切换底部面板", "params": {"面板": "表情", "停留": 0.8}},
-    {"action": "发送emoji", "params": {"表情": "捂脸"}},
+    {"action": "我方发emoji", "params": {"表情": "捂脸"}},
     {"action": "对方发消息", "params": {"内容": "你眼光可以啊"}}
   ]
 }
@@ -51,14 +51,17 @@ JSON_SPEC = """【输出格式 —— 只输出一个 JSON 对象，不要任何
   链接消息以 `[链接] 标题 | 图片 | 来源` 开头。
 - steps：实时指令，按执行顺序排列。action 必须来自【动作表】；
   params 的键必须是该动作自己的参数名（见动作表与能力卡）。
+- 动作名新旧写法等价（推荐新写法）：我方发消息=我方打字、观众字幕=打字不发、
+  清空输入框=删除文字、我方发图片=发送图片、我方发表情=发送表情、我方发emoji=发送emoji、
+  我方发语音=发送语音、对方发表情=对方表情、对方发emoji=对方emoji、对方发语音=对方语音。
 - 图片/表情的值一律写【可用素材】清单里的短名（如「好显身材的连衣裙」「害羞猫咪」）。
 - 文本消息内容里可内嵌 3D 黄脸 emoji：把 [名称] 直接写进 text（如 "太开心了[大笑]"、
-  "是嘛[捂脸]"），渲染时自动变行内小表情，无需单独一条 发送emoji/对方emoji 步骤；
+  "是嘛[捂脸]"），渲染时自动变行内小表情，无需单独一条 我方发emoji/对方发emoji 步骤；
   名称必须是 names.json 里的名称或别名（共 110 个表情，微笑/捂脸/大笑/爱心/害羞…），
   内嵌标记原样保留。
 - 「打字不发 / 我方打字」的 插话 参数支持全部消息格式（行首标记路由，写在插话段里而非独立动作行）：
-  `[对方表情] 素材短名`=贴纸、`[对方图片] 素材短名`=图片、`[对方链接] 标题 | 封面 | 来源`=链接卡片、
-  `[对方emoji] 微笑`=3D黄脸（名称/编号1~110/随机）、`[对方语音] 5`=语音条、`[对方转账] 金额 | 备注`=转账卡片；
+  `[对方发表情] 素材短名`=贴纸、`[对方发图片] 素材短名`=图片、`[对方链接] 标题 | 封面 | 来源`=链接卡片、
+  `[对方发emoji] 微笑`=3D黄脸（名称/编号1~110/随机）、`[对方发语音] 5`=语音条、`[对方转账] 金额 | 备注`=转账卡片；
   无标记=纯文字（可内嵌 [微笑]）。多句插话用「；」分隔。
 - 绝不能用 "text" 之类的字段代替 steps，也不要写 `[指令]` 文本 —— 输出必须是 JSON。"""
 
@@ -180,9 +183,10 @@ def render_step(step) -> str:
         return step.strip()
     if not isinstance(step, dict):
         return ""
-    action = str(step.get("action") or step.get("动作") or "").strip()
-    # 别名归一：渲染出来的必须是规范动作名（parse 也认别名，但规范名最稳）
-    action = (getattr(st, "ACTION_ALIASES", {}) or {}).get(action, action)
+    action_raw = str(step.get("action") or step.get("动作") or "").strip()
+    # 别名归一：参数校验用标准名；渲染保留模型写出的动作名（新写法直出，
+    # 解析器两种写法都认，运行层经 parse/validate 归一后拿到的仍是标准名）
+    action = (getattr(st, "ACTION_ALIASES", {}) or {}).get(action_raw, action_raw)
     if not action:
         return ""
     params = step.get("params") or step.get("参数") or {}
@@ -212,25 +216,25 @@ def render_step(step) -> str:
             vals.append("" if v in (None, "") else _val(k, v))
         while vals and not vals[-1]:
             vals.pop()
-        return ("[%s] %s" % (action, " | ".join(vals))).rstrip()
+        return ("[%s] %s" % (action_raw, " | ".join(vals))).rstrip()
 
     # 与默认值相同的参数不必写进剧本（写了也只是噪音）；写完再看剩几个参数：
-    # 只剩一个 -> 用位置写法（`[发送emoji] 捂脸`）；不止一个 -> 用命名写法
+    # 只剩一个 -> 用位置写法（`[我方发emoji] 捂脸`）；不止一个 -> 用命名写法
     # （`[切换底部面板] 面板=表情 | 停留=0.8`，多参数动作只有这样才不丢参数）。
     real = [(k, v) for k, v in params.items() if v not in (None, "")]
     default = _defaults_for(action)
     real = [(k, v) for k, v in real if not (k in default and str(default[k]) == str(v))]
     if len(real) == 1:
         k, v = real[0]
-        return "[%s] %s" % (action, _val(k, v))
+        return "[%s] %s" % (action_raw, _val(k, v))
     if len(real) > 1:
         # 按动作表的参数顺序输出，保证同一份 JSON 每次渲染出的文本完全一致
         # （否则 dict 顺序会造成同一剧本两次生成文本不同，无法比对/去重）。
         if default:
             order = {k: i for i, k in enumerate(default.keys())}
             real.sort(key=lambda kv: order.get(kv[0], 999))
-        return "[%s] %s" % (action, _named_pairs(dict(real)))
-    return "[%s]" % action
+        return "[%s] %s" % (action_raw, _named_pairs(dict(real)))
+    return "[%s]" % action_raw
 
 
 _DEFAULTS_CACHE = {}
@@ -372,7 +376,7 @@ PATCH_SPEC = """【输出格式 —— 只输出要改的部分，不要重写�
   "patches": [
     {"find": "直接抄原文里要改的那一行（可含相邻一两行）", "with": "替换后的内容（可多行）"}
   ],
-  "append_steps": [ {"action": "我方打字", "params": {"内容": "要补的一句"}} ]
+  "append_steps": [ {"action": "我方发消息", "params": {"内容": "要补的一句"}} ]
 }
 - find 必须与《当前剧本》里的原文【一字不差】（含空格与标点），且在全文里只出现一次；
   找不到或出现多次的补丁会被本地丢弃，等于白改。
