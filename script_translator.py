@@ -900,6 +900,12 @@ def convert_inline_speaker_messages(text: str) -> str:
         if not raw:
             out.append(line)
             continue
+        # `#` 注释行（文件头/配图说明）不参与说话人转换，原样保留
+        # 交 parse_script_text 处理——否则「# 效果＝见面礼：金毛照」这类带冒号的
+        # 配图注释会被 _SPEAKER_LINE_RE 当成「人名：消息」误转成 [对方发消息]。
+        if raw.startswith("#"):
+            out.append(line)
+            continue
         m = _CONV_OPEN_RE.match(raw)
         if m:
             cur_contact = (m.group(1) or "").strip()

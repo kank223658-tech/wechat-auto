@@ -1,4 +1,7 @@
-opencv-python-headless
+# 说明：这里用 opencv-python（而不是 opencv-python-headless）。
+# rapidocr-onnxruntime 依赖 opencv-python，两者都写入同一个 cv2/ 目录，
+# 若两个都装会互相覆盖（安装时大量删除同名文件），故统一只用 opencv-python。
+opencv-python
 rapidocr-onnxruntime
 numpy
 pillow

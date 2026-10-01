@@ -34,7 +34,10 @@ _NEW2OLD = {
     "[我方发消息]": "[我方打字]", "[观众字幕]": "[打字不发]", "[清空输入框]": "[删除文字]",
     "[我方发图片]": "[发送图片]", "[我方发表情]": "[发送表情]", "[我方发emoji]": "[发送emoji]",
     "[我方发语音]": "[发送语音]", "[对方发表情]": "[对方表情]", "[对方发emoji]": "[对方emoji]",
-    "[对方发语音]": "[对方语音]", "[对方发图片]": "[对方图片]",
+    "[对方发语音]": "[对方语音]",
+    # ★[对方发图片] 不归一：parse_script_text 的 TEXT_COMMAND_MAP 只认「对方发图片」
+    #   （main.py TEXT_COMMAND_MAP "对方发图片": "图片"）；「对方图片」只是插话路由的标记名，
+    #   归一成它会导致独立指令行被当未知指令整条丢弃（2026-09-19 实测，相亲稿同坑）。
 }
 
 
@@ -43,6 +46,44 @@ def _norm_new_action_names(t: str) -> str:
     for _k, _v in _NEW2OLD.items():
         t = t.replace(_k, _v)
     return t
+
+
+def _merge_split_interjections(t: str):
+    """[她插话] 拆行式写法 -> 合并回行内第 3 段（仅门禁文本级检查用）。
+
+    2026-09-19 新写法：`[她插话] 她的话` 独立成行、紧跟在 [打字不发]/[我方打字] 之后，
+    与旧行内 `| 第3段` 渲染等价。本函数把它并回宿主行，让 3.12 插话主体 /
+    3.13 承接断链 / 复述检查等「按第 3 段解析」的既有检查原样生效。
+    - [打字不发] 宿主：用 ` | ` 追加（第 3 段语义，不动「停留」段）；
+    - [我方打字] 宿主：用 `；` 追加（该动作行内第 2 段整段=插话）；
+    - 中间隔了其他动作行则视为挂靠失败，[她插话] 原样保留，交位置检查判失败。
+    返回 (合并后文本, 挂靠失败的 [她插话] 行号列表)。
+    """
+    out = []
+    pending_host = None          # out 中可接插话的宿主行下标
+    _host_re = re.compile(r"^\[(打字不发|我方打字)\]")
+    orphan = []
+    for raw in t.splitlines():
+        s = raw.strip()
+        if _host_re.match(s):
+            out.append(raw)
+            pending_host = len(out) - 1
+            continue
+        if s.startswith("[她插话]"):
+            body = s[len("[她插话]"):].strip()
+            if pending_host is not None and body:
+                host_act = _host_re.match(out[pending_host].strip()).group(1)
+                joiner = " | " if host_act == "打字不发" else "；"
+                out[pending_host] = out[pending_host].rstrip() + joiner + body
+                continue
+            orphan.append(len(out) + 1)   # 近似行号（合并前原文行号在调用侧另行统计）
+            out.append(raw)
+            pending_host = None
+            continue
+        if s and not s.startswith("#"):
+            pending_host = None           # 中间隔了实质行 -> 宿主失效（与解析器口径一致）
+        out.append(raw)
+    return "\n".join(out), orphan
 
 
 def check_file(path: str) -> bool:
@@ -55,6 +96,31 @@ def check_file(path: str) -> bool:
     if "参考" in os.path.basename(path):
         print("  （参考样本，跳过门禁）")
         return True
+
+    # ---- 0. [她插话] 拆行式（2026-09-19 新写法）----
+    # 先按原文行号查挂靠位置（挂靠不上=解析器会丢弃她的这条消息），再把拆行并回
+    # 行内第 3 段，让 3.12 插话主体 / 3.13 承接断链 / 复述检查等按「第 3 段」解析的
+    # 既有检查对拆行写法原样生效。
+    _orig_lines = [l.strip() for l in text.splitlines()]
+    _her_orphan = []
+    for _hi, _hl in enumerate(_orig_lines):
+        if not _hl.startswith("[她插话]"):
+            continue
+        _pj = _hi - 1
+        while _pj >= 0 and (_orig_lines[_pj] == "" or _orig_lines[_pj].startswith("#")):
+            _pj -= 1
+        if _pj < 0 or not _orig_lines[_pj].startswith(
+                ("[观众字幕]", "[打字不发]", "[我方发消息]", "[我方打字]")):
+            _her_orphan.append(_hi + 1)
+    if _her_orphan:
+        ok = False
+        print("[问题] %d 处 [她插话] 没有紧跟在 [观众字幕]/[我方发消息] 之后"
+              "（挂靠不上=她的这条消息会被丢弃）：" % len(_her_orphan))
+        for _n in _her_orphan:
+            print("  - 第%d行 %s" % (_n, _orig_lines[_n - 1][:50]))
+        print("      正确写法：[她插话] 只能紧跟 [观众字幕]/[我方发消息] 行（中间可空行/# 注释）；"
+              "多条用「；」分隔或连写多行")
+    text, _ = _merge_split_interjections(text)
 
     # ---- 1. 复刻编辑器离线管线 ----
     all_names = T._collect_text_person_names(text)
@@ -337,19 +403,19 @@ def check_file(path: str) -> bool:
         for a, r in short_hb:
             print("  - [%s] %s" % (a, r))
 
-    # ---- 3.6 字幕长度提示（2026-09-14 用户定标：短语标签，不是解释句）----
-    # 主线字幕主体超 14 字列出提醒（引流 CTA / 下课字幕允许 ~16 字，一并提示但注明体裁豁免）。
+    # ---- 3.6 字幕长度提示（2026-09-28 更新口径：四目的，拆解/读她为主）----
+    # 技巧拆解/读她/情绪 6~16 字、上限 20；钩子/CTA/下课允许到 40 字。
     long_caps = []
     for ln in text.splitlines():
         s = ln.strip()
         if not s.startswith("[打字不发]"):
             continue
         body = s[len("[打字不发]"):].split("|")[0].strip()
-        if len(body) > 14:
+        if len(body) > 20:
             long_caps.append(body)
     if long_caps:
-        print("[提示] %d 条字幕超过 14 字（用户定标：字幕是短语标签不是解释句，建议砍到 2~10 字，"
-              "参考 剧本库/不认识的女生怎么追（参考原文）.txt）：" % len(long_caps))
+        print("[提示] %d 条字幕超过 20 字（口径：技巧拆解/读她/情绪 6~16 字、上限 20；"
+              "钩子/CTA/下课允许到 40 字——非 CTA 的长句建议砍到「动作+目的」）：" % len(long_caps))
         for b in long_caps:
             print("  - [%d字] %s" % (len(b), b))
 

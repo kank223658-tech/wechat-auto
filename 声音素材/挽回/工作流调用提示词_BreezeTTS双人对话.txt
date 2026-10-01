@@ -1,0 +1,210 @@
+========================================================================
+RunningHub Breeze TTS 2 双人对话播客生成 —— 完整调用手册（可移植版）
+========================================================================
+整理日期：2026-09-16
+用途：在任何电脑、任何 RunningHub 账号上，把本手册交给 AI（或照着做），
+      即可复现「双人对话播客音频生成」全流程。
+来源：工作流 https://www.runninghub.cn/workflow/2099601994699857922
+      （Breeze TTS 2 Multi-Speaker，含图片生成节点，本手册只用 TTS 部分）
+
+------------------------------------------------------------------------
+一、核心思路（最重要的结论）
+------------------------------------------------------------------------
+不要用「保存工作流 + nodeInfoList 覆盖参数」的方式跑——保存工作流的
+API 输出节点配置里没勾音频节点，跑完拿不到音频文件。
+
+正确做法：走 /task/openapi/create 接口，直接提交完整工作流 JSON
+（`workflow` 参数传 JSON 字符串，不是对象），音频节点就能正常返回产物。
+
+------------------------------------------------------------------------
+二、API 端点（全部实测验证过）
+------------------------------------------------------------------------
+域名：https://www.runninghub.cn
+鉴权：HTTP header  Authorization: Bearer <你的APIKEY>
+      （部分旧接口 body 里也要带 apiKey 字段，见下）
+
+1. 上传参考音频（multipart/form-data，字段名 file）：
+   POST /openapi/v2/media/upload/binary
+   返回 data.fileName，形如 "openapi/<sha256>.mp3"，把这个值填进工作流 JSON。
+
+2. 提交任务（直接提交工作流 JSON）：
+   POST /task/openapi/create
+   body: {"apiKey": "<APIKEY>", "workflowId": "2099601994699857922",
+          "workflow": "<完整工作流JSON字符串，见第四节>"}
+   注意：workflow 必须是【字符串】不是 JSON 对象；workflowId 必填
+   （即使传了完整 JSON 也不能省，否则报 must not be null）。
+   返回 data.taskId。
+
+3. 轮询状态（旧版接口，body 带 apiKey）：
+   POST /task/openapi/status
+   body: {"apiKey": "<APIKEY>", "taskId": "<taskId>"}
+   data 为 "RUNNING" / "SUCCESS" / "FAILED"，每 8 秒轮询一次。
+
+4. 取产物：
+   POST /task/openapi/outputs
+   body: {"apiKey": "<APIKEY>", "taskId": "<taskId>"}
+   SUCCESS 后返回 data 列表，节点 42 的产物 fileType=mp3，
+   取 fileUrl 直接下载即为人声成品（24kHz 左右 mp3）。
+
+5. 产物下载：直接 GET fileUrl，无需鉴权。
+
+------------------------------------------------------------------------
+三、直接提交 JSON 的四个必踩坑（都是实测踩出来的）
+------------------------------------------------------------------------
+1. 空字符串过不了类型校验：
+   Speaker 节点里 cfg_scale=""、instruction="" 这类空字符串会导致
+   "Failed to convert an input value to a FLOAT value"。必须删掉空字符串
+   字段，或填上合法值。每个 Speaker 节点都要处理，漏一个节点整个任务失败。
+
+2. auto_transcribe_if_empty 必须显式设为 False：
+   开 True（或不设走默认）会触发节点内部 whisper 自动转写参考音频，
+   而 RunningHub 环境的 whisper 管线是坏的（transformers generation
+   config outdated 报错），100% 失败。
+
+3. 给了参考音频就必须给精确的 reference_text：
+   参考音频的逐字转写文本，一个字都不能差（标点也要对）。
+   转写文本自己用本地 whisper large-v3 转写得到即可。
+
+4. 说话人名字与脚本前缀必须一致：
+   节点 inputs.name 改成什么（如"琳姐"），脚本里行前缀就要写"琳姐: "。
+
+------------------------------------------------------------------------
+四、精简版工作流 JSON（直接可用，图片节点已裁剪）
+------------------------------------------------------------------------
+说明：节点 1=说话人A（导师位）、节点 2=说话人B（学员位）、节点 4=备用
+      第三说话人（不用也要配齐参数，否则校验失败）。
+      节点 5 的 speaker_1→节点4、speaker_2→节点1、speaker_3→节点2。
+      节点 42 是音频输出（SaveAudioMP3），节点 23 图片输出已删。
+
+{
+  "1": {"inputs": {"name": "阿杰", "audio": "b7fbc802e83d31aec66784d7ac4a037f0debc91850fbbf62a974aefec087b404.mp3", "audioUI": "", "reference_text": "", "auto_transcribe_if_empty": "", "instruction": "", "cfg_scale": ""}, "class_type": "BreezeTTS2Speaker", "_meta": {"title": "Breeze TTS 2 Speaker"}},
+  "2": {"inputs": {"name": "安安", "audio": "e626ceedfa693f0d3ed41447fb5ca8d8d10f05d5bdc9f3883c2e74605f1bc23f.mp3", "audioUI": "", "reference_text": "", "auto_transcribe_if_empty": "", "instruction": "", "cfg_scale": ""}, "class_type": "BreezeTTS2Speaker", "_meta": {"title": "Breeze TTS 2 Speaker"}},
+  "4": {"inputs": {"name": "小雨", "audio": "8645f41649c042e9e662cab5228943026de88a1f4fa8cba92dc341786a77609d.mp3", "audioUI": "", "reference_text": "", "auto_transcribe_if_empty": "", "instruction": "", "cfg_scale": ""}, "class_type": "BreezeTTS2Speaker", "_meta": {"title": "Breeze TTS 2 Speaker"}},
+  "5": {"inputs": {"text": "占位", "pause_between_speakers": 0.3, "max_new_tokens": 1500, "temperature": 0.9, "top_k": 50, "top_p": 1, "repetition_penalty": 1.1, "depth_temperature": 0.9, "depth_top_k": 50, "depth_top_p": 1, "seed": 2111480648, "breeze_model": ["7", 0], "speaker_1": ["4", 0], "speaker_2": ["1", 0], "speaker_3": ["2", 0]}, "class_type": "BreezeTTS2MultiSpeaker", "_meta": {"title": "Breeze TTS 2 Multi-Speaker"}},
+  "7": {"inputs": {"model": "bf16 (best quality)", "dtype": "auto", "device": "auto", "attention": "auto", "decode_mode": "cuda_graphs", "download_if_missing": false}, "class_type": "BreezeTTS2LoadModel", "_meta": {"title": "Breeze TTS 2 Load Model"}},
+  "10": {"inputs": {"audioUI": "", "audio": ["5", 0]}, "class_type": "PreviewAudio", "_meta": {"title": "Preview Audio"}},
+  "42": {"inputs": {"filename_prefix": "audio/ComfyUI", "quality": "V0", "audioUI": "", "audio": ["5", 0]}, "class_type": "SaveAudioMP3", "_meta": {"title": "Save Audio (MP3) (DEPRECATED)"}}
+}
+
+提交前必须注入/修改的字段：
+  wf["5"]["inputs"]["text"] = 对话脚本文本（见第六节格式）
+  wf["1"]["inputs"]["name"]    = "说话人A名字"
+  wf["1"]["inputs"]["audio"]   = 上传返回的 fileName
+  wf["1"]["inputs"]["reference_text"] = 该参考音频的逐字转写
+  wf["1"]["inputs"]["auto_transcribe_if_empty"] = False
+  wf["1"]["inputs"]["instruction"] = 风格/情绪提示词（见第五节，可为空字符串删掉）
+  wf["1"]["inputs"]["cfg_scale"]   = 指令遵循强度（用情绪指令时建议 4.0）
+  节点 2 同理（学员位）；节点 4 不参与对话，随便挂一个参考+转写，过校验即可。
+
+------------------------------------------------------------------------
+五、情绪/风格控制提示词（实测有效的文案，直接抄）
+------------------------------------------------------------------------
+instruction 是 Breeze TTS 2 的表演指令，支持年龄、气质、情绪、语速、
+哽咽叹息等声音事件的组合描述；cfg_scale 控制遵循强度（0-6 左右）。
+
+导师位（知性大姐姐风）：
+  instruction = "成熟知性的女声，温柔沉稳，语速稍慢，像三十多岁的情感导师"
+
+学员位（低落委屈，不要笑意）：
+  instruction = "情绪低落委屈的女声，疲惫沮丧，带一点哽咽和叹息感，语速自然不拖沓，不要有笑意，不要开心"
+  cfg_scale   = 4.0
+
+男声导师位（原版配方）：
+  不加 instruction，纯靠参考音频音色。
+
+已知规律（少花冤枉币）：
+  - 情绪词对语速影响大：「疲惫/哽咽/叹息」天然拖慢节奏；
+    写「语速稍慢/语速自然」字面调速效果很弱（<1秒差异）。
+  - 想要快：成品后用 ffmpeg 变速（第九节），不花币、不掉情绪、保音调。
+  - 音色相似度主要由参考音频决定，instruction 只调表演不动音色。
+
+------------------------------------------------------------------------
+六、对话脚本格式（节点 5 的 text 字段）
+------------------------------------------------------------------------
+格式：每行「名字: 台词」，名字必须和 Speaker 节点 name 完全一致。
+推荐 12-14 轮、总字数 600-800 字，生成时长约 80-95 秒。
+情绪辅助可以直接写进台词（模型能读）：
+  [笑] [叹气] [停顿] 等标记，以及"哎……""那倒是……"这类语气词。
+
+脚本模板（挽回主题播客，导师×学员）：
+  <导师名>: 哈喽，欢迎回到本期播客，我是XX，今天连线的这位……
+  <学员名>: XX好，就是我上次跟你说的，我已经断联快两周了……
+  （导师给信号/方法论 → 学员复述痛点 → 导师给两个具体行动 →
+    学员说顾虑 → 导师换角度反问 → 学员领悟收尾 → 导师金句结尾）
+
+------------------------------------------------------------------------
+七、参考音频要求
+------------------------------------------------------------------------
+- 单人、干净、无 BGM，10 秒以内即可（5 秒也行）。
+- 必须配逐字转写的 reference_text（本地 whisper large-v3 转写）。
+- 工作流自带的三个示例参考（阿杰/安安/小雨）在服务器上无法公开下载，
+  需要在工作流编辑页节点音频控件上手动下载。
+- 换参考音频 = 换音色；同一份参考 + 不同 instruction = 同音色不同情绪。
+
+------------------------------------------------------------------------
+八、Python 调用核心代码（可直接跑）
+------------------------------------------------------------------------
+import json, time, urllib.request
+
+KEY = "<你的APIKEY>"
+BASE = "https://www.runninghub.cn"
+
+def post(path, payload):
+    req = urllib.request.Request(BASE + path,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json",
+                 "Authorization": f"Bearer {KEY}"}, method="POST")
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read().decode())
+
+# 1) 上传参考音频（multipart，字段名 file）
+# POST /openapi/v2/media/upload/binary  ->  data.fileName
+
+# 2) 注入参数并提交（见第四节规则）
+wf = json.loads(WORKFLOW_JSON_TEXT)   # 第四节的 JSON
+wf["5"]["inputs"]["text"] = script
+# ... 注入 name/audio/reference_text/instruction/cfg_scale ...
+r = post("/task/openapi/create", {
+    "apiKey": KEY, "workflowId": "2099601994699857922",
+    "workflow": json.dumps(wf, ensure_ascii=False)})   # 必须是字符串！
+tid = r["data"]["taskId"]
+
+# 3) 轮询
+while True:
+    st = post("/task/openapi/status", {"apiKey": KEY, "taskId": tid})
+    s = st.get("data")
+    if s in ("SUCCESS", "FAILED"): break
+    time.sleep(8)
+
+# 4) 取产物下载
+outs = post("/task/openapi/outputs", {"apiKey": KEY, "taskId": tid})
+for it in outs["data"]:
+    if it.get("nodeId") == "42":
+        urllib.request.urlretrieve(it["fileUrl"], "人声.mp3")
+
+------------------------------------------------------------------------
+九、混 BGM（本地 ffmpeg，一条命令）
+------------------------------------------------------------------------
+ffmpeg -y -i 人声.mp3 -i BGM.mp3 -filter_complex \
+"[1:a]atrim=0:95,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=2,afade=t=out:st=88:d=4,volume=0.15[bg];[0:a]volume=1.0[vo];[vo][bg]amix=inputs=2:duration=first:normalize=0[out]" \
+-map "[out]" -b:a 192k 成品_带BGM.mp3
+
+说明：BGM 截到人声长度、首尾淡入淡出、音量压到 15% 垫底；
+afade 的 st 参数按人声实际时长减 4 秒填。
+整体提速（保音调，不掉情绪）：ffmpeg -i 人声.mp3 -filter:a "atempo=1.1" 人声_1.1x.mp3
+
+------------------------------------------------------------------------
+十、成本与耗时参考（2026-09-16 实测）
+------------------------------------------------------------------------
+- 单次任务：约 90-115 秒，消耗 15-23 RH 币（随时长浮动）
+- 失败任务不退币，所以第四节坑务必先核对再提交
+- seed 固定 2111480648 可复现；换 seed 会有细微表演差异
+
+------------------------------------------------------------------------
+十一、本次产出存档（音色/文本来源，便于追溯）
+------------------------------------------------------------------------
+- 导师音色参考：女生音频.mp3（F:\视频库\），转写："那完了，金叔，我已经断联了。不是我想断啊，他现在真的太烦我了，已经明确表示不可能了，让我不要再去纠缠他。你昨天做的失望疲惫的视频我看了，但是有点不太敢发过去"
+- 学员音色参考：小雨.mp3（工作流自带示例下载，5.2s），转写："知道啦,那你在不在啊,是我这个处理的不好,我理解了。"
+- 男声参考（备用）：男生音频对话.mp3（F:\视频库\），转写："我跟你讲几个点，你一一对照就知道是不是了。第一个呢，是相同的矛盾一直反复出现，比如两个人吵架，看起来都把话说开了，实际上问题并没有真正解决，可能一方不愿意面对，也可能两个人都习惯暂时糊弄过去，过几天关系刚缓和，同样的事情又重新上演。一次两次他还愿意解释，次数多了他就会觉得，说什么都没有用，反正最后还是老样子的。第二呢，是他的情绪和需求长期没有被看见"
+- 成品版本迭代：v1 男导师版 → v2 双女(instruction分风格) → v3 学员低落情绪(cfg_scale=4) → v4 语速微调+1.1x变速版
+========================================================================

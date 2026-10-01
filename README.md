@@ -40,9 +40,21 @@ weixin-auto\
 ## 二、安装依赖
 
 ```bat
-py -m pip install playwright imageio-ffmpeg pypinyin
+py -m pip install playwright imageio-ffmpeg pypinyin pillow jieba numpy scipy
 py -m playwright install chromium
 ```
+
+> 依赖清单以代码实际 import 为准（`main.py` / `editor_server.py` / `长图模式\*.py`）：
+> `playwright`（浏览器驱动）、`imageio-ffmpeg`（转码）、`pypinyin`（拼音候选）、
+> `pillow`（图片处理）、`jieba`（分词）、`numpy` + `scipy`（长图节拍与数值计算）。
+> 缺任何一个都只会在跑到相关功能时才报错，所以一次装齐；`start_all.bat` 也会按这份清单自检补装。
+>
+> 若 `playwright install chromium` 下载过慢（官方 CDN 在国内常超时），可临时切镜像：
+>
+> ```bat
+> set PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright
+> py -m playwright install chromium
+> ```
 
 ## 三、四种使用方式
 

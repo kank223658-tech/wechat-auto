@@ -7427,6 +7427,31 @@ def parse_script_text(text: str):
             continue
         cmd, arg = m.group(1).strip(), m.group(2).strip()
         cmd = ACTION_ALIASES.get(cmd, cmd)   # 别名先归一：让常见的别名在文本剧本里也能正确识别、挂时间
+        # [她插话] 拆行式对方插话（2026-09-19）：紧跟在 [观众字幕]/[我方发消息] 行之后，
+        #   `[她插话] 好家伙；我以为要说啥` -> 合并进该步「插话」参数。
+        # 行名即角色：这是【她打字发出去的真消息】（进聊天记录），不是字幕也不是我方的话；
+        # 渲染语义与旧行内 `| 第3段` 写法 100% 等价，只是一行只写一个角色，模型不再写错主体。
+        # 可连续写多行（每行一条或「；」分隔多条）；前一行不是可挂靠动作时警告跳过（防静默丢消息）。
+        if cmd == "她插话":
+            _ij_arg = arg.strip()
+            if not _ij_arg:
+                continue
+            _host = steps[-1] if steps else None
+            _host_act = _host.get("action") if isinstance(_host, dict) else None
+            if _host_act in ("打字不发", "我方打字"):
+                _ij_parts = [x.strip() for x in _ij_arg.split("；") if x.strip()]
+                _host_params = _host.get("params") or {}
+                _prev_ij = _host_params.get("插话")
+                if _prev_ij:
+                    _prev_parts = [x.strip() for x in str(_prev_ij).split("；") if x.strip()]
+                    _host_params["插话"] = _merge_interjection_parts(_prev_parts + _ij_parts)
+                else:
+                    _host_params["插话"] = _merge_interjection_parts(_ij_parts)
+                _host["params"] = _host_params
+            else:
+                print(f"[剧本警告] 第 {lineno} 行 [她插话] 前一个动作不是 [观众字幕]/[我方发消息]，"
+                      f"无法挂靠（她的这条消息会被丢弃），已跳过：{_ij_arg[:30]}")
+            continue
         param_name = TEXT_COMMAND_MAP.get(cmd)
         if param_name is None and cmd not in TEXT_COMMAND_MAP:
             print(f"[剧本警告] 第 {lineno} 行未知指令 [{cmd}]，已跳过")

@@ -1,55 +1,48 @@
-# F:\weixin-auto 长期备忘（工作版；版本史/长版全文见 MEMORY_full_archive.md 与每日日志）
+# F:\weixin-auto 长期备忘（精简工作版）
+> 版本史/长版全文见 `MEMORY_full_archive.md`（含 2026-09-21 精简前完整快照）；逐日细节见 `YYYY-MM-DD.md` 日志。
 
-## 排障铁律
-- Edit 会静默丢编辑：改完必 grep 确认落盘。探针绝不改页面状态。
-- editor_server.py 改完须重启；前端 html/js 每请求读盘（让用户 Ctrl+Shift+R）。
-- Windows isabs('/x/y')=True：web 路径先判 web；改解析/动作必跑机械门。
-- ★项目装 U 盘、盘符随电脑变：落盘禁存绝对路径（longimg_api._rel/_abs）；脚本用 %~dp0 或 __file__。
-- ★机械门必须用系统 Python312（托管 3.13 缺 playwright → 解析器加载失败 → steps 全空 → 全篇误报、步数显示 1）。阈值从 G.rule_numbers() 实读。真管线=main.py --workflow。
+## 一、写稿三路线（用户定调）
+- **参考改编（默认）**：不从零写。拿主题最近的参考稿做底稿，保留骨架与 ~85% 对话，只改 4~6 处（开场可歪钩子／补反将／教学点对题／字幕瘦身），成稿附《修改对照说明》。底稿池=`剧本库\*.txt`（30 篇，已统一新指令名+拆行插话）；作业书=skill「创作模式全流程」路线 C。
+- **桥段库**：真实精彩男女对话片段丢 `剧本库\_桥段库\`（体例见该目录 `片段收集体例.md`）→ 打标签入库 → 写稿按拍子检索 → **对话原句照搬**，只改人名／话题锚点／承接句。我的角色=剪辑师不是编剧。
+- **创作模式 v2**：Beat Sheet→骨架→逐块填充（戏层 AI 写对话→壳层代码卡位→字层 AI 只填字幕）→机械门→终审；戏层只吃 `content_only_rules()` 过滤后的规则库。
 
-## 出片入口
-- ★★创作模式 v2（0917 staged 上线；**0918 三层分工实装**）：Beat Sheet→骨架→**逐块填充=戏层 AI 写对话 → 壳层代码卡位 → 字层 AI 只填字幕**→机械门→终审；任一层失败回退一锅端。戏层必须拿到**过滤后的**规则库（`content_only_rules()`，整块灌会让推理模型卡 10 分钟）。create.db=SQLite 数据层；完整作业书=项目 skill「创作模式全流程」（.workbuddy\skills\）；软件/AI 手写/二修三条路都过同一套门禁。全程引擎 0918 起有机械**提示**项（门禁 3.9c：中后段退化检测）。
-- 3 入口：工作流/脚本/并发(concurrent.html)。片头三选一；改片头用 POST /api/tasks/<id> {options:{intro_path}}，别手改 tasks.json。
-- ★并行批量灌入/清空：`_probe_tmp/_conc_import_batch.py`（--dir / --clear 先备份 / --speed --intro --wallpaper / --dry-run）。链路=POST /api/tasks → /parse {offline:true}（与 doImport 同源）。清空不必停服务（接口数==文件数时逐条 DELETE）。
+## 二、剧本硬规则（权威=`创作模式_打字不发博弈字幕规范.md`；索引=`剧本库\剧本创作规则总览.md`）
+- **指令名**（新名优先，旧名永久兼容）：[我方打字]→**[我方发消息]**｜[打字不发]→**[观众字幕]**｜[删除文字]→**[清空输入框]**｜[发送X]→**[我方发X]**｜[对方X]→**[对方发X]**。归一=ACTION_ALIASES（main.py/script_translator.py）；展示映射=script_generator `_ACTION_DISPLAY_RENAME`；**参考稿全文进提示词前经 `_norm_ref_text` 归一新名（勿删）**。
+- **拆行插话**：`[观众字幕] 字幕 | 0.5` 的**下一行**写 `[她插话] 她的真消息`（只能紧跟 [观众字幕]/[我方发消息] 行，写别处=丢消息+门禁 fail）。
+- **字幕性质**：回指讲解「刚发出去的那句」（金样 52%），不是预告旁白。四类用法：打法型 ~6 成／战况解读 ~2-3 成／情绪失守 ~5%（调料）／引流下课 10%。字幕 2~10 字，硬上限 14。
+- **开局引擎**：话题诱惑性优先——她抛语义双关（宾语空着）→≥3 拍递进→我方只追问不点破→落点极日常；禁「别想歪 是XX」式解释；合规=零露骨词/零身体描写。
+- **全程引擎**：中后段不许退化成纯关心；维持她试探→我方反将、模糊叙述吊、推拉、终局反转。
+- **机械门硬指标**：步数≤200、实时对白≥110、打字不发≥15、插话≥5、会话≥9、表情≥6 种且同名≤2、**交替率≤0.75**、**[等待]占比≤60%**、主页会话≤10；CTA=「想要聊天秘籍的兄弟 点赞关注扣6我安排」。
+- 其他硬点：≥6 条历史的会话才配 [打开聊天]；需上传实时图≤5；`[清空输入框] -1` 后对方不能立刻回应；点图四连必真点图；**台词提朋友圈必须真打开朋友圈**；画面外动作（换头像/改备注/设背景）禁令；多参数必须用 `|`；短名错一字=整图空白。
+- 质检：`python _check_script_quality.py <文件…>`（可批量；批量模式只在最后打一条总结论，逐文件要看 `[问题]` 行）。`[提示]` 可不改，`[问题]` 必修。
 
-## 剧本规则（权威=创作模式_打字不发博弈字幕规范.md）
-- ★★★指令改名（0918 晚上线，**新旧等价都合法，写/说一律优先新名**）：[我方打字]→**[我方发消息]**｜[打字不发]→**[观众字幕]**｜[删除文字]→**[清空输入框]**｜[发送图片/表情/emoji/语音]→**[我方发X]**｜[对方表情/emoji/语音/图片]→**[对方发X]**。机制=ACTION_ALIASES 归一（main.py/script_translator.py），内部标准名不变、旧剧本永久兼容；成稿渲染保留新名；质量门入口归一。改别名表或展示映射在 script_generator `_ACTION_DISPLAY_RENAME`。详见 .workbuddy/memory/2026-09-18.md。
-- ★★★开局引擎（0916 二次定调）：**重点是话题的诱惑性——让观众想歪，且必须合规**。①她抛**语义双关**（帮/来/陪/教我，**宾语始终空着**＝张力来源）②**≥3 拍递进**（状态→求助→条件→地点）③我方**不敢点破**只追问、零漂亮话（积极接招=油腻）④落点**极日常**（帮上班/拍照片），越平越好笑 ⑤合规＝零露骨词/零身体描写，暧昧全在观众脑内；**禁"别想歪 是XX"式解释**。`[打字不发]` 写**我方心里失守**（？？？/完了），不写技巧点评。反面＝我方点评她刚发的图（10/15 篇中招）。详见 _工作文件/_可歪引擎_暧昧牵引.md。
-- ★开场别公式化、别一上来发表情包；朋友圈四连开场用 [等待] 0.3 垫拍。
-- ★会被 [打开聊天] 打开的会话历史 ≥6 条；未打开的路人会话 1 条即可（列表页只渲染末条）；素材可跨剧本借已收尾会话。
-- ★需上传实时图 ≤5（图库解析不到才计入、短名不计、前 6 步豁免 1 张）。
-- ★画面外动作禁令：台词禁声称画面里不会发生的事（换头像/改备注/设背景/换昵称）——走真实动作步或改成纯口头成立的说法。
-- ★全程引擎（0916 三次定调）：可歪开场只是入场，**中后段不许退化成纯关心/伺候**（用户批「一直询问=无聊」）。每篇维持智斗+暧昧：她试探→我方反将、模糊叙述继续吊（上来坐坐/就我一个人）、我方反推拉（站楼下不上楼）、终局反转（从头到尾是她安排的）；落地仍极日常。
-- 停留 0.3/0.5/1.0/1.5；她说话前 [等待] 0.2。★机械门硬指标：步数≤200、实时对白≥110、打字不发≥15、插话≥5、会话≥9、表情≥6种/同名≤2、**交替率≤0.75**（需双方各 2~3 条连发段）、**[等待] 占比≤60%**（口径=我方消息后紧跟 [等待]；节奏靠连发而非每句跟 0.2）、主页会话 ≤10（写 11 个报「已截断」不通过）；插话=她的口吻≈打字不发的 1/3；CTA=「想要聊天秘籍的兄弟 点赞关注扣6我安排」。
-- 点图四连必真点图（打开对方主页→进朋友圈→[点开图片] 序号=1,1 停留=0.3→闪回聊天）。
-- ★`[删除文字] -1` 后对方**不能立刻回应**（她不能回应没发出去的字）：要反应就写进 [打字不发] 第 3 段插话，或先补一句真发出去的 [我方打字]。
-- 机械门 3.14=多参数必须 `|`；3.15=点图前必须有进朋友圈；短名错一字=整图空白。
+## 三、编辑器 / 渲染
+- 真渲染器=`main.py --editmode --headless --liveport 8001`（改 enhance 须重启）；ffmpeg 用 imageio_ffmpeg。
+- 聊天背景层画在 `.dialogue::before`（画回 `.dialogue-section` 会随键盘上移）。
+- 自动出图预览 autoRef→`/api/resolve-refs`；朋友圈预览=`editor/moments_preview.js`。
+- 3 入口：工作流／脚本／并发（concurrent.html）；片头三选一，改片头用 `POST /api/tasks/<id> {options:{intro_path}}`，别手改 tasks.json；批量灌入=`_probe_tmp/_conc_import_batch.py`。
 
-## 编辑器 / 渲染器
-- 真渲染器=main.py --editmode --headless --liveport 8001（改 enhance 须重启）；ffmpeg 用 imageio_ffmpeg。
-- ★聊天背景层画在 .dialogue::before，禁画回 .dialogue-section（固定定位会退化→背景随键盘上移）。
-- ★自动出图预览：autoRef→/api/resolve-refs；[点开图片] 生成 previewOnly 槽；防递归=_fillAutoPreviews 一帧到位+redraw 上锁（三页）。朋友圈预览=editor/moments_preview.js（boot 必须 win.__wxPeer.apply(presets[person])；注入 enhance/human_actions.js 才有点图查看器）。
+## 四、素材与归档
+- 片头壁纸 `public/images/introwall/`；聊天背景 `public/images/bg`（别混）。头像在 `/images/avatar/`，选角见 `长图模式\头像选角表.md`（男生固定「男_竹林幽经.jpg」，女生跑 `随机女头.py`）。
+- 定稿 → `剧本库\成品\<批次>_<日期>_<主题>\`（N 篇 txt + 00_总任务书.md + 配图清单.md + README.md），只复制不移动，过程材料留 `_inprogress\`。
 
-- 长图模式 v3.11 细节已移 archive（EXPORT_CSS 背景层禁用/镜头句数定标/状态栏节点）；渲染=系统 Python314。
+## 五、环境与排障铁律
+- 系统 Python **3.12.10**（`%LOCALAPPDATA%\Programs\Python\Python312\`）；托管 3.13 缺 playwright → 机械门会全篇误报，**别用**。主程序依赖 7 个：playwright／imageio-ffmpeg／pypinyin／pillow／jieba／numpy／scipy。playwright 内核需 `chromium_headless_shell-1243`（`playwright install chromium` 不会装，缺了报 Executable doesn't exist），国内走 npmmirror。
+- **跑真管线前清代理**：`Remove-Item Env:HTTP_PROXY` + `$env:NO_PROXY="localhost,127.0.0.1"`（否则永久卡在「等待前端就绪」）；加 `python -u` 才看得到输出。
+- **改完必 grep 确认落盘**（Edit 会静默丢编辑）；editor_server.py 改完重启；前端 html/js 每请求读盘，让用户 Ctrl+Shift+R。
+- **新建/改写 .bat 必须 CRLF**（否则双击闪退）；老 bat=GBK 无 chcp，新 bat=UTF-8 无 BOM + `chcp 65001`，别混。
+- 工具链：bash 工具链坏 → 全程 PowerShell；PowerShell stdout 常被吞 → 写文件再 Read；Python 中文输出需 `[Console]::OutputEncoding=UTF8` + `PYTHONIOENCODING=utf-8`。
+- Git：`git add -u` + 显式列新增路径，**禁 `git add -A/.`**；提交前跑 `_工作文件/_git_precheck.py`（查 sk-/大文件），提交脚本 `_工作文件/_git_commit_0918.py`。素材图不入库。
+- tasks.json 会被「空内存表」覆盖：动手前先停 8000 服务；恢复源 `_probe_tmp/tasks_api.json`。
+- 判 Python 可用性必须 `python --version` 实测（WindowsApps 的 python.exe 是 0 字节占位符）。
 
-## 归档 / 素材
-- 定稿 → 剧本库\成品\<批次>_<日期>_<主题>\：N 篇 txt + 00_总任务书.md + 配图清单.md + README.md；过程材料留 _inprogress\；只复制不移动（_probe_tmp/_archive_batch_0916.py）。图梗描述「削到骨架」。
-- ★video2script：`video2script\`=对标博主视频→剧本草稿管线（随 U 盘走）。新电脑=装 Python→双击 1-安装依赖.bat→视频放 input_videos\→拖上 2-视频转脚本.bat。OCR=RapidOCR；输出 draft.txt+report.md（确认代替手打）。自测=拖 v2s_smoke.mp4。首次跑真视频先 --probe 校准页面签名。坑：OpenCV 中文路径要 imencode/tofile；mp4v 禁 cap.set seek（漂移出鬼影帧）只能顺序解码。
-- 片头壁纸=public/images/introwall/（/api/intro-wallpapers）；聊天背景=public/images/bg（/api/chat-bgs）——别混。
-- 头像：内置 151 张在 /images/avatar/（约 40 张杂图别用）。选角=长图模式\头像选角表.md：男生固定「男_竹林幽经.jpg」；女生跑 随机女头.py（34 张池，避开最近 5 张）。
+## 六、U 盘其它软件（非本项目）
+- 换机一键入口 `E:\_一键装齐依赖.bat`；人读版 `E:\U盘软件环境说明.md`；作业书=skill「usb-software-env-setup」。
+- 端口：weixin-auto 编辑器 8000/8001、AudioDeDupTool 8787、qqgen 8777、DouK WebUI 5556（API 5555）、洗图工作台 8765。
+- 坑：DouK `webui_main.py` 菜单号是 **8**（不是 9）；`Volume\settings.json` 是 utf-8-sig；**禁 `pip --upgrade pip`**，一次只跑一个 pip。
 
-## Git / 环境
-- git 代理 127.0.0.1:7899；禁 git add -A；改前端 add vue-WeChat；提交前查 "sk-"。
-- PowerShell stdout 常被吞→写文件读；bash 工具链可能全坏→全程 PowerShell；★跑 py 中文输出乱码须 `[Console]::OutputEncoding=UTF8` + `$env:PYTHONIOENCODING="utf-8"`。
-- ★AI 起的 editor_server 会被回收；常驻请用户双击 启动.bat。curl localhost 必加 --noproxy '*'。
-- ★tasks.json 会被「空内存表」覆盖：动它前先停 8000 服务；恢复源=_probe_tmp/tasks_api.json。
-- ★提交铁律（2026-09-18 定）：**禁 git add -A / git add .**（未跟踪里有 6GB+ 临时产物）。正确姿势=①`git add -u` 收已跟踪改动 ②显式列路径 add 新增文件 ③`git ignore` 兜底。
-- ★复用脚本：`_工作文件/_git_commit_0918.py`（改 paths 列表即用）+ `_git_precheck.py`（staged 体积/大文件/sk- 扫描，提交前必跑）。中文路径必须走 Python subprocess，PowerShell 传参会 GBK 乱码。
-- 口径：素材图**不入库**（vue-WeChat/public/images 下 sets2 308MB、avatar、bg、link、sticker、asset、wxemoji3d、replica；longimg 与 videos/longimg 输出 168MB）。要入库需单独决策。
-- 已入库（09-18，commit 0a6facd）：长图模式/ 后端源码、video2script 源码、editor/longimg+shot.html+moments_preview.js、剧本库/、introwall 壁纸库。video2script 的 .venv/input_videos/output 已 ignore。
-
-## 剧本转录：历史会话判定铁律（2026-09-17 用户定调）
-- 每次 [打开聊天] 那一刻屏上已有的消息=历史会话：首开会话写进 [历史会话块]（我方消息用「我：」，支持 [图片]/[链接]/内嵌3Demoji 如 我：[OK]），非首开会话则写成前一块尾部的 [对方后台发消息]；带打字/到达动画的才是实时步。
-- 列表页预览+未读 badge 数是判定「后台到达」的最硬证据；打开后 0.3s/2s 双帧对比区分历史 vs 实时。
-- ★cap.set 帧号 seek 有漂移（±1s+，14 号实测三帧互相矛盾），钉时间线必须顺序解码（cap.read 循环）。
-- 聊天内点图用 [等待] 垫看图节拍；聊天外动画表情/贴纸对方后台到达用 [对方后台发消息] … | [图片] 短名 | 时间。
+## 七、剧本转录（历史会话判定）
+- `[打开聊天]` 那一刻屏上已有的消息=历史：首开会话写进 `[历史会话块]`（我方用「我：」），非首开写成前一块尾部的 `[对方后台发消息]`；带打字/到达动画的才是实时步。
+- 列表页预览+未读角标是「后台到达」的最硬证据；0.3s/2s 双帧对比区分历史 vs 实时。
+- `cap.set` 帧号 seek 有漂移，钉时间线必须顺序解码。
+- video2script：`video2script\`（视频→剧本草稿，RapidOCR；OpenCV 中文路径要 imencode/tofile；mp4v 只能顺序解码）。

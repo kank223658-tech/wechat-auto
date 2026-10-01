@@ -25,11 +25,11 @@ if errorlevel 1 (
     )
 )
 
-:: ---- 2. 安装缺失的依赖包 ----
-%PY_CMD% -c "import playwright, imageio_ffmpeg, pypinyin" >nul 2>&1
+:: ---- 2. 安装缺失的依赖包（清单与代码实际 import 保持一致）----
+%PY_CMD% -c "import playwright, imageio_ffmpeg, pypinyin, PIL, jieba, numpy, scipy" >nul 2>&1
 if errorlevel 1 (
-    echo [依赖] 正在安装 playwright / imageio-ffmpeg / pypinyin ...
-    %PY_CMD% -m pip install playwright imageio-ffmpeg pypinyin -q
+    echo [依赖] 正在安装 Python 依赖（playwright / imageio-ffmpeg / pypinyin / pillow / jieba / numpy / scipy）...
+    %PY_CMD% -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple playwright imageio-ffmpeg pypinyin pillow jieba numpy scipy -q
 )
 
 :: ---- 3. 确保 Chromium 内核已下载（已装则跳过，不再每次都检查安装）----
