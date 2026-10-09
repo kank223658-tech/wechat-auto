@@ -2258,7 +2258,9 @@ def _default_task():
         "script": "",
         "steps": [],
         "warnings": [],
-        "source": "",
+        "source": "",                 # 解析方式：llm / offline（步骤是怎么来的）
+        "origin": "",                 # 剧本来源：用户导入 / AI生成（内容是谁写的，与 source 无关）
+        "origin_note": "",            # 来源出处补充（如「对标改编（母稿1324）」）
         "options": {"typing_speed": 30.0, "intro": False, "intro_path": "",
                     "bgm": True, "bgm_path": ""},
         "images": {},                 # 配图槽位 key -> 图片路径（脚本解析时由前端生成 img0/img1...）
@@ -2269,6 +2271,117 @@ def _default_task():
         "updated": now,
         "log_offset": 0,
     }
+
+
+# 剧本首行的来源标记：与 _tag_script_source.py 的标记格式保持一致
+_ORIGIN_TAG_RE = re.compile(
+    r"^\s*#\s*来源\s*[：:]\s*(用户导入|AI生成)\s*(?:[·・]\s*出处\s*[：:]\s*(.+?))?\s*$")
+
+
+def _detect_script_origin(script):
+    """从剧本开头的「# 来源：…」标记里读来源，返回 (来源, 出处)；读不到返回 ("", "")。"""
+    for ln in (script or "").split("\n")[:3]:
+        m = _ORIGIN_TAG_RE.match(ln)
+        if m:
+            return m.group(1), (m.group(2) or "").strip()
+    return "", ""
+
+
+def _norm_origin(value):
+    """把前端传来的来源值收敛到「用户导入 / AI生成 / 空」。"""
+    v = str(value or "").strip()
+    if v in ("用户导入", "user", "manual", "import"):
+        return "用户导入"
+    if v in ("AI生成", "ai", "generated"):
+        return "AI生成"
+    return ""
+
+
+# ---------------- 剧本库浏览（脚本模式「📚 剧本库」用） ----------------
+# 允许浏览/读取的根目录（相对 ROOT）；读文件时做白名单校验，防路径穿越
+SCRIPTLIB_ROOTS = ("剧本库", "剧本")
+SCRIPTLIB_SKIP_PARTS = ("_bak", "_归档", "_backup", "__pycache__")
+_SCRIPTLIB_TAG_RE = re.compile(
+    r"^\s*#\s*来源\s*[：:]\s*(用户导入|AI生成)\s*(?:[·・]\s*出处\s*[：:]\s*(.+?))?\s*$")
+
+
+def _scriptlib_roots():
+    out = []
+    for d in SCRIPTLIB_ROOTS:
+        p = os.path.normpath(os.path.join(ROOT, d))
+        if os.path.isdir(p):
+            out.append(p)
+    return out
+
+
+def _scriptlib_safe_path(rel):
+    """前端传来的相对路径 → 绝对路径；必须落在剧本库白名单目录内且真实存在。"""
+    rel = str(rel or "").replace("\\", "/").lstrip("/")
+    if not rel:
+        return None
+    full = os.path.normpath(os.path.join(ROOT, rel))
+    for r in _scriptlib_roots():
+        if full == r or full.startswith(r + os.sep):
+            if os.path.isfile(full):
+                return full
+    return None
+
+
+def _scriptlib_entry(path):
+    """一个 .txt → 列表条目（顺手读出首行来源标记，与 _tag_script_source.py 同一套格式）。"""
+    rel = os.path.relpath(path, ROOT).replace("\\", "/")
+    source, note = "", ""
+    try:
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as fh:
+            for _ in range(3):
+                ln = fh.readline()
+                if not ln:
+                    break
+                m = _SCRIPTLIB_TAG_RE.match(ln)
+                if m:
+                    source, note = m.group(1), (m.group(2) or "").strip()
+                    break
+    except OSError:
+        pass
+    try:
+        kb = round(os.path.getsize(path) / 1024, 1)
+    except OSError:
+        kb = 0
+    return {"name": os.path.splitext(os.path.basename(path))[0],
+            "rel": rel, "source": source, "note": note, "kb": kb}
+
+
+def _scriptlib_list():
+    """按「底稿池 / 成品批次 / 中间稿 / 对标转录」分组的剧本清单。"""
+    groups = [
+        {"key": "pool",  "label": "底稿池 · 剧本库根目录", "files": []},
+        {"key": "final", "label": "成品批次",              "files": []},
+        {"key": "wip",   "label": "中间稿 · _inprogress",  "files": []},
+        {"key": "trans", "label": "对标转录 · 剧本/",      "files": []},
+    ]
+    by_key = {g["key"]: g for g in groups}
+    for root in _scriptlib_roots():
+        is_trans = os.path.basename(root) == "剧本"
+        for dp, dn, fns in os.walk(root):
+            dn[:] = [d for d in dn if not any(p in d for p in SCRIPTLIB_SKIP_PARTS)]
+            if any(p in dp for p in SCRIPTLIB_SKIP_PARTS):
+                continue
+            for fn in fns:
+                if not fn.lower().endswith(".txt"):
+                    continue
+                e = _scriptlib_entry(os.path.join(dp, fn))
+                if is_trans:
+                    by_key["trans"]["files"].append(e)
+                elif "/_inprogress/" in "/" + e["rel"]:
+                    by_key["wip"]["files"].append(e)
+                elif "/成品/" in "/" + e["rel"]:
+                    by_key["final"]["files"].append(e)
+                else:
+                    by_key["pool"]["files"].append(e)
+    for g in groups:
+        g["files"].sort(key=lambda e: e["name"])
+        g["n"] = len(g["files"])
+    return [g for g in groups if g["n"]]
 
 
 def _new_task_id():
@@ -2990,13 +3103,38 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/tasks/status":
             with _task_lock:
                 body = _batch_status_locked()
-                body["tasks"] = [{k: t.get(k) for k in ("id", "name", "status", "video", "error", "source")}
+                body["tasks"] = [{k: t.get(k) for k in ("id", "name", "status", "video", "error",
+                                                        "source", "origin", "origin_note")}
                                  for t in _tasks.values()]
             return _json_reply(self, 200, body)
         if self.path == "/api/batch/config":
             conf = _read_batch_conf()
             return _json_reply(self, 200, {"max_concurrent": BATCH_MAX_CONCURRENT,
                                            **conf})
+        # 剧本库浏览：清单（脚本模式「📚 剧本库」用）
+        if self.path.split("?", 1)[0] == "/api/scriptlib":
+            return _json_reply(self, 200, {"ok": True, "groups": _scriptlib_list()})
+        # 剧本库浏览：读单篇正文
+        if self.path.split("?", 1)[0] == "/api/scriptlib/file":
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            rel = (q.get("rel") or [""])[0]
+            p = _scriptlib_safe_path(rel)
+            if not p:
+                return _json_reply(self, 404, {"ok": False, "msg": "剧本不存在，或不在剧本库目录里"})
+            try:
+                with open(p, "r", encoding="utf-8-sig", errors="replace") as fh:
+                    text = fh.read()
+            except OSError as e:
+                return _json_reply(self, 500, {"ok": False, "msg": "读取失败：%s" % e})
+            first = text.split("\n", 1)[0] if text else ""
+            m = _SCRIPTLIB_TAG_RE.match(first)
+            return _json_reply(self, 200, {
+                "ok": True, "rel": rel,
+                "name": os.path.splitext(os.path.basename(p))[0],
+                "text": text,
+                "source": m.group(1) if m else "",
+                "note": (m.group(2) or "").strip() if m else "",
+            })
         # 任务日志：/api/tasks/<id>/log?offset=N
         _m = re.match(r"^/api/tasks/([A-Za-z0-9_\-]+)/log$", self.path.split("?", 1)[0])
         if _m:
@@ -3763,6 +3901,14 @@ class Handler(SimpleHTTPRequestHandler):
             task["id"] = _new_task_id()
             task["name"] = str(payload.get("name") or "").strip() or "未命名任务"
             task["script"] = str(payload.get("script") or "")
+            # 剧本来源：显式传了就用传的，没传则从剧本首行「# 来源：」标记自动识别
+            _org = _norm_origin(payload.get("origin"))
+            _note = str(payload.get("origin_note") or "").strip()
+            if not _org:
+                _org, _dnote = _detect_script_origin(task["script"])
+                _note = _note or _dnote
+            task["origin"] = _org
+            task["origin_note"] = _note
             if isinstance(payload.get("steps"), list):
                 task["steps"] = payload["steps"]
             if isinstance(payload.get("options"), dict):
@@ -3854,6 +4000,14 @@ class Handler(SimpleHTTPRequestHandler):
                     t["name"] = str(payload["name"] or "").strip() or "未命名任务"
                 if "script" in payload:
                     t["script"] = str(payload["script"] or "")
+                if "origin" in payload:
+                    t["origin"] = _norm_origin(payload["origin"])
+                    t["origin_note"] = str(payload.get("origin_note") or "").strip()
+                elif "script" in payload and not t.get("origin"):
+                    # 剧本刚粘贴进来且还没定过来源 → 读首行标记补上
+                    _org, _note = _detect_script_origin(t["script"])
+                    if _org:
+                        t["origin"], t["origin_note"] = _org, _note
                 if isinstance(payload.get("options"), dict):
                     t["options"].update(payload["options"])
                 if "steps" in payload:

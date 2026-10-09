@@ -1028,6 +1028,69 @@ button {
   box-shadow: 0 1px 5px rgba(17, 24, 39, 0.14);
 }
 
+/* ---- 剧本库浏览弹窗（脚本模式「📚 剧本库」） ---- */
+.scriptlib-shell {
+  width: min(1140px, 100%);
+  height: min(860px, 100%);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.scriptlib-top { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.scriptlib-top h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink-0); }
+.scriptlib-search { flex: 0 1 300px; min-width: 140px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); color: var(--text); font: inherit; font-size: 13px; }
+.scriptlib-search:focus { outline: none; border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-soft); }
+.scriptlib-count { font-size: 12px; color: var(--muted-2); white-space: nowrap; }
+/* 来源筛选条：全部 / 👤 用户导入 / 🤖 AI生成 */
+.scriptlib-filters { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+.scriptlib-filters .lbl { font-size: 12px; color: var(--muted-2); }
+.srcseg { display: inline-flex; gap: 2px; padding: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+.srcseg button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border: 0; border-radius: 8px; background: none; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.srcseg button:hover { color: var(--text); }
+.srcseg button.on { background: var(--panel); color: var(--ink-0); font-weight: 600; box-shadow: var(--shadow-soft); }
+.srcseg button.on[data-src="用户导入"] { color: #4756d8; }
+.srcseg button.on[data-src="AI生成"] { color: #7c4ddb; }
+.srcseg .n { font-size: 11px; font-weight: 500; color: var(--muted-2); }
+.scriptlib-legend { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted-2); }
+.scriptlib-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.scriptlib-legend i.u { background: #4756d8; }
+.scriptlib-legend i.a { background: #8b5cf6; }
+.scriptlib-body { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); min-height: 0; }
+.scriptlib-list { overflow-y: auto; border-right: 1px solid var(--line); padding: 8px 10px 16px; background: var(--panel-2); }
+.scriptlib-group { display: flex; align-items: center; gap: 8px; margin: 12px 4px 6px; font-size: 11px; font-weight: 700; letter-spacing: .4px; color: var(--muted-2); }
+.scriptlib-group:first-child { margin-top: 4px; }
+.scriptlib-group::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.scriptlib-group .gn { color: var(--muted-2); font-weight: 500; }
+.scriptlib-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 10px; margin: 1px 0; border: 1px solid transparent; border-left-width: 3px; border-radius: 10px; background: none; cursor: pointer; font: inherit; font-size: 13px; color: var(--text); }
+.scriptlib-item:hover { background: var(--panel); border-color: var(--line); }
+.scriptlib-item.sel { background: var(--accent-soft); border-color: var(--accent-border); }
+/* 按来源区分底色与左侧色条：用户导入=蓝，AI生成=紫，未标注=灰虚 */
+.scriptlib-item.src-user { border-left-color: #4756d8; background: rgba(71, 86, 216, .06); }
+.scriptlib-item.src-ai { border-left-color: #8b5cf6; background: rgba(139, 92, 246, .06); }
+.scriptlib-item.src-none { border-left-color: var(--line-strong); }
+.scriptlib-item.src-user:hover { background: rgba(71, 86, 216, .12); }
+.scriptlib-item.src-ai:hover { background: rgba(139, 92, 246, .12); }
+.scriptlib-item.sel.src-user { border-left-color: #4756d8; }
+.scriptlib-item.sel.src-ai { border-left-color: #8b5cf6; }
+.scriptlib-item.sel.src-none { border-left-color: var(--line-strong); }
+.scriptlib-item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scriptlib-item .kb { flex: 0 0 auto; font-size: 11px; color: var(--muted-2); }
+.src-tag { flex: 0 0 auto; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid transparent; }
+.src-tag.src-user { color: #4756d8; border-color: rgba(71, 86, 216, .30); background: rgba(71, 86, 216, .10); }
+.src-tag.src-ai { color: #7c4ddb; border-color: rgba(139, 92, 246, .30); background: rgba(139, 92, 246, .10); }
+.scriptlib-preview { display: flex; flex-direction: column; min-height: 0; }
+.scriptlib-preview-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.scriptlib-preview-head .ttl { font-weight: 600; font-size: 14px; color: var(--ink-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scriptlib-note { font-size: 12px; color: var(--muted-2); white-space: nowrap; }
+.scriptlib-pre { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 14px 16px; font-family: Consolas, "Courier New", monospace; font-size: 12.5px; line-height: 1.75; color: var(--text); white-space: pre-wrap; word-break: break-word; background: var(--field); }
+.scriptlib-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+.scriptlib-empty { padding: 26px 16px; text-align: center; color: var(--muted-2); font-size: 13px; }
+.scriptlib-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+
 /* ---- 脚本模式 ---- */
 .script-mode {
   min-height: 0;
@@ -2601,6 +2664,7 @@ button {
                 <button type="button" class="btn" id="btnInsertImg" data-tip="在剧本里插入一条图片消息：转译后会成为一个待配图的卡槽，运行时可点「上传图片」按顺序配图">🖼 插入图片消息</button>
                 <button type="button" class="btn" id="btnInsertHistory" data-tip="在剧本里插入一段「历史会话块」：写会话名+人名+对白，转译后自动变成一条 [编辑主页]，进聊天前消息已存在">📜 插入历史会话</button>
                 <span class="spacer"></span>
+                <button type="button" class="btn" id="btnScriptLib" data-tip="浏览 剧本库/成品/中间稿 里已有的剧本，看正文后一键载入到输入框">📚 剧本库</button>
                 <button type="button" class="btn small ghost" id="btnLoadExample" data-tip="载入一份示例剧本，快速了解书写格式">载入示例</button>
                 <button type="button" class="btn small ghost" id="btnClearScript" data-tip="清空剧本输入框（不可恢复）">清空</button>
               </div>
@@ -2645,6 +2709,48 @@ button {
         </div>
       </div>
     </section>
+
+    <!-- ============ 剧本库浏览：从剧本库直接挑一篇看正文 / 载入 ============ -->
+    <div class="manual-overlay" id="scriptlibOverlay" hidden>
+      <div class="scriptlib-shell" role="dialog" aria-modal="true" aria-label="剧本库">
+        <div class="scriptlib-top">
+          <h3>📚 剧本库</h3>
+          <span class="script-sub">点一篇看正文，看中了就载入到输入框</span>
+          <span class="spacer"></span>
+          <input id="scriptlibSearch" class="scriptlib-search" type="search" placeholder="搜选题名 / 出处…">
+          <span class="scriptlib-count" id="scriptlibCount"></span>
+          <button type="button" class="btn small ghost" id="scriptlibRefresh" data-tip="重新扫描剧本库目录（刚在文件夹里加了新稿就点这个）">↻</button>
+          <button type="button" class="btn small ghost" id="scriptlibClose">关闭</button>
+        </div>
+        <div class="scriptlib-filters">
+          <span class="lbl">来源</span>
+          <div class="srcseg" id="scriptlibSrcSeg">
+            <button type="button" data-src="" class="on">全部 <span class="n" id="scriptlibNall">0</span></button>
+            <button type="button" data-src="用户导入">👤 用户导入 <span class="n" id="scriptlibNuser">0</span></button>
+            <button type="button" data-src="AI生成">🤖 AI生成 <span class="n" id="scriptlibNai">0</span></button>
+          </div>
+          <span class="scriptlib-legend"><i class="u"></i>用户导入<i class="a"></i>AI生成</span>
+        </div>
+        <div class="scriptlib-body">
+          <div class="scriptlib-list" id="scriptlibList"><div class="scriptlib-empty">正在读取剧本库…</div></div>
+          <div class="scriptlib-preview">
+            <div class="scriptlib-preview-head">
+              <span class="ttl" id="scriptlibTitle">未选择</span>
+              <span id="scriptlibSrc"></span>
+              <span class="spacer"></span>
+              <span class="scriptlib-note" id="scriptlibMeta"></span>
+            </div>
+            <pre class="scriptlib-pre" id="scriptlibPre">在左边点一篇剧本，这里会显示正文。</pre>
+          </div>
+        </div>
+        <div class="scriptlib-foot">
+          <span class="script-sub">载入会替换输入框里的现有内容。</span>
+          <span class="spacer"></span>
+          <label class="scriptlib-check"><input type="checkbox" id="scriptlibAutoParse" checked> 载入后自动离线解析</label>
+          <button type="button" class="btn primary" id="scriptlibLoad" disabled>📥 载入到输入框</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ============ 创作生成：主题 + 参考剧本 → AI 生成完整剧本 → 校验报告 → 用于脚本模式 ============ -->
     <section class="script-mode" id="generateMode" hidden>
@@ -6763,6 +6869,151 @@ button {
     $("btnLlmConfig").onclick = openLlmModal;
     $("btnSaveLlm").onclick = saveLlmConfig;
     $("btnCancelLlm").onclick = closeLlmModal;
+
+    /* ================= 剧本库浏览（脚本模式「📚 剧本库」） ================= */
+    let scriptlibEntries = [];     // 全部条目（拍平，带分组名）
+    let scriptlibSelRel = "";
+    let scriptlibSelText = "";
+    let scriptlibSelName = "";
+    let scriptlibSrc = "";         // 来源筛选："" = 全部 / "用户导入" / "AI生成"
+
+    function scriptlibSrcTag(source) {
+      if (!source) return "";
+      const cls = source === "用户导入" ? "src-user" : "src-ai";
+      const icon = source === "用户导入" ? "👤" : "🤖";
+      return '<span class="src-tag ' + cls + '">' + icon + " " + esc(source) + "</span>";
+    }
+
+    function scriptlibSrcCls(source) {
+      return source === "用户导入" ? "src-user" : (source === "AI生成" ? "src-ai" : "src-none");
+    }
+
+    function scriptlibUpdateCounts() {
+      const nUser = scriptlibEntries.filter((f) => f.source === "用户导入").length;
+      const nAi = scriptlibEntries.filter((f) => f.source === "AI生成").length;
+      $("scriptlibNall").textContent = scriptlibEntries.length;
+      $("scriptlibNuser").textContent = nUser;
+      $("scriptlibNai").textContent = nAi;
+    }
+
+    function scriptlibOpen() {
+      $("scriptlibOverlay").hidden = false;
+      if (!scriptlibEntries.length) scriptlibReload();
+      else { scriptlibUpdateCounts(); scriptlibRenderList(); }
+      setTimeout(() => { try { $("scriptlibSearch").focus(); } catch (e) {} }, 0);
+    }
+
+    function scriptlibClose() { $("scriptlibOverlay").hidden = true; }
+
+    async function scriptlibReload() {
+      $("scriptlibList").innerHTML = '<div class="scriptlib-empty">正在读取剧本库…</div>';
+      try {
+        const res = await fetch("/api/scriptlib").then((r) => r.json());
+        scriptlibEntries = [];
+        (res.groups || []).forEach((g) =>
+          (g.files || []).forEach((f) => scriptlibEntries.push(Object.assign({ group: g.label }, f))));
+      } catch (e) {
+        $("scriptlibList").innerHTML = '<div class="scriptlib-empty">读取失败：' + esc(e.message) + "</div>";
+        return;
+      }
+      scriptlibUpdateCounts();
+      scriptlibRenderList();
+    }
+
+    function scriptlibRenderList() {
+      const q = ($("scriptlibSearch").value || "").trim().toLowerCase();
+      const hit = scriptlibEntries.filter((f) => {
+        if (scriptlibSrc && f.source !== scriptlibSrc) return false;
+        if (!q) return true;
+        return (f.name + " " + (f.note || "") + " " + (f.source || "") + " " + f.group).toLowerCase().includes(q);
+      });
+      $("scriptlibCount").textContent = hit.length + " / " + scriptlibEntries.length + " 篇"
+        + (scriptlibSrc ? " · " + scriptlibSrc : "");
+      if (!hit.length) {
+        $("scriptlibList").innerHTML = '<div class="scriptlib-empty">'
+          + (scriptlibSrc ? "这个来源下没有匹配的剧本。" : "没有匹配的剧本，换个词试试。") + "</div>";
+        return;
+      }
+      let html = "";
+      let lastGroup = null;
+      let groupN = 0;
+      hit.forEach((f) => {
+        if (f.group !== lastGroup) {
+          lastGroup = f.group;
+          groupN = hit.filter((x) => x.group === f.group).length;
+          html += '<div class="scriptlib-group">' + esc(f.group) + ' <span class="gn">' + groupN + "</span></div>";
+        }
+        html += '<button type="button" class="scriptlib-item ' + scriptlibSrcCls(f.source)
+          + (f.rel === scriptlibSelRel ? " sel" : "")
+          + '" data-rel="' + esc(f.rel) + '"><span class="nm">' + esc(f.name) + "</span>"
+          + scriptlibSrcTag(f.source) + '<span class="kb">' + f.kb + "K</span></button>";
+      });
+      const list = $("scriptlibList");
+      list.innerHTML = html;
+      list.querySelectorAll(".scriptlib-item").forEach((btn) => {
+        btn.onclick = () => scriptlibPick(btn.getAttribute("data-rel"), btn);
+      });
+    }
+
+    async function scriptlibPick(rel, btn) {
+      scriptlibSelRel = rel;
+      $("scriptlibList").querySelectorAll(".scriptlib-item").forEach((b) => b.classList.toggle("sel", b === btn));
+      $("scriptlibTitle").textContent = "读取中…";
+      $("scriptlibSrc").innerHTML = "";
+      $("scriptlibMeta").textContent = "";
+      $("scriptlibPre").textContent = "读取中…";
+      $("scriptlibLoad").disabled = true;
+      try {
+        const res = await fetch("/api/scriptlib/file?rel=" + encodeURIComponent(rel)).then((r) => r.json());
+        if (!res.ok) throw new Error(res.msg || "读取失败");
+        scriptlibSelText = res.text || "";
+        scriptlibSelName = res.name || rel;
+        $("scriptlibTitle").textContent = scriptlibSelName;
+        $("scriptlibSrc").innerHTML = scriptlibSrcTag(res.source);
+        $("scriptlibMeta").textContent = (res.note ? res.note + " · " : "")
+          + scriptlibSelText.split("\n").length + " 行";
+        $("scriptlibPre").textContent = scriptlibSelText;
+        $("scriptlibLoad").disabled = false;
+      } catch (e) {
+        scriptlibSelText = "";
+        scriptlibSelName = "";
+        $("scriptlibTitle").textContent = "读取失败";
+        $("scriptlibPre").textContent = "读取失败：" + e.message;
+      }
+    }
+
+    function scriptlibDoLoad() {
+      if (!scriptlibSelRel || !scriptlibSelText) return;
+      $("scriptInput").value = scriptlibSelText;
+      saveScriptDraft();
+      scriptlibClose();
+      log("已载入剧本《" + scriptlibSelName + "》"
+        + ($("scriptlibAutoParse").checked ? "，正在离线解析…" : "，可编辑后转译。"), "ok");
+      if ($("scriptlibAutoParse").checked) $("btnOffline").click();
+    }
+
+    $("btnScriptLib").onclick = scriptlibOpen;
+    $("scriptlibClose").onclick = scriptlibClose;
+    $("scriptlibRefresh").onclick = scriptlibReload;
+    $("scriptlibLoad").onclick = scriptlibDoLoad;
+    $("scriptlibSearch").oninput = () => scriptlibRenderList();
+    // 来源筛选：全部 / 👤 用户导入 / 🤖 AI生成
+    $("scriptlibSrcSeg").querySelectorAll("button").forEach((b) => {
+      b.onclick = () => {
+        scriptlibSrc = b.getAttribute("data-src") || "";
+        $("scriptlibSrcSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        scriptlibRenderList();
+      };
+    });
+    $("scriptlibSearch").onkeydown = (e) => {
+      // 输入框里按回车 = 载入当前选中的那篇
+      if (e.key === "Enter") { e.preventDefault(); scriptlibDoLoad(); }
+      if (e.key === "Escape") scriptlibClose();
+    };
+    $("scriptlibOverlay").addEventListener("click", (e) => {
+      if (e.target === $("scriptlibOverlay")) scriptlibClose();
+    });
+
     $("btnTranslate").onclick = () => doTranslate(false);
     $("btnOffline").onclick = () => doTranslate(true);
     $("btnRunScript").onclick = requestRunScript;

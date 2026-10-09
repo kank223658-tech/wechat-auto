@@ -25,6 +25,8 @@
 ## 四、素材与归档
 - 片头壁纸 `public/images/introwall/`；聊天背景 `public/images/bg`（别混）。头像在 `/images/avatar/`，选角见 `长图模式\头像选角表.md`（男生固定「男_竹林幽经.jpg」，女生跑 `随机女头.py`）。
 - 定稿 → `剧本库\成品\<批次>_<日期>_<主题>\`（N 篇 txt + 00_总任务书.md + 配图清单.md + README.md），只复制不移动，过程材料留 `_inprogress\`。
+- **来源标记（用户导入 / AI生成）**：每篇剧本首行 `# 来源：… · 出处：…`（`#` 行解析器整行跳过，加了不影响跑片）。工具 `_tag_script_source.py`（系统 Py312）：`--scan`／`--apply`／`--strip`（回滚）／`--report`（出 `剧本库\_来源台账.md`+`.json`）／`--set 路径 值 [出处]`（写 `_来源覆盖.json`，最高优先）。**改判定逻辑后必须复跑 `--scan` 确认与加标记前逐行一致**——标记会稀释 6-gram 并挤掉首行 `# 选题：`，判定一律走 `read_body()`（先 strip_tag）。台账基线：135 篇＝用户导入 9（手搓 7 篇 + 2 份参考件副本）｜AI生成 126。
+- **编辑器来源字段叫 `origin`/`origin_note`，别和既有的 `source` 混**（`source` 是解析方式 llm/offline）。导入弹窗有「剧本来源」下拉（自动识别/用户导入/AI生成），任务卡有 👤/🤖 chip，标题栏计 `· 👤n 🤖n`。
 
 ## 五、环境与排障铁律
 - 系统 Python **3.12.10**（`%LOCALAPPDATA%\Programs\Python\Python312\`）；托管 3.13 缺 playwright → 机械门会全篇误报，**别用**。主程序依赖 7 个：playwright／imageio-ffmpeg／pypinyin／pillow／jieba／numpy／scipy。playwright 内核需 `chromium_headless_shell-1243`（`playwright install chromium` 不会装，缺了报 Executable doesn't exist），国内走 npmmirror。

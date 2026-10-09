@@ -99,6 +99,18 @@
   .left-head b { font-size: 13px; color: var(--ink-0); font-weight: 600; letter-spacing: 1px; }
   .left-head .count { font-size: 12px; color: var(--muted-2); }
   .left-head .spacer { flex: 1; }
+  /* 任务队列的来源筛选条：用户导入 / AI生成 */
+  .left-filter { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); flex-wrap: wrap; }
+  .left-filter .lf-lbl { font-size: 11px; color: var(--muted-2); }
+  .left-filter button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--muted); cursor: pointer; font: inherit; font-size: 11px; white-space: nowrap; }
+  .left-filter button:hover { color: var(--text); border-color: var(--line-strong); }
+  .left-filter button.on { font-weight: 700; }
+  .left-filter button.on[data-src=""] { background: var(--panel-3); color: var(--ink-0); border-color: var(--line-strong); }
+  .left-filter button.on[data-src="用户导入"] { background: rgba(71, 86, 216, .12); color: #4756d8; border-color: rgba(71, 86, 216, .38); }
+  .left-filter button.on[data-src="AI生成"] { background: rgba(139, 92, 246, .12); color: #7c4ddb; border-color: rgba(139, 92, 246, .38); }
+  .left-filter button.on[data-src="__none"] { background: var(--panel-3); color: var(--muted); border-color: var(--line-strong); border-style: dashed; }
+  .left-filter .n { font-size: 10px; opacity: .8; }
+  .left-filter .lf-tip { margin-left: auto; font-size: 10px; color: var(--muted-2); }
 
   .task-scroll { flex: 1; overflow: auto; padding: 10px 12px; }
   .task-card {
@@ -128,6 +140,14 @@
   .tc-meta .chip.warn { border-color: rgba(202, 138, 20, 0.35); color: #b9791e; }
   .tc-meta .chip.ok { border-color: var(--accent-border); color: #0a8a4f; }
   .tc-meta .chip.err { border-color: rgba(213, 73, 65, 0.35); color: #c73e35; }
+  /* 剧本来源：用户导入 / AI生成（与「解析方式」chip 区分开） */
+  .tc-meta .chip.src-user { background: rgba(71, 86, 216, 0.10); border-color: rgba(71, 86, 216, 0.30); color: #4756d8; font-weight: 600; }
+  .tc-meta .chip.src-ai { background: rgba(139, 92, 246, 0.10); border-color: rgba(139, 92, 246, 0.30); color: #7c4ddb; font-weight: 600; }
+  .tc-meta .chip.src-unknown { border-style: dashed; }
+  .src-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .src-pill.src-user { background: rgba(71, 86, 216, 0.10); border: 1px solid rgba(71, 86, 216, 0.30); color: #4756d8; }
+  .src-pill.src-ai { background: rgba(139, 92, 246, 0.10); border: 1px solid rgba(139, 92, 246, 0.30); color: #7c4ddb; }
+  .src-pill.src-unknown { background: var(--panel-3); border: 1px dashed var(--line-strong); color: var(--muted); font-weight: 500; }
   .tc-actions { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
   .tc-actions button { padding: 4px 10px; font-size: 12px; }
   .tc-actions .run {
@@ -369,6 +389,13 @@
         <button id="btnRunSelected" data-tip="只跑勾选的任务">▶ 跑选中</button>
         <button id="btnSelectAll" data-tip="勾选全部任务">全选</button>
       </div>
+      <div class="left-filter" id="taskSrcSeg" data-tip="按剧本来源筛选任务：用户导入＝你自己写的/外部拿来的；AI生成＝软件或 AI 产的">
+        <span class="lf-lbl">来源</span>
+        <button type="button" data-src="" class="on">全部 <span class="n" id="tNall">0</span></button>
+        <button type="button" data-src="用户导入">👤 用户导入 <span class="n" id="tNuser">0</span></button>
+        <button type="button" data-src="AI生成">🤖 AI生成 <span class="n" id="tNai">0</span></button>
+        <button type="button" data-src="__none">❔ 未标注 <span class="n" id="tNnone">0</span></button>
+      </div>
       <div class="task-scroll" id="taskList"></div>
     </div>
 
@@ -388,6 +415,14 @@
     <h4>📜 导入剧本</h4>
     <div class="field"><label>任务名称（可空）</label><input id="importName" placeholder="默认取剧本第一行或“未命名任务”"></div>
     <div class="field"><label>剧本文本</label><textarea id="importScript" spellcheck="false" placeholder="粘贴标准格式或自然语言剧本"></textarea></div>
+    <div class="field"><label>剧本来源</label>
+      <select id="importOrigin" data-tip="用户导入 = 你自己写/从外部拿来的稿；AI生成 = 软件生成或 AI 改编的稿。选「自动识别」会读剧本首行的「# 来源：」标记">
+        <option value="auto">自动识别（读剧本首行「# 来源：」标记）</option>
+        <option value="用户导入">👤 用户导入（我写的 / 外部拿来的）</option>
+        <option value="AI生成">🤖 AI生成（软件生成 / AI 改编）</option>
+      </select>
+      <div id="importOriginHint" style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;"></div>
+    </div>
     <div class="opt-checks"><label data-tip="导入后立即自动做离线解析，省一步手动点解析（可再点「全部解析(AI)」升级为 AI 转译）"><input type="checkbox" id="importAutoParse" checked> 导入后自动离线解析</label></div>
     <div class="btns">
       <button id="importCancel">取消</button>
@@ -418,6 +453,7 @@
 let tasks = [];               // 完整任务列表（含 steps）
 let tasksStatus = [];         // 轻量轮询状态（id/name/status/video/error/source）
 let selectedId = null;        // 当前选中的任务 id
+let taskSrcFilter = '';       // 任务队列来源筛选：'' = 全部 / '用户导入' / 'AI生成' / '__none'
 let panelTab = 'detail';
 let ACTIONS = [];             // /api/actions 元信息（判断图片参数）
 let logOffsets = {};          // id -> 日志读取 offset
@@ -460,22 +496,45 @@ function statusInfo(st) {
   return { label, cls: st || 'idle' };
 }
 
+function originBucket(t) {
+  return t.origin === '用户导入' ? '用户导入' : (t.origin === 'AI生成' ? 'AI生成' : '__none');
+}
+function taskVisible() {
+  if (!taskSrcFilter) return tasks;
+  return tasks.filter(t => originBucket(t) === taskSrcFilter);
+}
+function updateTaskSrcCounts() {
+  const c = { '用户导入': 0, 'AI生成': 0, '__none': 0 };
+  tasks.forEach(t => { c[originBucket(t)]++; });
+  if ($('tNall')) $('tNall').textContent = tasks.length;
+  if ($('tNuser')) $('tNuser').textContent = c['用户导入'];
+  if ($('tNai')) $('tNai').textContent = c['AI生成'];
+  if ($('tNnone')) $('tNnone').textContent = c['__none'];
+}
+
 function renderTaskList() {
   const list = $('taskList');
-  $('taskCount').textContent = tasks.length + ' 条';
-  if (!tasks.length) {
-    list.innerHTML = '<div class="tc-empty">还没有任务。点击顶部「📜 导入剧本」或「📁 从文件夹导入」<br>新建一条剧本任务后即可解析、配图、并发运行。</div>';
+  const nUser = tasks.filter(t => t.origin === '用户导入').length;
+  const nAi = tasks.filter(t => t.origin === 'AI生成').length;
+  $('taskCount').textContent = tasks.length + ' 条' + ((nUser || nAi) ? ' · 👤' + nUser + ' 🤖' + nAi : '');
+  updateTaskSrcCounts();
+  const vis = taskVisible();
+  if (!vis.length) {
+    list.innerHTML = tasks.length
+      ? '<div class="tc-empty">当前来源筛选下没有任务。<br>点上方「全部」看所有任务。</div>'
+      : '<div class="tc-empty">还没有任务。点击顶部「📜 导入剧本」或「📁 从文件夹导入」<br>新建一条剧本任务后即可解析、配图、并发运行。</div>';
     return;
   }
-  list.innerHTML = tasks.map(t => {
+  list.innerHTML = vis.map(t => {
     const st = statusInfo(t.status);
     const stepsN = (t.steps || []).length;
     const wN = (t.warnings || []).length;
     const srcLabel = !t.source ? '' : (t.source === 'llm' ? 'AI' : (t.source === 'offline' ? '离线' : t.source));
     const noSteps = stepsN === 0;
     let meta = [
+      originChip(t),
       (noSteps ? '<span class="chip warn">未解析</span>' : '<span class="chip ok">步骤 ' + stepsN + '</span>'),
-      (srcLabel ? '<span class="chip">来源 ' + esc(srcLabel) + '</span>' : ''),
+      (srcLabel ? '<span class="chip" title="步骤是 AI 转译还是离线解析出来的，与剧本来源无关">解析 ' + esc(srcLabel) + '</span>' : ''),
       (wN ? '<span class="chip warn">⚠ ' + wN + ' 条提示</span>' : ''),
     ].filter(Boolean).join('');
     let videoChip = '';
@@ -516,6 +575,27 @@ function renderTaskList() {
 
 function truncate(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
+/* ---------- 剧本来源：用户导入 / AI生成 ---------- */
+/* 与「解析方式（AI转译/离线解析）」是两回事：这里标的是「剧本文本是谁写的」。 */
+const ORIGIN_TAG_RE = /^\s*#\s*来源\s*[：:]\s*(用户导入|AI生成)\s*(?:[·・]\s*出处\s*[：:]\s*(.+?))?\s*$/;
+function detectOrigin(script) {
+  const lines = String(script || '').split('\n').slice(0, 3);
+  for (const ln of lines) {
+    const m = ORIGIN_TAG_RE.exec(ln);
+    if (m) return { origin: m[1], note: (m[2] || '').trim() };
+  }
+  return { origin: '', note: '' };
+}
+function originCls(o) { return o === '用户导入' ? 'src-user' : (o === 'AI生成' ? 'src-ai' : 'src-unknown'); }
+function originIcon(o) { return o === '用户导入' ? '👤' : (o === 'AI生成' ? '🤖' : '❔'); }
+function originChip(t) {
+  const o = t.origin || '';
+  const label = o ? (originIcon(o) + ' ' + o) : '❔ 来源未标注';
+  const tip = (o ? o : '未标注') + (t.origin_note ? ' · ' + t.origin_note : '')
+            + '｜剧本来源＝剧本文本是谁写的，与「解析」无关';
+  return '<span class="chip ' + originCls(o) + '" title="' + esc(tip) + '">' + esc(label) + '</span>';
+}
+
 /* ---------- 右侧面板 ---------- */
 function setPanelTab(tab) {
   panelTab = tab;
@@ -554,6 +634,16 @@ function renderDetail() {
   body.innerHTML =
     '<div class="field"><label>任务名称</label><input id="dName" value="' + esc(t.name) + '"></div>' +
     '<div class="field"><label>剧本文本</label><textarea id="dScript" spellcheck="false">' + esc(t.script) + '</textarea></div>' +
+    '<div class="field"><label>剧本来源（谁写的 · 与「解析方式」无关）</label>' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+        '<select id="dOrigin" style="flex:0 0 190px;">' +
+          '<option value=""' + (!t.origin ? ' selected' : '') + '>未标注</option>' +
+          '<option value="用户导入"' + (t.origin === '用户导入' ? ' selected' : '') + '>👤 用户导入（我写的/外部拿来）</option>' +
+          '<option value="AI生成"' + (t.origin === 'AI生成' ? ' selected' : '') + '>🤖 AI生成（软件生成/改编）</option>' +
+        '</select>' +
+        '<button type="button" id="dOriginAuto" data-tip="重新读剧本首行的「# 来源：」标记并以此为准">↻ 按首行标记重读</button>' +
+        '<span id="dOriginNote" style="font-size:12px;color:var(--muted);">' + esc(t.origin_note || '（无出处说明）') + '</span>' +
+      '</div></div>' +
     '<div class="btn-row">' +
       '<button id="dParseAI" class="primary">🤖 AI 转译剧本</button>' +
       '<button id="dParseOff">⚙ 离线解析</button>' +
@@ -609,8 +699,41 @@ function renderDetail() {
     $('dMomentsPreview').onclick = () => openTaskMomentsPreview(t);
   }
   $('dName').onchange = () => { t.name = $('dName').value.trim() || '未命名任务'; saveTaskMeta(t, true); };
+  // 剧本来源：手动改 / 按首行标记重读
+  if ($('dOrigin')) {
+    $('dOrigin').onchange = () => {
+      t.origin = $('dOrigin').value;
+      t.origin_note = t.origin ? '手动标记' : '';
+      if ($('dOriginNote')) $('dOriginNote').textContent = t.origin_note || '（无出处说明）';
+      renderTaskList();
+      saveTaskMeta(t, true);
+    };
+    $('dOriginAuto').onclick = () => {
+      const d = detectOrigin(t.script);
+      if (!d.origin) { toast('剧本首行没有「# 来源：」标记', true); return; }
+      t.origin = d.origin;
+      t.origin_note = d.note;
+      renderTaskList();
+      renderDetail();
+      const tt = tasks.find(x => x.id === t.id);
+      if (tt) saveTaskMeta(tt, true);
+      toast('已按首行标记设为「' + d.origin + '」');
+    };
+  }
   // 运行选项/剧本文本改动即自动保存（无需点「保存」）
-  $('dScript').addEventListener('input', autoSave);
+  $('dScript').addEventListener('input', () => {
+    // 还没定过来源时，粘贴带「# 来源：」标记的剧本可以自动补上
+    if (!t.origin && $('dOrigin')) {
+      const d = detectOrigin($('dScript').value);
+      if (d.origin) {
+        t.origin = d.origin; t.origin_note = d.note;
+        $('dOrigin').value = d.origin;
+        if ($('dOriginNote')) $('dOriginNote').textContent = d.note || '（无出处说明）';
+        renderTaskList();
+      }
+    }
+    autoSave();
+  });
   $('dSpeed').onchange = () => saveTaskMeta(t, true);
   $('dBgmPath').onchange = () => saveTaskMeta(t, true);
   $('dBgm').onchange = () => saveTaskMeta(t, true);
@@ -1359,9 +1482,11 @@ async function saveTaskMeta(t, silent) {
       t.options.intro_path = (im === 'upload') ? saved : '';
     }
     if (onScreen && $('dBgm')) t.options = t.options || {}, t.options.bgm = $('dBgm').checked;
+    if (onScreen && $('dOrigin')) t.origin = $('dOrigin').value;
     rememberBatchDefaults(t.options);
     const res = await apiPost('/api/tasks/' + t.id, {
-      name: t.name, script: t.script, options: t.options, steps: t.steps
+      name: t.name, script: t.script, options: t.options, steps: t.steps,
+      origin: t.origin || '', origin_note: t.origin_note || ''
     });
     if (res.ok) {
       // 保留本地 t.steps 的引用（配图面板持续写回同一个对象数组），只更新其它字段。
@@ -1496,7 +1621,7 @@ async function pollStatus() {
   res.tasks.forEach(s => {
     const t = tasks.find(x => x.id === s.id);
     if (!t) return;
-    ['status', 'video', 'error', 'source', 'name'].forEach(k => { if (s[k] !== undefined) t[k] = s[k]; });
+    ['status', 'video', 'error', 'source', 'name', 'origin', 'origin_note'].forEach(k => { if (s[k] !== undefined) t[k] = s[k]; });
   });
   renderTaskList();
   if (panelTab === 'detail') {
@@ -1540,14 +1665,47 @@ async function parseAll(offline) {
 }
 
 /* ---------- 导入 ---------- */
+function updateImportOriginHint() {
+  const hint = $('importOriginHint');
+  const sel = $('importOrigin');
+  if (!hint || !sel) return;
+  if (sel.value === '用户导入' || sel.value === 'AI生成') {
+    hint.innerHTML = '将按「<b>' + esc(sel.value) + '</b>」记录。';
+    return;
+  }
+  const d = detectOrigin($('importScript').value);
+  if (d.origin) {
+    hint.innerHTML = '✅ 已识别到剧本首行标记：<b>' + esc(d.origin) + '</b>'
+                   + (d.note ? ' · 出处：' + esc(d.note) : '');
+  } else if ($('importScript').value.trim()) {
+    hint.textContent = '未发现「# 来源：」标记 —— 默认按「用户导入」记录（可手动改上面的下拉）。';
+  } else {
+    hint.textContent = '粘贴剧本后，这里会显示识别结果。';
+  }
+}
 function openImport() {
   $('importName').value = '';
   $('importScript').value = '';
+  if ($('importOrigin')) $('importOrigin').value = 'auto';
+  updateImportOriginHint();
   $('importMask').classList.add('show');
 }
-async function doImport(name, script, autoParse) {
+async function doImport(name, script, autoParse, origin) {
   if (!script || !script.trim()) { toast('剧本内容为空', true); return false; }
-  const res = await apiPost('/api/tasks', { name, script, options: loadBatchDefaults() });
+  const d = detectOrigin(script);
+  let orgValue, orgNote;
+  if (origin && origin !== 'auto') {          // 手工指定优先
+    orgValue = origin;
+    orgNote = (d.origin === origin) ? d.note : '';
+  } else if (d.origin) {                      // 自动：读首行标记
+    orgValue = d.origin;
+    orgNote = d.note;
+  } else {                                    // 没有标记：用户主动导进来的，算用户导入
+    orgValue = '用户导入';
+    orgNote = '导入未标注';
+  }
+  const res = await apiPost('/api/tasks', { name, script, options: loadBatchDefaults(),
+                                           origin: orgValue, origin_note: orgNote });
   if (!res.ok || !res.task) { toast(res.msg || '导入失败', true); return false; }
   // 默认按文件名/每行建议命名
   if (!name) {
@@ -1873,11 +2031,17 @@ function renderLibDetail() {
 function bindTopbar() {
   $('btnImport').onclick = () => {
     openImport();
+    if ($('importScript') && !$('importScript').__originWired) {
+      $('importScript').__originWired = true;   // 避免每次打开弹窗都挂一个重复监听
+      $('importScript').addEventListener('input', updateImportOriginHint);
+    }
+    if ($('importOrigin')) $('importOrigin').onchange = updateImportOriginHint;
     $('importOk').onclick = async () => {
       const name = $('importName').value.trim();
       const script = $('importScript').value;
       const auto = $('importAutoParse').checked;
-      await doImport(name, script, auto);
+      const origin = $('importOrigin') ? $('importOrigin').value : 'auto';
+      await doImport(name, script, auto, origin);
       $('importMask').classList.remove('show');
     };
     $('importCancel').onclick = () => $('importMask').classList.remove('show');
@@ -1887,13 +2051,15 @@ function bindTopbar() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     toast('正在导入 ' + files.length + ' 个文件…');
-    let imported = 0;
+    let imported = 0, nUser = 0, nAi = 0;
     for (const f of files) {
       const text = f.name.toLowerCase().endsWith('.txt') ? await f.text() : await f.text();
-      const ok = await doImport(f.name.replace(/\.txt$/i, ''), text, true);
+      const d = detectOrigin(text);
+      if (d.origin === 'AI生成') nAi++; else nUser++;
+      const ok = await doImport(f.name.replace(/\.txt$/i, ''), text, true, 'auto');
       if (ok) imported++;
     }
-    toast('已导入 ' + imported + ' 条任务');
+    toast('已导入 ' + imported + ' 条任务（👤 用户导入 ' + nUser + ' · 🤖 AI生成 ' + nAi + '）');
     e.target.value = '';
   };
   $('btnRunAll').onclick = async () => {
@@ -1906,8 +2072,25 @@ function bindTopbar() {
     if (!ids.length) { toast('请勾选至少一条已解析的任务', true); return; }
     await runSelected(ids);
   };
-  $('btnSelectAll').onclick = () => { tasks.forEach(t => t._checked = true); renderTaskList(); };
-  $('btnDeselect').onclick = () => { tasks.forEach(t => t._checked = false); renderTaskList(); };
+  $('btnSelectAll').onclick = () => {
+    const vis = taskVisible();                       // 有来源筛选时只勾「看得见的」
+    vis.forEach(t => { t._checked = true; });
+    renderTaskList();
+    if (taskSrcFilter) toast('已勾选当前筛选下的 ' + vis.length + ' 条');
+  };
+  $('btnDeselect').onclick = () => { tasks.forEach(t => { t._checked = false; }); renderTaskList(); };
+  // 来源筛选：全部 / 👤 用户导入 / 🤖 AI生成 / ❔ 未标注
+  if ($('taskSrcSeg')) {
+    $('taskSrcSeg').querySelectorAll('button').forEach(b => {
+      b.onclick = () => {
+        taskSrcFilter = b.getAttribute('data-src') || '';
+        $('taskSrcSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        $('btnSelectAll').setAttribute('data-tip',
+          taskSrcFilter ? '只勾选当前来源筛选下的任务' : '勾选全部任务');
+        renderTaskList();
+      };
+    });
+  }
   $('btnStopAll').onclick = stopAll;
   $('btnParseAll').onclick = () => parseAll(false);
   $('btnParseAllOffline').onclick = () => parseAll(true);
