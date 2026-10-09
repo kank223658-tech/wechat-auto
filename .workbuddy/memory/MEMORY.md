@@ -34,8 +34,9 @@
 - **改完必 grep 确认落盘**（Edit 会静默丢编辑）；editor_server.py 改完重启；前端 html/js 每请求读盘，让用户 Ctrl+Shift+R。
 - **新建/改写 .bat 必须 CRLF**（否则双击闪退）；老 bat=GBK 无 chcp，新 bat=UTF-8 无 BOM + `chcp 65001`，别混。
 - 工具链：bash 工具链坏 → 全程 PowerShell；PowerShell stdout 常被吞 → 写文件再 Read；Python 中文输出需 `[Console]::OutputEncoding=UTF8` + `PYTHONIOENCODING=utf-8`。
-- Git：`git add -u` + 显式列新增路径，**禁 `git add -A/.`**；提交前跑 `_工作文件/_git_precheck.py`（查 sk-/大文件），提交脚本 `_工作文件/_git_commit_0918.py`。素材图不入库。
-- tasks.json 会被「空内存表」覆盖：动手前先停 8000 服务；恢复源 `_probe_tmp/tasks_api.json`。
+- Git：`git add -u` + 显式列新增路径，**禁 `git add -A/.`**；提交前跑 `_工作文件/_git_precheck.py`（查 sk-/大文件），提交脚本 `_工作文件/_git_commit_0918.py`。素材图不入库。**注：这两个脚本内 `REPO` 写死 `F:\weixin-auto`，而仓库现在实际在 `E:\weixin-auto`（F 盘已不存在）→ 直接跑会失败，要么改盘符，要么按同规则手动走 `git add -u` + 显式列新增。**
+- **推送习惯：`main` 与 `feat/emoji-panel-press-anim` 两个远程分支始终指向同一提交**，推完记得两边都推并 `git branch -f main HEAD`。`_backup_*` 备份目录是入库的（与 `_工作文件/_归档_临时文件/_probe_tmp/_inprogress_*` 不同，后四者 gitignore）。
+- tasks.json 会被「空内存表」覆盖：动手前先停 8000 服务；恢复源 `_probe_tmp/tasks_api.json`。**且它是运行时热写文件——服务在跑时 `git add` 会抓到 32KB 截断版甚至 0 字节版并提交进去（JSON 解析直接失败）。稳妥做法：`hash-object -w` 存一份校验过的快照（>500KB 且 `json.loads` 通过、任务数=15），再 `git update-index --cacheinfo 100644,<sha>,tasks.json` 写入索引后提交，绕开工作区竞争。**
 - 判 Python 可用性必须 `python --version` 实测（WindowsApps 的 python.exe 是 0 字节占位符）。
 
 ## 六、U 盘其它软件（非本项目）
